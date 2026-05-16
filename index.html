@@ -1,0 +1,937 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ระบบราคาวัสดุก่อสร้าง — พาณิชย์จังหวัดอุดรธานี</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0f1117;
+    --bg2: #181c27;
+    --bg3: #1e2333;
+    --border: #2a3050;
+    --border2: #3a4570;
+    --accent: #4f8ef7;
+    --accent2: #7bb3ff;
+    --accent-dim: rgba(79,142,247,0.12);
+    --accent-dim2: rgba(79,142,247,0.22);
+    --green: #3dd68c;
+    --green-dim: rgba(61,214,140,0.12);
+    --amber: #f5a623;
+    --amber-dim: rgba(245,166,35,0.12);
+    --text: #e8ecf5;
+    --text2: #8b96b5;
+    --text3: #5a6380;
+    --red: #f06060;
+    --radius: 10px;
+    --radius-sm: 6px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Sarabun', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    font-size: 15px;
+    line-height: 1.6;
+  }
+
+  /* ---- TOP NAV ---- */
+  .topbar {
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+    padding: 0 24px;
+    display: flex;
+    align-items: center;
+    gap: 0;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .logo {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--accent2);
+    letter-spacing: 0.04em;
+    padding: 14px 0;
+    margin-right: 32px;
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .logo svg { width: 20px; height: 20px; }
+
+  .nav-tabs {
+    display: flex;
+    gap: 0;
+    height: 100%;
+  }
+  .nav-tab {
+    padding: 14px 20px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text2);
+    border-bottom: 2px solid transparent;
+    transition: all 0.18s;
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    user-select: none;
+  }
+  .nav-tab:hover { color: var(--text); }
+  .nav-tab.active {
+    color: var(--accent2);
+    border-bottom-color: var(--accent);
+  }
+  .nav-tab svg { width: 16px; height: 16px; }
+
+  .meta-info {
+    margin-left: auto;
+    font-size: 12px;
+    color: var(--text3);
+    font-family: 'IBM Plex Mono', monospace;
+    white-space: nowrap;
+  }
+
+  /* ---- PAGES ---- */
+  .page { display: none; }
+  .page.active { display: block; }
+
+  /* ---- PAGE 1: ค้นหา ---- */
+  .search-wrap {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 36px 24px 60px;
+  }
+
+  .page-title {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 4px;
+  }
+  .page-sub {
+    font-size: 13px;
+    color: var(--text3);
+    margin-bottom: 28px;
+  }
+
+  .filter-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    margin-bottom: 20px;
+  }
+  @media (max-width: 600px) {
+    .filter-row { grid-template-columns: 1fr; }
+  }
+
+  .field-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text3);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin-bottom: 7px;
+  }
+
+  select, input[type="text"] {
+    width: 100%;
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text);
+    font-family: 'Sarabun', sans-serif;
+    font-size: 14px;
+    padding: 10px 14px;
+    outline: none;
+    transition: border-color 0.15s;
+    appearance: none;
+    -webkit-appearance: none;
+  }
+  select:focus, input[type="text"]:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-dim);
+  }
+  select {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%238b96b5' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    padding-right: 36px;
+    cursor: pointer;
+  }
+  select:disabled { opacity: 0.45; cursor: not-allowed; }
+
+  .search-input-wrap {
+    position: relative;
+    margin-bottom: 24px;
+  }
+  .search-input-wrap input {
+    padding-left: 38px;
+  }
+  .search-icon {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text3);
+  }
+  .search-icon svg { width: 16px; height: 16px; }
+
+  /* ---- RESULT CARD ---- */
+  .result-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    margin-top: 8px;
+  }
+
+  .result-header {
+    padding: 18px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .result-name {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text);
+    line-height: 1.4;
+  }
+  .result-code {
+    font-size: 11px;
+    color: var(--text3);
+    font-family: 'IBM Plex Mono', monospace;
+    margin-top: 3px;
+  }
+  .result-cat {
+    font-size: 11px;
+    background: var(--accent-dim);
+    color: var(--accent2);
+    border: 1px solid rgba(79,142,247,0.25);
+    border-radius: 4px;
+    padding: 3px 8px;
+    white-space: nowrap;
+    font-weight: 500;
+  }
+
+  .result-price-area {
+    padding: 20px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+  @media (max-width: 500px) {
+    .result-price-area { grid-template-columns: 1fr; }
+  }
+
+  .price-main {
+    background: var(--green-dim);
+    border: 1px solid rgba(61,214,140,0.2);
+    border-radius: var(--radius-sm);
+    padding: 16px;
+  }
+  .price-main-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--green);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+  .price-main-value {
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--green);
+    font-family: 'IBM Plex Mono', monospace;
+    line-height: 1.1;
+  }
+  .price-main-unit {
+    font-size: 13px;
+    color: var(--text2);
+    margin-top: 4px;
+  }
+  .price-source {
+    font-size: 12px;
+    color: var(--text3);
+    margin-top: 8px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .badge-province {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: var(--accent-dim);
+    color: var(--accent2);
+    border: 1px solid rgba(79,142,247,0.25);
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 2px 8px;
+  }
+
+  .price-detail {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 14px;
+  }
+  .price-detail-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text3);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+  .province-price-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 5px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+  }
+  .province-price-row:last-child { border-bottom: none; }
+  .province-name { color: var(--text2); }
+  .province-val {
+    font-family: 'IBM Plex Mono', monospace;
+    font-weight: 500;
+    color: var(--text);
+  }
+  .province-val.selected { color: var(--green); font-weight: 600; }
+  .province-val.na { color: var(--text3); }
+
+  .result-footer {
+    padding: 10px 20px;
+    border-top: 1px solid var(--border);
+    font-size: 12px;
+    color: var(--text3);
+    display: flex;
+    gap: 16px;
+  }
+
+  /* empty / loading states */
+  .state-box {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--text3);
+  }
+  .state-box svg { width: 40px; height: 40px; opacity: 0.3; margin-bottom: 12px; }
+  .state-box p { font-size: 14px; }
+
+  .loading-dots {
+    display: inline-flex;
+    gap: 5px;
+    align-items: center;
+  }
+  .loading-dots span {
+    width: 6px; height: 6px;
+    background: var(--accent);
+    border-radius: 50%;
+    animation: bounce 1.2s ease-in-out infinite;
+  }
+  .loading-dots span:nth-child(2) { animation-delay: 0.2s; }
+  .loading-dots span:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes bounce {
+    0%,80%,100% { opacity: 0.3; transform: scale(0.8); }
+    40% { opacity: 1; transform: scale(1); }
+  }
+
+  /* ---- PAGE 2: ตารางรวม ---- */
+  .table-wrap {
+    padding: 36px 24px 60px;
+  }
+
+  .table-controls {
+    max-width: 1200px;
+    margin: 0 auto 20px;
+    display: flex;
+    gap: 12px;
+    align-items: flex-end;
+    flex-wrap: wrap;
+  }
+  .table-controls .field-group { flex: 1; min-width: 180px; }
+
+  .data-table-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    overflow-x: auto;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    min-width: 900px;
+  }
+
+  thead tr {
+    background: var(--bg3);
+    position: sticky;
+    top: 49px;
+    z-index: 10;
+  }
+  thead th {
+    padding: 11px 12px;
+    text-align: left;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text3);
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+  }
+  thead th.num { text-align: right; }
+
+  tbody tr {
+    border-bottom: 1px solid var(--border);
+    transition: background 0.1s;
+  }
+  tbody tr:last-child { border-bottom: none; }
+  tbody tr:hover { background: rgba(79,142,247,0.04); }
+
+  td {
+    padding: 9px 12px;
+    vertical-align: middle;
+  }
+  td.num {
+    text-align: right;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+  }
+  td.na { color: var(--text3); text-align: center; }
+  td.selected-price {
+    color: var(--green);
+    font-weight: 600;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    text-align: right;
+  }
+  td.selected-province {
+    color: var(--accent2);
+    font-size: 12px;
+    font-weight: 500;
+  }
+  td.item-name { max-width: 280px; }
+  td.item-name span {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    line-height: 1.4;
+  }
+  td.code-cell {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--text3);
+    white-space: nowrap;
+  }
+
+  .cat-badge {
+    display: inline-block;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    font-size: 11px;
+    color: var(--text2);
+    padding: 2px 7px;
+    white-space: nowrap;
+  }
+
+  .row-count {
+    font-size: 12px;
+    color: var(--text3);
+    margin-top: 10px;
+    max-width: 1200px;
+    margin-left: auto;
+    margin-right: auto;
+    padding: 8px 0;
+    font-family: 'IBM Plex Mono', monospace;
+  }
+
+  /* ---- Utility ---- */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: var(--radius-sm);
+    padding: 10px 18px;
+    font-family: 'Sarabun', sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.15s;
+    white-space: nowrap;
+  }
+  .btn:hover { opacity: 0.88; }
+  .btn svg { width: 15px; height: 15px; }
+
+  .divider { height: 1px; background: var(--border); margin: 0; }
+</style>
+</head>
+<body>
+
+<!-- TOP NAV -->
+<div class="topbar">
+  <div class="logo">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <rect x="2" y="3" width="20" height="14" rx="2"/>
+      <path d="M8 21h8M12 17v4"/>
+    </svg>
+    ราคากลางวัสดุก่อสร้าง
+  </div>
+  <div class="nav-tabs">
+    <div class="nav-tab active" onclick="switchPage('search')" id="tab-search">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
+      </svg>
+      ค้นหาราคา
+    </div>
+    <div class="nav-tab" onclick="switchPage('table')" id="tab-table">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <rect x="3" y="3" width="18" height="18" rx="2"/>
+        <path d="M3 9h18M3 15h18M9 3v18"/>
+      </svg>
+      ตารางราคารวม
+    </div>
+  </div>
+  <div class="meta-info" id="meta-period">กำลังโหลด...</div>
+</div>
+
+<!-- PAGE 1: ค้นหา -->
+<div class="page active" id="page-search">
+  <div class="search-wrap">
+    <div class="page-title">ค้นหาราคาวัสดุก่อสร้าง</div>
+    <div class="page-sub">ตามหลักเกณฑ์ราคากลางของทางราชการ — ใช้ราคาอุดรธานีก่อน หากไม่มีเลือกราคาต่ำสุดจาก 6 จังหวัดรอบข้าง</div>
+
+    <div class="filter-row">
+      <div>
+        <div class="field-label">หมวดวัสดุ</div>
+        <select id="sel-cat" onchange="onCatChange()">
+          <option value="">— เลือกหมวดวัสดุ —</option>
+        </select>
+      </div>
+      <div>
+        <div class="field-label">รายการวัสดุ</div>
+        <select id="sel-item" onchange="onItemChange()" disabled>
+          <option value="">— เลือกรายการ —</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="field-label">หรือพิมพ์ค้นหา</div>
+    <div class="search-input-wrap" style="margin-bottom:24px">
+      <div class="search-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
+        </svg>
+      </div>
+      <input type="text" id="search-text" placeholder="ค้นหาชื่อวัสดุ เช่น คอนกรีต เหล็ก ปูน..." oninput="onSearchText()" autocomplete="off">
+    </div>
+
+    <!-- Search result list (when typing) -->
+    <div id="search-list"></div>
+
+    <!-- Single item result -->
+    <div id="result-area"></div>
+  </div>
+</div>
+
+<!-- PAGE 2: ตารางรวม -->
+<div class="page" id="page-table">
+  <div class="table-wrap">
+    <div class="page-title" style="margin-bottom:4px">ตารางราคารวมทุกรายการ</div>
+    <div class="page-sub" style="margin-bottom:20px">รวมราคาทุกจังหวัด พร้อมราคาที่เลือกตามหลักเกณฑ์ราคากลาง</div>
+
+    <div class="table-controls">
+      <div class="field-group">
+        <div class="field-label">กรองหมวด</div>
+        <select id="tbl-cat" onchange="filterTable()">
+          <option value="">ทุกหมวด</option>
+        </select>
+      </div>
+      <div class="field-group">
+        <div class="field-label">ค้นหา</div>
+        <input type="text" id="tbl-search" placeholder="ค้นหาชื่อวัสดุ..." oninput="filterTable()">
+      </div>
+      <button class="btn" onclick="refreshData()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M23 4v6h-6"/><path d="M1 20v-6h6"/>
+          <path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/>
+        </svg>
+        รีเฟรช
+      </button>
+    </div>
+
+    <div class="data-table-container">
+      <table id="main-table">
+        <thead>
+          <tr>
+            <th>หมวด</th>
+            <th>รหัสวัสดุ</th>
+            <th>ชื่อวัสดุ</th>
+            <th>หน่วย</th>
+            <th class="num">อุดรธานี</th>
+            <th class="num">หนองคาย</th>
+            <th class="num">เลย</th>
+            <th class="num">สกลนคร</th>
+            <th class="num">หนองบัวลำภู</th>
+            <th class="num">กาฬสินธุ์</th>
+            <th class="num">ขอนแก่น</th>
+            <th class="num">ราคาที่ใช้</th>
+            <th>จังหวัดที่ใช้</th>
+          </tr>
+        </thead>
+        <tbody id="tbl-body">
+          <tr><td colspan="13"><div class="state-box">
+            <div class="loading-dots"><span></span><span></span><span></span></div>
+            <p style="margin-top:12px">กำลังโหลดข้อมูล...</p>
+          </div></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="row-count" id="row-count"></div>
+  </div>
+</div>
+
+<script>
+// ==================== CONFIG ====================
+const SHEET_ID = '1eU_2iNI4_Y6Hnuj5_-9BgjBQ9Ga7QAkRJ-CQk1Dve78';
+const SHEET_DATA = 'totaldata';
+const SHEET_CAT  = 'หมวด';
+
+// Column indices in totaldata (0-based)
+// A=0 รหัสหมวด, B=1 ชื่อหมวด, C=2 รหัส, D=3 รายการ, E=4 หน่วย
+// F=5 อุดร, G=6 หนองคาย, H=7 เลย, I=8 สกลนคร, J=9 หนองบัวลำภู, K=10 กาฬสินธุ์, L=11 ขอนแก่น
+// M=12 ราคาที่ใช้, N=13 จังหวัด, O=14 ระยะเวลา, P=15 วันที่ดาวน์โหลด
+
+const PROVINCE_COLS = [
+  { name: 'อุดรธานี',     col: 5  },
+  { name: 'หนองคาย',      col: 6  },
+  { name: 'เลย',          col: 7  },
+  { name: 'สกลนคร',       col: 8  },
+  { name: 'หนองบัวลำภู', col: 9  },
+  { name: 'กาฬสินธุ์',   col: 10 },
+  { name: 'ขอนแก่น',      col: 11 },
+];
+
+// ==================== STATE ====================
+let allData = [];
+let categories = [];
+let filteredData = [];
+let dataLoaded = false;
+
+// ==================== FETCH ====================
+function gvizURL(sheetName) {
+  const enc = encodeURIComponent(sheetName);
+  return `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?sheet=${enc}&tqx=out:json`;
+}
+
+async function fetchSheet(sheetName) {
+  const url = gvizURL(sheetName);
+  const res = await fetch(url);
+  const text = await res.text();
+  const json = JSON.parse(text.replace(/^[^{]+/, '').replace(/[^}]+$/, ''));
+  return json.table;
+}
+
+function cellVal(cell) {
+  if (!cell) return '';
+  if (cell.v === null || cell.v === undefined) return '';
+  return cell.v;
+}
+
+function numVal(cell) {
+  if (!cell) return null;
+  if (cell.v === null || cell.v === undefined) return null;
+  const n = parseFloat(String(cell.v).replace(/,/g,''));
+  return isNaN(n) || n <= 0 ? null : n;
+}
+
+function formatNum(n) {
+  if (n === null || n === undefined) return null;
+  return n.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+async function loadData() {
+  try {
+    // Load categories
+    const catTable = await fetchSheet(SHEET_CAT);
+    categories = [];
+    if (catTable && catTable.rows) {
+      catTable.rows.forEach((row, i) => {
+        if (i === 0) return; // skip header row
+        const id   = cellVal(row.c[0]);
+        const name = cellVal(row.c[1]);
+        if (id !== '') categories.push({ id: String(id), name: String(name) });
+      });
+    }
+
+    // Load main data
+    const dataTable = await fetchSheet(SHEET_DATA);
+    allData = [];
+    if (dataTable && dataTable.rows) {
+      dataTable.rows.forEach((row, i) => {
+        if (i === 0) return; // skip header
+        const catId = cellVal(row.c[0]);
+        if (catId === '') return;
+        const item = {
+          catId:     String(catId),
+          catName:   cellVal(row.c[1]),
+          code:      cellVal(row.c[2]),
+          name:      cellVal(row.c[3]),
+          unit:      cellVal(row.c[4]),
+          provinces: PROVINCE_COLS.map(p => ({
+            name: p.name,
+            val:  numVal(row.c[p.col])
+          })),
+          price:     numVal(row.c[12]),
+          province:  cellVal(row.c[13]),
+          period:    cellVal(row.c[14]),
+          dlDate:    cellVal(row.c[15]),
+        };
+        allData.push(item);
+      });
+    }
+
+    dataLoaded = true;
+
+    // Update meta period
+    if (allData.length > 0 && allData[0].period) {
+      document.getElementById('meta-period').textContent = allData[0].period;
+    }
+
+    buildCatDropdowns();
+    renderTable(allData);
+
+  } catch(e) {
+    console.error(e);
+    document.getElementById('tbl-body').innerHTML =
+      `<tr><td colspan="13"><div class="state-box"><p style="color:#f06060">โหลดข้อมูลไม่สำเร็จ: ${e.message}<br>กรุณาตรวจสอบว่า Google Sheet เปิด "Anyone with the link" แล้ว</p></div></td></tr>`;
+  }
+}
+
+function buildCatDropdowns() {
+  const opts = ['<option value="">— เลือกหมวดวัสดุ —</option>'];
+  const opts2 = ['<option value="">ทุกหมวด</option>'];
+  categories.forEach(c => {
+    opts.push(`<option value="${c.id}">${c.id}. ${c.name}</option>`);
+    opts2.push(`<option value="${c.id}">${c.id}. ${c.name}</option>`);
+  });
+  document.getElementById('sel-cat').innerHTML = opts.join('');
+  document.getElementById('tbl-cat').innerHTML = opts2.join('');
+}
+
+// ==================== PAGE SWITCH ====================
+function switchPage(p) {
+  document.getElementById('page-search').classList.toggle('active', p === 'search');
+  document.getElementById('page-table').classList.toggle('active', p === 'table');
+  document.getElementById('tab-search').classList.toggle('active', p === 'search');
+  document.getElementById('tab-table').classList.toggle('active', p === 'table');
+}
+
+// ==================== PAGE 1 LOGIC ====================
+function onCatChange() {
+  const catId = document.getElementById('sel-cat').value;
+  const itemSel = document.getElementById('sel-item');
+  document.getElementById('search-text').value = '';
+  document.getElementById('search-list').innerHTML = '';
+  document.getElementById('result-area').innerHTML = '';
+
+  if (!catId) {
+    itemSel.innerHTML = '<option value="">— เลือกรายการ —</option>';
+    itemSel.disabled = true;
+    return;
+  }
+  const items = allData.filter(d => d.catId === catId);
+  const opts = ['<option value="">— เลือกรายการ —</option>'];
+  items.forEach(it => {
+    opts.push(`<option value="${it.code}">${it.name}</option>`);
+  });
+  itemSel.innerHTML = opts.join('');
+  itemSel.disabled = false;
+}
+
+function onItemChange() {
+  const code = document.getElementById('sel-item').value;
+  document.getElementById('search-text').value = '';
+  document.getElementById('search-list').innerHTML = '';
+  if (!code) { document.getElementById('result-area').innerHTML = ''; return; }
+  const item = allData.find(d => d.code === code);
+  if (item) showResult(item);
+}
+
+let searchTimer;
+function onSearchText() {
+  clearTimeout(searchTimer);
+  const q = document.getElementById('search-text').value.trim();
+  document.getElementById('sel-cat').value = '';
+  document.getElementById('sel-item').innerHTML = '<option value="">— เลือกรายการ —</option>';
+  document.getElementById('sel-item').disabled = true;
+  document.getElementById('result-area').innerHTML = '';
+
+  if (q.length < 2) {
+    document.getElementById('search-list').innerHTML = '';
+    return;
+  }
+  searchTimer = setTimeout(() => {
+    const results = allData.filter(d =>
+      d.name.includes(q) || d.code.includes(q)
+    ).slice(0, 30);
+    renderSearchList(results, q);
+  }, 200);
+}
+
+function renderSearchList(results, q) {
+  const el = document.getElementById('search-list');
+  if (results.length === 0) {
+    el.innerHTML = `<div class="state-box" style="padding:30px"><p>ไม่พบรายการที่ตรงกับ "${q}"</p></div>`;
+    return;
+  }
+  const rows = results.map(it => {
+    const hl = it.name.replace(new RegExp(q, 'g'), `<mark style="background:var(--accent-dim2);color:var(--accent2);border-radius:2px;padding:0 2px">${q}</mark>`);
+    const priceStr = it.price ? formatNum(it.price) : '—';
+    return `<div class="province-price-row" style="cursor:pointer;padding:10px 14px;gap:12px" onclick="selectFromList('${it.code}')">
+      <div>
+        <div style="font-size:13px;line-height:1.4">${hl}</div>
+        <div style="font-size:11px;color:var(--text3);margin-top:2px;font-family:'IBM Plex Mono',monospace">${it.code} &nbsp;·&nbsp; ${it.catName}</div>
+      </div>
+      <div style="text-align:right;flex-shrink:0">
+        <div style="font-family:'IBM Plex Mono',monospace;font-weight:600;color:var(--green);font-size:14px">${priceStr}</div>
+        <div style="font-size:11px;color:var(--text3)">${it.unit} · ${it.province||''}</div>
+      </div>
+    </div>`;
+  }).join('');
+  el.innerHTML = `<div class="result-card" style="margin-bottom:20px">
+    <div style="padding:10px 14px;font-size:11px;color:var(--text3);font-weight:600;letter-spacing:.05em;text-transform:uppercase;border-bottom:1px solid var(--border)">พบ ${results.length} รายการ</div>
+    ${rows}
+  </div>`;
+}
+
+function selectFromList(code) {
+  document.getElementById('search-list').innerHTML = '';
+  document.getElementById('search-text').value = '';
+  const item = allData.find(d => d.code === code);
+  if (item) showResult(item);
+}
+
+function showResult(item) {
+  const priceStr = item.price ? formatNum(item.price) : '—';
+
+  const provRows = item.provinces.map(p => {
+    const isSelected = p.name === item.province;
+    const valStr = p.val ? formatNum(p.val) : null;
+    return `<div class="province-price-row">
+      <span class="province-name">${p.name}</span>
+      <span class="province-val ${isSelected ? 'selected' : ''} ${!valStr ? 'na' : ''}">${valStr || '—'}</span>
+    </div>`;
+  }).join('');
+
+  document.getElementById('result-area').innerHTML = `
+    <div class="result-card">
+      <div class="result-header">
+        <div>
+          <div class="result-name">${item.name}</div>
+          <div class="result-code">${item.code}</div>
+        </div>
+        <div class="result-cat">${item.catName}</div>
+      </div>
+      <div class="result-price-area">
+        <div class="price-main">
+          <div class="price-main-label">ราคากลางที่ใช้</div>
+          <div class="price-main-value">${priceStr}</div>
+          <div class="price-main-unit">บาท / ${item.unit}</div>
+          <div class="price-source">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
+            พาณิชย์จังหวัด <span class="badge-province">${item.province || '—'}</span>
+          </div>
+        </div>
+        <div class="price-detail">
+          <div class="price-detail-label">ราคาเทียบทุกจังหวัด</div>
+          ${provRows}
+        </div>
+      </div>
+      <div class="result-footer">
+        <span>${item.period || ''}</span>
+        <span>${item.dlDate || ''}</span>
+      </div>
+    </div>`;
+}
+
+// ==================== PAGE 2 LOGIC ====================
+function filterTable() {
+  const catId = document.getElementById('tbl-cat').value;
+  const q     = document.getElementById('tbl-search').value.trim().toLowerCase();
+  filteredData = allData.filter(d => {
+    const catOk  = !catId || d.catId === catId;
+    const textOk = !q || d.name.toLowerCase().includes(q) || d.code.includes(q);
+    return catOk && textOk;
+  });
+  renderTable(filteredData);
+}
+
+function renderTable(data) {
+  const tbody = document.getElementById('tbl-body');
+  if (data.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="13"><div class="state-box"><p>ไม่พบรายการ</p></div></td></tr>`;
+    document.getElementById('row-count').textContent = '';
+    return;
+  }
+
+  const rows = data.map(it => {
+    const provCells = it.provinces.map(p => {
+      const isSelected = p.name === it.province;
+      const valStr = p.val ? formatNum(p.val) : null;
+      if (!valStr) return `<td class="na">—</td>`;
+      return `<td class="num ${isSelected ? 'selected-price' : ''}">${valStr}</td>`;
+    }).join('');
+
+    const priceStr = it.price ? formatNum(it.price) : '—';
+
+    return `<tr>
+      <td><span class="cat-badge">${it.catName}</span></td>
+      <td class="code-cell">${it.code}</td>
+      <td class="item-name"><span title="${it.name}">${it.name}</span></td>
+      <td style="white-space:nowrap;color:var(--text2)">${it.unit}</td>
+      ${provCells}
+      <td class="selected-price">${priceStr}</td>
+      <td class="selected-province">${it.province || '—'}</td>
+    </tr>`;
+  }).join('');
+
+  tbody.innerHTML = rows;
+  document.getElementById('row-count').textContent = `แสดง ${data.length.toLocaleString()} รายการ`;
+}
+
+function refreshData() {
+  dataLoaded = false;
+  allData = [];
+  document.getElementById('tbl-body').innerHTML =
+    `<tr><td colspan="13"><div class="state-box"><div class="loading-dots"><span></span><span></span><span></span></div><p style="margin-top:12px">กำลังโหลดข้อมูล...</p></div></td></tr>`;
+  loadData();
+}
+
+// ==================== INIT ====================
+loadData();
+</script>
+</body>
+</html>
