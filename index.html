@@ -12,6 +12,7 @@
   --border:#2a3050;--border2:#3a4570;
   --accent:#4f8ef7;--accent2:#7bb3ff;--accent-dim:rgba(79,142,247,.12);--accent-dim2:rgba(79,142,247,.22);
   --green:#3dd68c;--green-dim:rgba(61,214,140,.12);--green-border:rgba(61,214,140,.25);
+  --amber:#f5a623;--amber-dim:rgba(245,166,35,.12);--amber-border:rgba(245,166,35,.25);
   --text:#e8ecf5;--text2:#8b96b5;--text3:#5a6380;
   --red:#f06060;
   --radius:10px;--radius-sm:6px;
@@ -25,20 +26,21 @@ body{font-family:'Sarabun',sans-serif;background:var(--bg);color:var(--text);min
 .logo svg{width:18px;height:18px;flex-shrink:0;}
 .logo-text{display:inline;}
 .nav-tabs{display:flex;}
-.nav-tab{padding:14px 14px;cursor:pointer;font-size:14px;font-weight:500;color:var(--text2);border-bottom:2px solid transparent;transition:all .18s;white-space:nowrap;display:flex;align-items:center;gap:6px;user-select:none;}
+.nav-tab{padding:13px 12px;cursor:pointer;font-size:13px;font-weight:500;color:var(--text2);border-bottom:2px solid transparent;transition:all .18s;white-space:nowrap;display:flex;align-items:center;gap:5px;user-select:none;}
 .nav-tab:hover{color:var(--text);}
 .nav-tab.active{color:var(--accent2);border-bottom-color:var(--accent);}
-.nav-tab svg{width:15px;height:15px;}
+.nav-tab.active-wage{color:#f5a623;border-bottom-color:#f5a623;}
+.nav-tab svg{width:14px;height:14px;}
 .meta-bar{margin-left:auto;text-align:right;}
 .meta-period{font-size:12px;color:var(--accent2);font-weight:600;}
 .meta-dl{font-size:11px;color:var(--text3);}
-@media(max-width:600px){
-  .topbar{flex-wrap:wrap;padding:0 12px;}
+@media(max-width:700px){
+  .topbar{flex-wrap:wrap;padding:0 10px;}
   .logo{margin-right:auto;font-size:12px;}
   .logo-text{display:none;}
   .meta-bar{display:none;}
   .nav-tabs{width:100%;border-top:1px solid var(--border);}
-  .nav-tab{flex:1;justify-content:center;padding:10px 6px;font-size:12px;gap:4px;}
+  .nav-tab{flex:1;justify-content:center;padding:9px 4px;font-size:11px;gap:3px;}
 }
 
 /* PAGES */
@@ -56,6 +58,7 @@ select:disabled{opacity:.4;cursor:not-allowed;}
 .btn svg{width:14px;height:14px;}
 .btn-primary{background:var(--accent);color:#fff;}.btn-primary:hover{opacity:.85;}
 .btn-green{background:var(--green);color:#0a1a12;}.btn-green:hover{opacity:.85;}
+.btn-amber{background:var(--amber);color:#1a0f00;}.btn-amber:hover{opacity:.85;}
 .btn-ghost{background:var(--bg3);color:var(--text2);border:1px solid var(--border);}.btn-ghost:hover{color:var(--text);}
 .btn-red{background:rgba(240,96,96,.12);color:var(--red);border:1px solid rgba(240,96,96,.3);}.btn-red:hover{background:rgba(240,96,96,.22);}
 
@@ -66,7 +69,16 @@ select:disabled{opacity:.4;cursor:not-allowed;}
 @keyframes bounce{0%,80%,100%{opacity:.3;transform:scale(.8);}40%{opacity:1;transform:scale(1);}}
 .state-box{text-align:center;padding:40px 20px;color:var(--text3);font-size:14px;}
 
-/* ===== PAGE 1 ===== */
+/* WARNING BANNER */
+.warn-banner{background:rgba(245,166,35,.1);border-bottom:1px solid rgba(245,166,35,.3);padding:9px 20px;display:flex;align-items:flex-start;gap:8px;font-size:13px;color:#c8901a;line-height:1.5;}
+.warn-banner strong{color:#e6a020;}
+@media(max-width:600px){.warn-banner{font-size:12px;padding:8px 12px;}}
+
+/* CREDIT BAR */
+.credit-bar{text-align:center;padding:14px 20px;font-size:12px;color:var(--text3);border-top:1px solid var(--border);margin-top:20px;}
+.credit-bar strong{color:var(--text2);}
+
+/* ===== PAGE 1 & 3: SEARCH ===== */
 .search-wrap{max-width:820px;margin:0 auto;padding:28px 20px 60px;}
 .filter-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;}
 @media(max-width:560px){.filter-row{grid-template-columns:1fr;}}
@@ -74,13 +86,11 @@ select:disabled{opacity:.4;cursor:not-allowed;}
 .search-input-wrap input{padding-left:36px;}
 .s-icon{position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--text3);}
 .s-icon svg{width:15px;height:15px;}
-
-/* mobile page 1 */
 @media(max-width:600px){
   .search-wrap{padding:16px 12px 60px;}
   .page-title{font-size:17px;}
   .page-sub{font-size:12px;margin-bottom:16px;}
-  select,input[type=text]{font-size:16px;padding:10px 12px;} /* 16px prevents iOS zoom */
+  select,input[type=text]{font-size:16px;padding:10px 12px;}
   select{padding-right:34px;}
   .rc-body{grid-template-columns:1fr!important;}
   .pb-val{font-size:22px;}
@@ -98,31 +108,33 @@ select:disabled{opacity:.4;cursor:not-allowed;}
 .sl-row:last-child{border-bottom:none;}
 .sl-row:hover{background:var(--accent-dim);}
 .sl-name{font-size:13px;line-height:1.4;}
-.sl-meta{font-size:11px;color:var(--text3);margin-top:1px;font-family:'IBM Plex Mono',monospace;}
+.sl-meta{font-size:11px;color:var(--text3);margin-top:1px;}
 .sl-price-val{font-family:'IBM Plex Mono',monospace;font-weight:600;color:var(--green);font-size:14px;text-align:right;}
+.sl-price-val.wage{color:var(--amber);}
 .sl-price-meta{font-size:11px;color:var(--text3);text-align:right;}
 
 /* result card */
 .rc{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:10px;}
 .rc-hd{padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;justify-content:space-between;gap:12px;}
 .rc-name{font-size:15px;font-weight:600;line-height:1.4;}
-.rc-code{font-size:11px;color:var(--text3);font-family:'IBM Plex Mono',monospace;margin-top:2px;}
+.rc-sub{font-size:12px;color:var(--text2);margin-top:3px;line-height:1.5;}
 .cat-pill{background:var(--accent-dim);color:var(--accent2);border:1px solid rgba(79,142,247,.25);border-radius:4px;font-size:11px;font-weight:600;padding:3px 9px;white-space:nowrap;flex-shrink:0;}
+.cat-pill.wage{background:var(--amber-dim);color:var(--amber);border-color:var(--amber-border);}
 .rc-body{padding:16px 18px;display:grid;grid-template-columns:200px 1fr;gap:16px;}
-@media(max-width:520px){.rc-body{grid-template-columns:1fr;}}
 .price-box{background:var(--green-dim);border:1px solid var(--green-border);border-radius:var(--radius-sm);padding:14px 16px;}
+.price-box.wage{background:var(--amber-dim);border-color:var(--amber-border);}
 .pb-label{font-size:11px;font-weight:600;color:var(--green);letter-spacing:.06em;text-transform:uppercase;margin-bottom:6px;}
+.pb-label.wage{color:var(--amber);}
 .pb-val{font-size:28px;font-weight:700;color:var(--green);font-family:'IBM Plex Mono',monospace;line-height:1;}
+.pb-val.wage{color:var(--amber);}
 .pb-unit{font-size:13px;color:var(--text2);margin-top:4px;}
-.pb-prov{font-size:12px;color:var(--text3);margin-top:8px;display:flex;align-items:center;gap:5px;flex-wrap:wrap;}
-.prov-badge{background:var(--accent-dim);color:var(--accent2);border:1px solid rgba(79,142,247,.25);border-radius:4px;font-size:12px;font-weight:600;padding:1px 7px;}
 .add-btn-wrap{margin-top:12px;}
-.pt-row{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);font-size:13px;}
-.pt-row:last-child{border-bottom:none;}
-.pt-name{color:var(--text2);}
-.pt-val{font-family:'IBM Plex Mono',monospace;font-weight:500;}
-.pt-val.sel{color:var(--green);font-weight:700;}
-.pt-val.na{color:var(--text3);}
+.rc-detail-box{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px;}
+.rc-detail-label{font-size:11px;font-weight:600;color:var(--text3);letter-spacing:.05em;text-transform:uppercase;margin-bottom:8px;}
+.detail-row{display:flex;justify-content:space-between;font-size:13px;padding:4px 0;border-bottom:1px solid var(--border);}
+.detail-row:last-child{border-bottom:none;}
+.detail-key{color:var(--text2);}
+.detail-val{color:var(--text);font-weight:500;}
 .rc-ft{padding:8px 18px;border-top:1px solid var(--border);font-size:11px;color:var(--text3);display:flex;gap:16px;flex-wrap:wrap;}
 
 /* selected section */
@@ -138,58 +150,45 @@ select:disabled{opacity:.4;cursor:not-allowed;}
 .sel-tbl tr:last-child td{border-bottom:none;}
 .sel-tbl tr:hover td{background:var(--accent-dim);}
 .s-num{font-family:'IBM Plex Mono',monospace;font-weight:600;color:var(--green);}
-.s-prov{color:var(--accent2);font-size:12px;font-weight:500;}
+.s-num.wage{color:var(--amber);}
 .s-del{color:var(--red);cursor:pointer;font-size:20px;line-height:1;padding:2px 6px;border-radius:4px;transition:background .1s;}
 .s-del:hover{background:rgba(240,96,96,.15);}
+.cat-badge{display:inline-block;background:var(--bg3);border:1px solid var(--border);border-radius:4px;font-size:11px;color:var(--text2);padding:2px 7px;white-space:nowrap;}
 
-/* ===== PAGE 2 ===== */
+/* ===== PAGE 2 & 4: TABLE ===== */
 .table-wrap{padding:28px 20px 60px;}
 .tbl-ctrls{max-width:1320px;margin:0 auto 14px;display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;}
 .tbl-ctrls .fg{flex:1;min-width:150px;}
 .tbl-outer{max-width:1320px;margin:0 auto;border:1px solid var(--border);border-radius:var(--radius);overflow:auto;max-height:calc(100vh - 210px);}
-table.main{width:100%;border-collapse:collapse;font-size:11px;}
+table.main{width:100%;border-collapse:collapse;font-size:12px;}
 table.main thead tr{background:var(--bg3);position:sticky;top:0;z-index:10;}
-table.main th{padding:8px 7px;text-align:left;font-size:10px;font-weight:600;color:var(--text3);letter-spacing:.03em;text-transform:uppercase;border-bottom:1px solid var(--border);white-space:nowrap;}
+table.main th{padding:9px 10px;text-align:left;font-size:10px;font-weight:600;color:var(--text3);letter-spacing:.04em;text-transform:uppercase;border-bottom:1px solid var(--border);white-space:nowrap;}
 table.main th.r{text-align:right;}
 table.main tbody tr{border-bottom:1px solid var(--border);}
 table.main tbody tr:last-child{border-bottom:none;}
 table.main tbody tr:hover{background:rgba(79,142,247,.04);}
-table.main td{padding:6px 7px;vertical-align:middle;}
+table.main td{padding:7px 10px;vertical-align:middle;}
 table.main td.r{text-align:right;font-family:'IBM Plex Mono',monospace;font-size:11px;}
 table.main td.na{text-align:center;color:var(--text3);}
 table.main td.hi{text-align:right;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--green);font-weight:700;}
-table.main td.pv{color:var(--accent2);font-size:11px;font-weight:500;white-space:nowrap;}
-table.main td.cd{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text3);white-space:nowrap;}
-table.main td.nm{max-width:200px;}
+table.main td.hi-w{text-align:right;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--amber);font-weight:700;}
+table.main td.nm{max-width:220px;}
 table.main td.nm span{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.4;}
-.cat-badge{display:inline-block;background:var(--bg3);border:1px solid var(--border);border-radius:4px;font-size:10px;color:var(--text2);padding:1px 5px;white-space:nowrap;}
+table.main td.sm{font-size:11px;color:var(--text2);}
 .row-count{max-width:1320px;margin:8px auto 0;font-size:12px;color:var(--text3);}
-
-/* tablet: ซ่อนคอลัมน์ไม่สำคัญ */
 @media(max-width:900px){
   .table-wrap{padding:16px 10px 60px;}
   .col-hide-tablet{display:none;}
-  table.main{font-size:11px;}
 }
 @media(max-width:600px){
   .table-wrap{padding:12px 8px 60px;}
   .tbl-ctrls .fg{min-width:120px;}
 }
 
-/* WARNING BANNER */
-.warn-banner{background:rgba(245,166,35,.1);border-bottom:1px solid rgba(245,166,35,.3);padding:9px 20px;display:flex;align-items:flex-start;gap:8px;font-size:13px;color:#c8901a;line-height:1.5;}
-.warn-banner strong{color:#e6a020;}
-@media(max-width:600px){.warn-banner{font-size:12px;padding:8px 12px;}}
-
-/* CREDIT BAR */
-.credit-bar{text-align:center;padding:14px 20px;font-size:12px;color:var(--text3);border-top:1px solid var(--border);margin-top:20px;}
-.credit-bar strong{color:var(--text2);}
-@media print{.warn-banner,.credit-bar{display:none;}}
-
-/* ===== PRINT ===== */
+/* PRINT */
 @media print{
   @page{size:A4 landscape;margin:12mm 10mm;}
-  .topbar,.search-input-wrap,.filter-row,.sl-card,.s-del,.sel-actions,.no-print,#result-area{display:none!important;}
+  .topbar,.warn-banner,.search-input-wrap,.filter-row,.sl-card,.s-del,.sel-actions,.no-print,#result-area,#wage-result-area,.nav-tabs,.meta-bar{display:none!important;}
   body{background:#fff;color:#000;font-size:12px;}
   .pdf-only{display:block!important;}
   .page.active{display:block;}
@@ -203,10 +202,11 @@ table.main td.nm span{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orien
   .sel-tbl td{border-bottom:1px solid #eee;}
   .sel-tbl tr:hover td{background:transparent;}
   .s-num{color:#1a6e3a!important;}
-  .s-prov{color:#1a4fa0!important;}
+  .s-num.wage{color:#7a4f00!important;}
   .pdf-ft{margin-top:10px;font-size:10px;color:#777;border-top:1px solid #ddd;padding-top:6px;}
   .sel-title{font-size:14px;}
   .sel-hd{margin-bottom:8px;}
+  .credit-bar{display:none;}
 }
 .pdf-only{display:none;}
 </style>
@@ -221,10 +221,16 @@ table.main td.nm span{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orien
   </div>
   <div class="nav-tabs">
     <div class="nav-tab active" onclick="switchPage('search')" id="tab-search">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>ค้นหาราคา
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>ค้นหาราคาวัสดุ
     </div>
     <div class="nav-tab" onclick="switchPage('table')" id="tab-table">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg>ตารางราคารวม
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg>ตารางราคาวัสดุ
+    </div>
+    <div class="nav-tab" onclick="switchPage('wage')" id="tab-wage">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5M2 12l10 5 10-5"/></svg>ค้นหาค่าแรง
+    </div>
+    <div class="nav-tab" onclick="switchPage('wage-table')" id="tab-wage-table">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg>ตารางค่าแรง
     </div>
   </div>
   <div class="meta-bar">
@@ -236,150 +242,195 @@ table.main td.nm span{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orien
 <!-- WARNING BANNER -->
 <div class="warn-banner">
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15" style="flex-shrink:0"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-  <span><strong>ข้อควรระวัง:</strong> กรุณาตรวจสอบราคาจากเว็บไซต์พาณิชย์จังหวัดทุกครั้งก่อนนำไปใช้งาน เพื่อตรวจสอบความถูกต้องและความเป็นปัจจุบันของราคา</span>
+  <span><strong>ข้อควรระวัง:</strong> กรุณาตรวจสอบราคาจากเว็บไซต์พาณิชย์จังหวัดทุกครั้งก่อนนำไปใช้งาน เพื่อตรวจสอบความถูกต้องและความเป็นปัจจุบันของราคา | ค่าแรงอ้างอิงบัญชีค่าแรงงาน ว.809 กรมบัญชีกลาง</span>
 </div>
 
-<!-- PAGE 1: ค้นหา -->
+<!-- PAGE 1: ค้นหาราคาวัสดุ -->
 <div class="page active" id="page-search">
 <div class="search-wrap">
   <div class="page-title">ค้นหาราคาวัสดุก่อสร้าง</div>
   <div class="page-sub">ตามหลักเกณฑ์ราคากลาง — ใช้ราคาอุดรธานีก่อน หากไม่มีเลือกราคาต่ำสุดจาก 6 จังหวัดข้างเคียง</div>
-
   <div class="filter-row">
     <div>
       <div class="field-label">หมวดวัสดุ</div>
-      <select id="sel-cat" onchange="onCatChange()">
-        <option value="">— เลือกหมวดวัสดุ —</option>
-      </select>
+      <select id="sel-cat" onchange="onCatChange()"><option value="">— เลือกหมวดวัสดุ —</option></select>
     </div>
     <div>
       <div class="field-label">รายการวัสดุ</div>
-      <select id="sel-item" onchange="onItemChange()" disabled>
-        <option value="">— เลือกรายการ —</option>
-      </select>
+      <select id="sel-item" onchange="onItemChange()" disabled><option value="">— เลือกรายการ —</option></select>
     </div>
   </div>
-
   <div class="field-label">หรือพิมพ์ชื่อเพื่อค้นหา</div>
   <div class="search-input-wrap">
     <div class="s-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg></div>
     <input type="text" id="search-text" placeholder="พิมพ์ชื่อวัสดุ เช่น คอนกรีต เหล็ก ปูน..." oninput="onSearchText()" autocomplete="off">
   </div>
-
   <div id="search-list"></div>
   <div id="result-area"></div>
-
-  <!-- รายการที่เลือก -->
   <div class="sel-sec" id="sel-sec" style="display:none">
-    <!-- PDF header (print only) -->
     <div class="pdf-only pdf-hd">
       <div class="pdf-title">รายการราคาวัสดุก่อสร้าง</div>
-      <div class="pdf-meta">
-        ระบบราคาพาณิชย์จังหวัดอุดรธานีและข้างเคียง &nbsp;|&nbsp;
-        <span id="pdf-period"></span> &nbsp;|&nbsp; วันที่พิมพ์: <span id="pdf-date"></span>
-      </div>
+      <div class="pdf-meta">ระบบราคาพาณิชย์จังหวัดอุดรธานีและข้างเคียง &nbsp;|&nbsp; <span id="pdf-period"></span> &nbsp;|&nbsp; วันที่พิมพ์: <span id="pdf-date"></span></div>
     </div>
-
     <div class="sel-hd">
       <div class="sel-title">รายการที่เลือก <span id="sel-count" style="color:var(--accent2);font-weight:400"></span></div>
       <div class="sel-actions">
         <button class="btn btn-green" onclick="printPDF()">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
-          ออกรายงาน PDF
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>ออกรายงาน PDF
         </button>
         <button class="btn btn-red" onclick="clearSelected()">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
-          ล้างรายการ
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>ล้างรายการ
         </button>
       </div>
     </div>
-
     <div class="sel-wrap">
       <table class="sel-tbl">
-        <thead>
-          <tr>
-            <th style="width:32px">#</th>
-            <th>ชื่อวัสดุ</th>
-            <th>หมวด</th>
-            <th>หน่วย</th>
-            <th class="r">ราคาที่ใช้ (บาท)</th>
-            <th>พาณิชย์จังหวัด</th>
-            <th class="no-print" style="width:40px"></th>
-          </tr>
-        </thead>
+        <thead><tr><th style="width:32px">#</th><th>ชื่อวัสดุ</th><th>หมวด</th><th>หน่วย</th><th class="r">ราคา (บาท)</th><th>พาณิชย์จังหวัด</th><th class="no-print" style="width:40px"></th></tr></thead>
         <tbody id="sel-body"></tbody>
       </table>
     </div>
-
-    <!-- PDF footer -->
     <div class="pdf-only pdf-ft">
       <div id="pdf-ft-period"></div>
-      <div>* ราคาตามหลักเกณฑ์กำหนดราคากลางของทางราชการ: ใช้ราคาพาณิชย์จังหวัดอุดรธานีก่อน หากไม่มีให้ใช้ราคาต่ำสุดจากจังหวัดใกล้เคียง (หนองคาย เลย สกลนคร หนองบัวลำภู กาฬสินธุ์ ขอนแก่น)</div>
+      <div>* ราคาตามหลักเกณฑ์ราคากลางราชการ: ใช้ราคาพาณิชย์จังหวัดอุดรธานีก่อน หากไม่มีให้ใช้ราคาต่ำสุดจากจังหวัดใกล้เคียง (หนองคาย เลย สกลนคร หนองบัวลำภู กาฬสินธุ์ ขอนแก่น)</div>
     </div>
   </div>
 </div>
 </div>
 
-<!-- PAGE 2: ตารางรวม -->
+<!-- PAGE 2: ตารางราคาวัสดุ -->
 <div class="page" id="page-table">
 <div class="table-wrap">
   <div class="page-title">ตารางราคารวมทุกรายการ</div>
   <div class="page-sub">ราคาจากพาณิชย์ทุกจังหวัด — ตัวเลขสีเขียวคือราคาที่นำมาใช้ตามหลักเกณฑ์ราคากลาง</div>
-
   <div class="tbl-ctrls">
-    <div class="fg">
-      <div class="field-label">กรองหมวด</div>
-      <select id="tbl-cat" onchange="filterTable()"><option value="">ทุกหมวด</option></select>
-    </div>
-    <div class="fg">
-      <div class="field-label">ค้นหา</div>
-      <input type="text" id="tbl-search" placeholder="ชื่อวัสดุ หรือรหัส..." oninput="filterTable()">
-    </div>
+    <div class="fg"><div class="field-label">กรองหมวด</div><select id="tbl-cat" onchange="filterTable()"><option value="">ทุกหมวด</option></select></div>
+    <div class="fg"><div class="field-label">ค้นหา</div><input type="text" id="tbl-search" placeholder="ชื่อวัสดุ หรือรหัส..." oninput="filterTable()"></div>
     <button class="btn btn-ghost" onclick="refreshData()">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>รีเฟรช
     </button>
   </div>
-
   <div class="tbl-outer">
     <table class="main">
-      <thead>
-        <tr>
-          <th>หมวด</th>
-          <th class="col-hide-tablet">รหัสวัสดุ</th>
-          <th>ชื่อวัสดุ</th>
-          <th>หน่วย</th>
-          <th class="r">อุดรธานี</th>
-          <th class="r">หนองคาย</th>
-          <th class="r">เลย</th>
-          <th class="r">สกลนคร</th>
-          <th class="r">หนองบัวลำภู</th>
-          <th class="r">กาฬสินธุ์</th>
-          <th class="r">ขอนแก่น</th>
-          <th class="r">ราคาที่ใช้</th>
-          <th>จังหวัดที่ใช้</th>
-          <th class="col-hide-tablet">ระยะเวลา</th>
-          <th class="col-hide-tablet">วันที่ดาวน์โหลด</th>
-        </tr>
-      </thead>
-      <tbody id="tbl-body">
-        <tr><td colspan="15"><div class="state-box"><div class="loading-dots"><span></span><span></span><span></span></div><p style="margin-top:10px">กำลังโหลดข้อมูล...</p></div></td></tr>
-      </tbody>
+      <thead><tr>
+        <th>หมวด</th><th class="col-hide-tablet">รหัสวัสดุ</th><th>ชื่อวัสดุ</th><th>หน่วย</th>
+        <th class="r">อุดรธานี</th><th class="r">หนองคาย</th><th class="r">เลย</th>
+        <th class="r">สกลนคร</th><th class="r">หนองบัวลำภู</th><th class="r">กาฬสินธุ์</th><th class="r">ขอนแก่น</th>
+        <th class="r">ราคาที่ใช้</th><th>จังหวัดที่ใช้</th>
+        <th class="col-hide-tablet">ระยะเวลา</th><th class="col-hide-tablet">วันที่ดาวน์โหลด</th>
+      </tr></thead>
+      <tbody id="tbl-body"><tr><td colspan="15"><div class="state-box"><div class="loading-dots"><span></span><span></span><span></span></div><p style="margin-top:10px">กำลังโหลดข้อมูล...</p></div></td></tr></tbody>
     </table>
   </div>
   <div class="row-count" id="row-count"></div>
 </div>
 </div>
 
+<!-- PAGE 3: ค้นหาค่าแรง -->
+<div class="page" id="page-wage">
+<div class="search-wrap">
+  <div class="page-title">ค้นหาค่าแรงก่อสร้าง</div>
+  <div class="page-sub">อ้างอิงบัญชีค่าแรงงาน ว.809 กรมบัญชีกลาง</div>
+  <div class="filter-row">
+    <div>
+      <div class="field-label">หมวดงาน</div>
+      <select id="w-sel-cat" onchange="wOnCatChange()"><option value="">— เลือกหมวดงาน —</option></select>
+    </div>
+    <div>
+      <div class="field-label">รายการงาน</div>
+      <select id="w-sel-item" onchange="wOnItemChange()" disabled><option value="">— เลือกรายการ —</option></select>
+    </div>
+  </div>
+  <div class="field-label">หรือพิมพ์ชื่อเพื่อค้นหา</div>
+  <div class="search-input-wrap">
+    <div class="s-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg></div>
+    <input type="text" id="w-search-text" placeholder="พิมพ์ชื่องาน เช่น เสาเข็ม แบบหล่อ ท่อ PVC..." oninput="wOnSearchText()" autocomplete="off">
+  </div>
+  <div id="wage-search-list"></div>
+  <div id="wage-result-area"></div>
+  <div class="sel-sec" id="w-sel-sec" style="display:none">
+    <div class="pdf-only pdf-hd">
+      <div class="pdf-title">รายการค่าแรงก่อสร้าง</div>
+      <div class="pdf-meta">อ้างอิงบัญชีค่าแรงงาน ว.809 กรมบัญชีกลาง &nbsp;|&nbsp; วันที่พิมพ์: <span id="w-pdf-date"></span></div>
+    </div>
+    <div class="sel-hd">
+      <div class="sel-title">รายการที่เลือก <span id="w-sel-count" style="color:var(--amber);font-weight:400"></span></div>
+      <div class="sel-actions">
+        <button class="btn btn-amber" onclick="wPrintPDF()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>ออกรายงาน PDF
+        </button>
+        <button class="btn btn-red" onclick="wClearSelected()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>ล้างรายการ
+        </button>
+      </div>
+    </div>
+    <div class="sel-wrap">
+      <table class="sel-tbl">
+        <thead><tr><th style="width:32px">#</th><th>รายการงาน</th><th>หมวดงาน</th><th>หน่วย</th><th class="r">ค่าแรง (บาท)</th><th class="no-print" style="width:40px"></th></tr></thead>
+        <tbody id="w-sel-body"></tbody>
+      </table>
+    </div>
+    <div class="pdf-only pdf-ft">
+      <div>* ค่าแรงอ้างอิงบัญชีค่าแรงงานและค่าขนส่งวัสดุก่อสร้าง ว.809 กรมบัญชีกลาง กระทรวงการคลัง</div>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- PAGE 4: ตารางค่าแรง -->
+<div class="page" id="page-wage-table">
+<div class="table-wrap">
+  <div class="page-title">ตารางค่าแรงทุกรายการ</div>
+  <div class="page-sub">บัญชีค่าแรงงาน ว.809 กรมบัญชีกลาง — ครอบคลุมทุกหมวดงานก่อสร้าง</div>
+  <div class="tbl-ctrls">
+    <div class="fg"><div class="field-label">กรองหมวดงาน</div><select id="w-tbl-cat" onchange="wFilterTable()"><option value="">ทุกหมวด</option></select></div>
+    <div class="fg"><div class="field-label">ค้นหา</div><input type="text" id="w-tbl-search" placeholder="ชื่องาน..." oninput="wFilterTable()"></div>
+    <button class="btn btn-ghost" onclick="wRefreshData()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>รีเฟรช
+    </button>
+  </div>
+  <div class="tbl-outer">
+    <table class="main">
+      <thead><tr>
+        <th>หมวด 1</th><th>หมวด 2</th><th>หมวด 3</th><th class="col-hide-tablet">หมวด 4</th><th>หน่วย</th><th class="r">ค่าแรง (บาท)</th>
+      </tr></thead>
+      <tbody id="w-tbl-body"><tr><td colspan="6"><div class="state-box"><div class="loading-dots"><span></span><span></span><span></span></div><p style="margin-top:10px">กำลังโหลดข้อมูล...</p></div></td></tr></tbody>
+    </table>
+  </div>
+  <div class="row-count" id="w-row-count"></div>
+</div>
+</div>
+
 <script>
-const SHEET_ID='1eU_2iNI4_Y6Hnuj5_-9BgjBQ9Ga7QAkRJ-CQk1Dve78';
-const SH_DATA='totaldata', SH_CAT='หมวด';
-const PROVS=[
+// ============================================================
+// CONFIG
+// ============================================================
+const SHEET_ID = '1eU_2iNI4_Y6Hnuj5_-9BgjBQ9Ga7QAkRJ-CQk1Dve78';
+
+// ราคาวัสดุ
+const SH_DATA = 'totaldata', SH_CAT = 'หมวด';
+const PROVS = [
   {name:'อุดรธานี',c:5},{name:'หนองคาย',c:6},{name:'เลย',c:7},
   {name:'สกลนคร',c:8},{name:'หนองบัวลำภู',c:9},{name:'กาฬสินธุ์',c:10},{name:'ขอนแก่น',c:11}
 ];
 
-let allData=[], cats=[], selectedItems=[];
+// ค่าแรง — Sheet และชื่อหมวด
+const WAGE_SHEETS = [
+  {sheet:'work_STR', label:'งานโครงสร้างวิศวกรรม'},
+  {sheet:'work_ARC', label:'งานสถาปัตยกรรม'},
+  {sheet:'work_SN',  label:'งานระบบสุขาภิบาลและดับเพลิง'},
+  {sheet:'work_EE',  label:'งานระบบไฟฟ้าและสื่อสาร'},
+  {sheet:'work_AC',  label:'งานระบบปรับอากาศและระบายอากาศ'},
+];
 
+// ============================================================
+// STATE
+// ============================================================
+let allData=[], cats=[], selectedItems=[];
+let wageData=[], wageCats=[], wSelectedItems=[];
+
+// ============================================================
+// UTILITY
+// ============================================================
 function gvizURL(sh){
   return `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?sheet=${encodeURIComponent(sh)}&tqx=out:json`;
 }
@@ -388,67 +439,70 @@ async function fetchSheet(sh){
   const t=await r.text();
   return JSON.parse(t.replace(/^[^{]+/,'').replace(/[^}]+$/,'')).table;
 }
-function cv(c){return(!c||c.v===null||c.v===undefined)?'':c.v;}
+function cv(c){return(!c||c.v===null||c.v===undefined)?'':String(c.v).trim();}
 function nv(c){
   if(!c||c.v===null||c.v===undefined)return null;
   const n=parseFloat(String(c.v).replace(/,/g,''));
-  return(isNaN(n)||n<=0)?null:n;
+  return isNaN(n)||n<=0?null:n;
 }
 function fmt(n){
   if(n===null||n===undefined)return null;
   return n.toLocaleString('th-TH',{minimumFractionDigits:2,maximumFractionDigits:2});
 }
 
+// ============================================================
+// PAGE SWITCH
+// ============================================================
+function switchPage(p){
+  ['search','table','wage','wage-table'].forEach(x=>{
+    document.getElementById('page-'+x).classList.toggle('active',x===p);
+    const tab=document.getElementById('tab-'+x);
+    tab.classList.remove('active','active-wage');
+    if(x===p) tab.classList.add(p.startsWith('wage')?'active-wage':'active');
+  });
+}
+
+// ============================================================
+// LOAD MATERIAL DATA
+// ============================================================
 async function loadData(){
   try{
-    // หมวด — gviz จัดการ header row ให้เองผ่าน table.cols
-    // rows[] จึงเป็นข้อมูลล้วนๆ ไม่ต้อง skip
     const ct=await fetchSheet(SH_CAT);
     cats=[];
-    if(ct&&ct.rows){
-      ct.rows.forEach((row)=>{
-        const id=cv(row.c[0]), nm=cv(row.c[1]);
-        if(id!=='')cats.push({id:String(id).trim(),name:String(nm)});
-      });
-    }
+    if(ct&&ct.rows) ct.rows.forEach(row=>{
+      const id=cv(row.c[0]),nm=cv(row.c[1]);
+      if(id) cats.push({id,name:nm});
+    });
 
-    // totaldata — เช่นเดียวกัน rows[] เป็นข้อมูลล้วน
     const dt=await fetchSheet(SH_DATA);
     allData=[];
-    if(dt&&dt.rows){
-      dt.rows.forEach((row)=>{
-        const catId=cv(row.c[0]);
-        if(catId==='')return;
-        allData.push({
-          catId:String(catId).trim(), catName:String(cv(row.c[1])),
-          code:String(cv(row.c[2])), name:String(cv(row.c[3])), unit:String(cv(row.c[4])),
-          provinces:PROVS.map(p=>({name:p.name,val:nv(row.c[p.c])})),
-          price:nv(row.c[12]), province:String(cv(row.c[13])),
-          period:String(cv(row.c[14])), dlDate:String(cv(row.c[15])),
-        });
+    if(dt&&dt.rows) dt.rows.forEach(row=>{
+      const catId=cv(row.c[0]);
+      if(!catId)return;
+      allData.push({
+        catId, catName:cv(row.c[1]),
+        code:cv(row.c[2]), name:cv(row.c[3]), unit:cv(row.c[4]),
+        provinces:PROVS.map(p=>({name:p.name,val:nv(row.c[p.c])})),
+        price:nv(row.c[12]), province:cv(row.c[13]),
+        period:cv(row.c[14]), dlDate:cv(row.c[15]),
       });
-    }
+    });
 
-    // meta bar
     if(allData.length){
-      const d=allData[0];
-      document.getElementById('meta-period').textContent=d.period||'';
-      const m=(d.dlDate||'').match(/(\d{2}\s+\S+\s+\d{4})/);
-      document.getElementById('meta-dl').textContent=m?'ดาวน์โหลด '+m[1]:(d.dlDate||'').replace('วันที่ดาวน์โหลดไฟล์ ','').substring(0,30);
+      document.getElementById('meta-period').textContent=allData[0].period||'';
+      const dl=(allData[0].dlDate||'').replace('วันที่ดาวน์โหลดไฟล์ ','').substring(0,30);
+      document.getElementById('meta-dl').textContent=dl?'ดาวน์โหลด '+dl:'';
     }
-
-    buildDropdowns();
+    buildMatDropdowns();
     filterTable();
-
   }catch(e){
     console.error(e);
-    const msg=`<tr><td colspan="15"><div class="state-box" style="color:var(--red)">โหลดข้อมูลไม่สำเร็จ: ${e.message}<br><small>ตรวจสอบว่า Google Sheet เปิดสิทธิ์ "Anyone with the link" แล้ว</small></div></td></tr>`;
-    document.getElementById('tbl-body').innerHTML=msg;
-    document.getElementById('meta-period').textContent='โหลดข้อมูลไม่สำเร็จ';
+    document.getElementById('tbl-body').innerHTML=`<tr><td colspan="15"><div class="state-box" style="color:var(--red)">โหลดข้อมูลไม่สำเร็จ: ${e.message}</div></td></tr>`;
+    document.getElementById('meta-period').textContent='โหลดไม่สำเร็จ';
   }
 }
 
-function buildDropdowns(){
+function buildMatDropdowns(){
   const o1=['<option value="">— เลือกหมวดวัสดุ —</option>'];
   const o2=['<option value="">ทุกหมวด</option>'];
   cats.forEach(c=>{
@@ -459,91 +513,77 @@ function buildDropdowns(){
   document.getElementById('tbl-cat').innerHTML=o2.join('');
 }
 
-function switchPage(p){
-  ['search','table'].forEach(x=>{
-    document.getElementById('page-'+x).classList.toggle('active',x===p);
-    document.getElementById('tab-'+x).classList.toggle('active',x===p);
-  });
-}
-
-// ===== PAGE 1 =====
+// ============================================================
+// PAGE 1: MATERIAL SEARCH
+// ============================================================
 function onCatChange(){
   const cid=document.getElementById('sel-cat').value;
   const isel=document.getElementById('sel-item');
-  clearSearch();
+  clearMatSearch();
   document.getElementById('result-area').innerHTML='';
   if(!cid){isel.innerHTML='<option value="">— เลือกรายการ —</option>';isel.disabled=true;return;}
   const items=allData.filter(d=>d.catId===cid);
   const opts=['<option value="">— เลือกรายการ —</option>'];
   items.forEach(it=>opts.push(`<option value="${it.code}">${it.name}</option>`));
-  isel.innerHTML=opts.join('');
-  isel.disabled=false;
+  isel.innerHTML=opts.join('');isel.disabled=false;
 }
-
 function onItemChange(){
   const code=document.getElementById('sel-item').value;
-  clearSearch();
+  clearMatSearch();
   document.getElementById('result-area').innerHTML='';
   if(!code)return;
   const item=allData.find(d=>d.code===code);
-  if(item)showResult(item);
+  if(item)showMatResult(item);
 }
-
-let stimer;
+let matTimer;
 function onSearchText(){
-  clearTimeout(stimer);
+  clearTimeout(matTimer);
   const q=document.getElementById('search-text').value.trim();
   document.getElementById('sel-cat').value='';
   document.getElementById('sel-item').innerHTML='<option value="">— เลือกรายการ —</option>';
   document.getElementById('sel-item').disabled=true;
   document.getElementById('result-area').innerHTML='';
   if(q.length<2){document.getElementById('search-list').innerHTML='';return;}
-  stimer=setTimeout(()=>{
+  matTimer=setTimeout(()=>{
     const res=allData.filter(d=>d.name.includes(q)||d.code.includes(q)).slice(0,40);
-    renderSearchList(res,q);
+    renderMatSearchList(res,q);
   },200);
 }
-
-function clearSearch(){
+function clearMatSearch(){
   document.getElementById('search-text').value='';
   document.getElementById('search-list').innerHTML='';
 }
-
-function renderSearchList(res,q){
+function renderMatSearchList(res,q){
   const el=document.getElementById('search-list');
   if(!res.length){el.innerHTML=`<div class="state-box">ไม่พบรายการที่ตรงกับ "${q}"</div>`;return;}
   const esc=q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
   const re=new RegExp(esc,'g');
   const rows=res.map(it=>{
     const hl=it.name.replace(re,`<mark style="background:var(--accent-dim2);color:var(--accent2);border-radius:2px;padding:0 2px">${q}</mark>`);
-    return `<div class="sl-row" onclick="selectFromList('${it.code}')">
+    return `<div class="sl-row" onclick="matSelectFromList('${it.code}')">
       <div style="flex:1;min-width:0"><div class="sl-name">${hl}</div><div class="sl-meta">${it.code} · ${it.catName}</div></div>
       <div><div class="sl-price-val">${it.price?fmt(it.price):'—'}</div><div class="sl-price-meta">${it.unit} · ${it.province||''}</div></div>
     </div>`;
   }).join('');
   el.innerHTML=`<div class="sl-card"><div class="sl-hd">พบ ${res.length} รายการ — คลิกเพื่อดูรายละเอียด</div>${rows}</div>`;
 }
-
-function selectFromList(code){
+function matSelectFromList(code){
   document.getElementById('search-list').innerHTML='';
   document.getElementById('search-text').value='';
   const item=allData.find(d=>d.code===code);
-  if(item)showResult(item);
+  if(item)showMatResult(item);
 }
-
-function showResult(item){
+function showMatResult(item){
   const ps=item.price?fmt(item.price):'—';
   const provRows=item.provinces.map(p=>{
     const isSel=p.name===item.province;
     const vs=p.val?fmt(p.val):null;
-    return `<div class="pt-row"><span class="pt-name">${p.name}</span><span class="pt-val ${isSel?'sel':''} ${!vs?'na':''}">${vs||'—'}</span></div>`;
+    return `<div class="detail-row"><span class="detail-key">${p.name}</span><span class="detail-val ${isSel?'':''}${!vs?' style=color:var(--text3)':''}">${vs||'—'}</span></div>`;
   }).join('');
-  const periodClean=item.period.replace('ระยะเวลา ','');
-  const dlClean=item.dlDate.replace('วันที่ดาวน์โหลดไฟล์ ','');
   document.getElementById('result-area').innerHTML=`
     <div class="rc">
       <div class="rc-hd">
-        <div><div class="rc-name">${item.name}</div><div class="rc-code">${item.code}</div></div>
+        <div><div class="rc-name">${item.name}</div><div class="rc-sub">${item.code}</div></div>
         <span class="cat-pill">${item.catName}</span>
       </div>
       <div class="rc-body">
@@ -551,53 +591,35 @@ function showResult(item){
           <div class="pb-label">ราคากลางที่ใช้</div>
           <div class="pb-val">${ps}</div>
           <div class="pb-unit">บาท / ${item.unit}</div>
-          <div class="pb-prov">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
-            <span class="prov-badge">${item.province||'—'}</span>
-          </div>
-          <div class="add-btn-wrap">
-            <button class="btn btn-primary" style="width:100%;justify-content:center" onclick="addToList('${item.code}')">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
-              เพิ่มในรายการ
-            </button>
-          </div>
+          <div style="margin-top:6px;font-size:12px;color:var(--text3)">พาณิชย์จังหวัด <strong style="color:var(--accent2)">${item.province||'—'}</strong></div>
+          <div class="add-btn-wrap"><button class="btn btn-primary" style="width:100%;justify-content:center" onclick="matAddToList('${item.code}')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>เพิ่มในรายการ
+          </button></div>
         </div>
-        <div>${provRows}</div>
+        <div class="rc-detail-box"><div class="rc-detail-label">ราคาเทียบทุกจังหวัด</div>${provRows}</div>
       </div>
-      <div class="rc-ft"><span>${periodClean}</span><span>${dlClean}</span></div>
+      <div class="rc-ft"><span>${item.period.replace('ระยะเวลา ','')}</span><span>${item.dlDate.replace('วันที่ดาวน์โหลดไฟล์ ','')}</span></div>
     </div>`;
 }
-
-function addToList(code){
+function matAddToList(code){
   const item=allData.find(d=>d.code===code);
   if(!item)return;
   if(selectedItems.find(s=>s.code===code)){alert('รายการนี้มีอยู่แล้ว');return;}
   selectedItems.push(item);
   renderSelected();
-  // reset เพื่อหาต่อ
   document.getElementById('sel-cat').value='';
   document.getElementById('sel-item').innerHTML='<option value="">— เลือกรายการ —</option>';
   document.getElementById('sel-item').disabled=true;
   const toast=document.createElement('div');
-  toast.id='add-toast';
-  toast.style.cssText='padding:12px 16px;background:var(--green-dim);border:1px solid var(--green-border);border-radius:var(--radius-sm);color:var(--green);font-size:13px;margin-bottom:14px;transition:opacity .6s ease';
-  toast.textContent=`✓ เพิ่ม "${item.name}" เรียบร้อยแล้ว — เลือกหมวดหรือค้นหาเพื่อเพิ่มรายการถัดไป`;
+  toast.style.cssText='padding:11px 15px;background:var(--green-dim);border:1px solid var(--green-border);border-radius:var(--radius-sm);color:var(--green);font-size:13px;margin-bottom:14px;transition:opacity .6s';
+  toast.textContent=`✓ เพิ่ม "${item.name}" เรียบร้อยแล้ว`;
   const ra=document.getElementById('result-area');
-  ra.innerHTML='';
-  ra.appendChild(toast);
-  // fade out หลัง 3 วินาที
-  setTimeout(()=>{ toast.style.opacity='0'; },3000);
-  setTimeout(()=>{ if(ra.contains(toast)) ra.removeChild(toast); },3700);
-  setTimeout(()=>{
-    document.getElementById('sel-sec').scrollIntoView({behavior:'smooth',block:'nearest'});
-  },150);
+  ra.innerHTML='';ra.appendChild(toast);
+  setTimeout(()=>{toast.style.opacity='0';},3000);
+  setTimeout(()=>{if(ra.contains(toast))ra.removeChild(toast);},3700);
+  setTimeout(()=>document.getElementById('sel-sec').scrollIntoView({behavior:'smooth',block:'nearest'}),150);
 }
-
-function removeFromList(code){
-  selectedItems=selectedItems.filter(s=>s.code!==code);
-  renderSelected();
-}
-
+function removeFromList(code){selectedItems=selectedItems.filter(s=>s.code!==code);renderSelected();}
 function renderSelected(){
   const sec=document.getElementById('sel-sec');
   if(!selectedItems.length){sec.style.display='none';return;}
@@ -610,80 +632,323 @@ function renderSelected(){
       <td><span class="cat-badge">${it.catName}</span></td>
       <td style="white-space:nowrap;color:var(--text2)">${it.unit}</td>
       <td class="r s-num">${it.price?fmt(it.price):'—'}</td>
-      <td class="s-prov">${it.province||'—'}</td>
-      <td class="no-print"><span class="s-del" onclick="removeFromList('${it.code}')" title="ลบออก">×</span></td>
+      <td style="color:var(--accent2);font-size:12px">${it.province||'—'}</td>
+      <td class="no-print"><span class="s-del" onclick="removeFromList('${it.code}')" title="ลบ">×</span></td>
     </tr>`).join('');
 }
-
 function clearSelected(){
   if(!selectedItems.length)return;
   if(!confirm(`ล้างรายการทั้งหมด ${selectedItems.length} รายการ?`))return;
-  selectedItems=[];
-  renderSelected();
+  selectedItems=[];renderSelected();
   document.getElementById('result-area').innerHTML='';
 }
-
 function printPDF(){
   if(!selectedItems.length){alert('ยังไม่มีรายการที่เลือก');return;}
   const d=allData.length?allData[0]:{period:'',dlDate:''};
-  const periodClean=d.period.replace('ระยะเวลา ','');
-  const dlClean=d.dlDate.replace('วันที่ดาวน์โหลดไฟล์ ','');
-  document.getElementById('pdf-period').textContent=periodClean+' | ดาวน์โหลด '+dlClean;
-  document.getElementById('pdf-ft-period').textContent=periodClean+' | '+dlClean;
+  document.getElementById('pdf-period').textContent=d.period.replace('ระยะเวลา ','')+' | '+d.dlDate.replace('วันที่ดาวน์โหลดไฟล์ ','');
+  document.getElementById('pdf-ft-period').textContent=d.period.replace('ระยะเวลา ','');
   document.getElementById('pdf-date').textContent=new Date().toLocaleDateString('th-TH',{year:'numeric',month:'long',day:'numeric'});
   window.print();
 }
 
-// ===== PAGE 2 =====
+// ============================================================
+// PAGE 2: MATERIAL TABLE
+// ============================================================
 function filterTable(){
   const cid=document.getElementById('tbl-cat').value;
   const q=(document.getElementById('tbl-search').value||'').trim().toLowerCase();
   const data=allData.filter(d=>(!cid||d.catId===cid)&&(!q||d.name.toLowerCase().includes(q)||d.code.includes(q)));
   renderTable(data);
 }
-
 function renderTable(data){
   const tbody=document.getElementById('tbl-body');
-  if(!data.length){
-    tbody.innerHTML=`<tr><td colspan="15"><div class="state-box">ไม่พบรายการ</div></td></tr>`;
-    document.getElementById('row-count').textContent='';return;
-  }
+  if(!data.length){tbody.innerHTML=`<tr><td colspan="15"><div class="state-box">ไม่พบรายการ</div></td></tr>`;document.getElementById('row-count').textContent='';return;}
   tbody.innerHTML=data.map(it=>{
     const pcells=it.provinces.map(p=>{
       const isSel=p.name===it.province;
       const vs=p.val?fmt(p.val):null;
       return vs?`<td class="r ${isSel?'hi':''}">${vs}</td>`:`<td class="na">—</td>`;
     }).join('');
-    const periodClean=it.period.replace('ระยะเวลา ','');
-    const dlClean=it.dlDate.replace('วันที่ดาวน์โหลดไฟล์ ','');
     return `<tr>
       <td><span class="cat-badge">${it.catName}</span></td>
-      <td class="cd col-hide-tablet">${it.code}</td>
+      <td class="cd col-hide-tablet" style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text3)">${it.code}</td>
       <td class="nm"><span title="${it.name}">${it.name}</span></td>
-      <td style="white-space:nowrap;color:var(--text2)">${it.unit}</td>
+      <td style="white-space:nowrap;color:var(--text2);font-size:12px">${it.unit}</td>
       ${pcells}
       <td class="hi">${it.price?fmt(it.price):'—'}</td>
-      <td class="pv">${it.province||'—'}</td>
-      <td class="col-hide-tablet" style="font-size:11px;color:var(--text2);white-space:nowrap">${periodClean}</td>
-      <td class="col-hide-tablet" style="font-size:10px;color:var(--text3);white-space:nowrap">${dlClean}</td>
+      <td style="color:var(--accent2);font-size:11px;font-weight:500;white-space:nowrap">${it.province||'—'}</td>
+      <td class="sm col-hide-tablet">${it.period.replace('ระยะเวลา ','')}</td>
+      <td class="col-hide-tablet" style="font-size:10px;color:var(--text3)">${it.dlDate.replace('วันที่ดาวน์โหลดไฟล์ ','')}</td>
     </tr>`;
   }).join('');
-  document.getElementById('row-count').textContent=
-    `แสดง ${data.length.toLocaleString()} รายการ จากทั้งหมด ${allData.length.toLocaleString()} รายการ`;
+  document.getElementById('row-count').textContent=`แสดง ${data.length.toLocaleString()} รายการ จากทั้งหมด ${allData.length.toLocaleString()} รายการ`;
 }
-
 function refreshData(){
   allData=[];cats=[];
-  document.getElementById('tbl-body').innerHTML=
-    `<tr><td colspan="15"><div class="state-box"><div class="loading-dots"><span></span><span></span><span></span></div><p style="margin-top:10px">กำลังโหลด...</p></div></td></tr>`;
+  document.getElementById('tbl-body').innerHTML=`<tr><td colspan="15"><div class="state-box"><div class="loading-dots"><span></span><span></span><span></span></div><p style="margin-top:10px">กำลังโหลด...</p></div></td></tr>`;
   loadData();
 }
 
+// ============================================================
+// LOAD WAGE DATA
+// ============================================================
+async function loadWageData(){
+  try{
+    wageData=[];
+    for(const ws of WAGE_SHEETS){
+      const dt=await fetchSheet(ws.sheet);
+      if(dt&&dt.rows){
+        dt.rows.forEach(row=>{
+          const h1=cv(row.c[0]);
+          if(!h1)return;
+          wageData.push({
+            sheetLabel: ws.label,
+            h1, h2:cv(row.c[1]), h3:cv(row.c[2]), h4:cv(row.c[3]),
+            unit:cv(row.c[4]),
+            rawPrice:cv(row.c[5]),
+            price:nv(row.c[5]),
+          });
+        });
+      }
+    }
+    // สร้าง category จาก sheetLabel
+    wageCats=WAGE_SHEETS.map(ws=>ws.label);
+    buildWageDropdowns();
+    wFilterTable();
+  }catch(e){
+    console.error(e);
+    document.getElementById('w-tbl-body').innerHTML=`<tr><td colspan="6"><div class="state-box" style="color:var(--red)">โหลดข้อมูลไม่สำเร็จ: ${e.message}</div></td></tr>`;
+  }
+}
+
+function buildWageDropdowns(){
+  const o1=['<option value="">— เลือกหมวดงาน —</option>'];
+  const o2=['<option value="">ทุกหมวด</option>'];
+  wageCats.forEach(c=>{
+    o1.push(`<option value="${c}">${c}</option>`);
+    o2.push(`<option value="${c}">${c}</option>`);
+  });
+  document.getElementById('w-sel-cat').innerHTML=o1.join('');
+  document.getElementById('w-tbl-cat').innerHTML=o2.join('');
+}
+
+// ============================================================
+// PAGE 3: WAGE SEARCH
+// ============================================================
+function wOnCatChange(){
+  const cat=document.getElementById('w-sel-cat').value;
+  const isel=document.getElementById('w-sel-item');
+  wClearSearch();
+  document.getElementById('wage-result-area').innerHTML='';
+  if(!cat){isel.innerHTML='<option value="">— เลือกรายการ —</option>';isel.disabled=true;return;}
+  const items=wageData.filter(d=>d.sheetLabel===cat);
+  const opts=['<option value="">— เลือกรายการ —</option>'];
+  items.forEach((it,idx)=>{
+    // สร้าง label แสดงชื่องาน
+    const label=[it.h1,it.h2,it.h3,it.h4].filter(x=>x&&x!=='-').join(' › ');
+    opts.push(`<option value="${idx}_${cat}">${label}</option>`);
+  });
+  isel.innerHTML=opts.join('');isel.disabled=false;
+}
+
+function wOnItemChange(){
+  const val=document.getElementById('w-sel-item').value;
+  wClearSearch();
+  document.getElementById('wage-result-area').innerHTML='';
+  if(!val)return;
+  const [idxStr,cat]=val.split('_');
+  const items=wageData.filter(d=>d.sheetLabel===val.substring(val.indexOf('_')+1));
+  const item=wageData.filter(d=>d.sheetLabel===document.getElementById('w-sel-cat').value)[parseInt(idxStr)];
+  if(item)showWageResult(item);
+}
+
+let wTimer;
+function wOnSearchText(){
+  clearTimeout(wTimer);
+  const q=document.getElementById('w-search-text').value.trim();
+  document.getElementById('w-sel-cat').value='';
+  document.getElementById('w-sel-item').innerHTML='<option value="">— เลือกรายการ —</option>';
+  document.getElementById('w-sel-item').disabled=true;
+  document.getElementById('wage-result-area').innerHTML='';
+  if(q.length<2){document.getElementById('wage-search-list').innerHTML='';return;}
+  wTimer=setTimeout(()=>{
+    const res=wageData.filter(d=>{
+      const full=[d.h1,d.h2,d.h3,d.h4].join(' ').toLowerCase();
+      return full.includes(q.toLowerCase());
+    }).slice(0,50);
+    renderWageSearchList(res,q);
+  },200);
+}
+function wClearSearch(){
+  document.getElementById('w-search-text').value='';
+  document.getElementById('wage-search-list').innerHTML='';
+}
+
+function renderWageSearchList(res,q){
+  const el=document.getElementById('wage-search-list');
+  if(!res.length){el.innerHTML=`<div class="state-box">ไม่พบรายการที่ตรงกับ "${q}"</div>`;return;}
+  const esc=q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+  const re=new RegExp(esc,'gi');
+  const rows=res.map((it,i)=>{
+    const fullName=[it.h1,it.h2,it.h3,it.h4].filter(x=>x&&x!=='-').join(' › ');
+    const hl=fullName.replace(re,m=>`<mark style="background:rgba(245,166,35,.25);color:var(--amber);border-radius:2px;padding:0 2px">${m}</mark>`);
+    const priceStr=it.price?fmt(it.price):it.rawPrice||'—';
+    return `<div class="sl-row" onclick="wSelectFromList(${wageData.indexOf(it)})">
+      <div style="flex:1;min-width:0"><div class="sl-name">${hl}</div><div class="sl-meta">${it.sheetLabel}</div></div>
+      <div><div class="sl-price-val wage">${priceStr}</div><div class="sl-price-meta">${it.unit}</div></div>
+    </div>`;
+  }).join('');
+  el.innerHTML=`<div class="sl-card"><div class="sl-hd">พบ ${res.length} รายการ — คลิกเพื่อดูรายละเอียด</div>${rows}</div>`;
+}
+
+function wSelectFromList(idx){
+  document.getElementById('wage-search-list').innerHTML='';
+  document.getElementById('w-search-text').value='';
+  showWageResult(wageData[idx]);
+}
+
+function showWageResult(item){
+  const fullName=[item.h1,item.h2,item.h3,item.h4].filter(x=>x&&x!=='-').join(' › ');
+  const priceStr=item.price?fmt(item.price):item.rawPrice||'—';
+  const isNumeric=item.price!==null;
+  const wageIdx=wageData.indexOf(item);
+
+  // แสดง context — รายการที่เกี่ยวข้องใน h1 เดียวกัน
+  const related=wageData.filter(d=>d.sheetLabel===item.sheetLabel&&d.h1===item.h1&&d!==item).slice(0,8);
+  const relRows=related.map(r=>{
+    const rn=[r.h2,r.h3,r.h4].filter(x=>x&&x!=='-').join(' › ')||r.h2||'—';
+    return `<div class="detail-row"><span class="detail-key" style="font-size:12px">${rn}</span><span class="detail-val" style="font-family:'IBM Plex Mono',monospace;font-size:12px">${r.price?fmt(r.price):r.rawPrice||'—'} ${r.unit}</span></div>`;
+  }).join('');
+
+  document.getElementById('wage-result-area').innerHTML=`
+    <div class="rc">
+      <div class="rc-hd">
+        <div>
+          <div class="rc-name">${[item.h3||item.h2,item.h4].filter(x=>x&&x!=='-').join(' — ')||item.h1}</div>
+          <div class="rc-sub">${item.sheetLabel} › ${item.h1}${item.h2&&item.h2!=='-'?' › '+item.h2:''}</div>
+        </div>
+        <span class="cat-pill wage">${item.sheetLabel}</span>
+      </div>
+      <div class="rc-body">
+        <div class="price-box wage">
+          <div class="pb-label wage">ค่าแรง ว.809</div>
+          <div class="pb-val wage">${priceStr}</div>
+          <div class="pb-unit">บาท / ${item.unit}</div>
+          ${isNumeric?`<div class="add-btn-wrap"><button class="btn btn-amber" style="width:100%;justify-content:center" onclick="wAddToList(${wageIdx})">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>เพิ่มในรายการ
+          </button></div>`:'<div style="margin-top:8px;font-size:12px;color:var(--text3)">* ราคาเป็นเปอร์เซ็นต์ ไม่สามารถเพิ่มในรายการได้</div>'}
+        </div>
+        ${related.length?`<div class="rc-detail-box"><div class="rc-detail-label">รายการอื่นในหมวดเดียวกัน</div>${relRows}</div>`:'<div></div>'}
+      </div>
+    </div>`;
+}
+
+function wAddToList(idx){
+  const item=wageData[idx];
+  if(!item)return;
+  const key=wageData.indexOf(item);
+  if(wSelectedItems.find(s=>s._idx===key)){alert('รายการนี้มีอยู่แล้ว');return;}
+  wSelectedItems.push({...item,_idx:key});
+  wRenderSelected();
+  document.getElementById('w-sel-cat').value='';
+  document.getElementById('w-sel-item').innerHTML='<option value="">— เลือกรายการ —</option>';
+  document.getElementById('w-sel-item').disabled=true;
+  const toast=document.createElement('div');
+  toast.style.cssText='padding:11px 15px;background:var(--amber-dim);border:1px solid var(--amber-border);border-radius:var(--radius-sm);color:var(--amber);font-size:13px;margin-bottom:14px;transition:opacity .6s';
+  const nm=[item.h3||item.h2,item.h4].filter(x=>x&&x!=='-').join(' — ')||item.h1;
+  toast.textContent=`✓ เพิ่ม "${nm}" เรียบร้อยแล้ว`;
+  const ra=document.getElementById('wage-result-area');
+  ra.innerHTML='';ra.appendChild(toast);
+  setTimeout(()=>{toast.style.opacity='0';},3000);
+  setTimeout(()=>{if(ra.contains(toast))ra.removeChild(toast);},3700);
+  setTimeout(()=>document.getElementById('w-sel-sec').scrollIntoView({behavior:'smooth',block:'nearest'}),150);
+}
+
+function wRemoveFromList(idx){
+  wSelectedItems=wSelectedItems.filter(s=>s._idx!==idx);
+  wRenderSelected();
+}
+
+function wRenderSelected(){
+  const sec=document.getElementById('w-sel-sec');
+  if(!wSelectedItems.length){sec.style.display='none';return;}
+  sec.style.display='block';
+  document.getElementById('w-sel-count').textContent=`(${wSelectedItems.length} รายการ)`;
+  document.getElementById('w-sel-body').innerHTML=wSelectedItems.map((it,i)=>{
+    const nm=[it.h3||it.h2,it.h4].filter(x=>x&&x!=='-').join(' — ')||it.h1;
+    return `<tr>
+      <td style="color:var(--text3);font-size:12px">${i+1}</td>
+      <td>${nm}${it.h2&&it.h2!=='-'?`<div style="font-size:11px;color:var(--text3)">${it.h1}${it.h2&&it.h2!=='-'?' › '+it.h2:''}</div>`:''}</td>
+      <td><span class="cat-badge">${it.sheetLabel}</span></td>
+      <td style="white-space:nowrap;color:var(--text2)">${it.unit}</td>
+      <td class="r s-num wage">${it.price?fmt(it.price):it.rawPrice||'—'}</td>
+      <td class="no-print"><span class="s-del" onclick="wRemoveFromList(${it._idx})" title="ลบ">×</span></td>
+    </tr>`;
+  }).join('');
+}
+
+function wClearSelected(){
+  if(!wSelectedItems.length)return;
+  if(!confirm(`ล้างรายการทั้งหมด ${wSelectedItems.length} รายการ?`))return;
+  wSelectedItems=[];wRenderSelected();
+  document.getElementById('wage-result-area').innerHTML='';
+}
+
+function wPrintPDF(){
+  if(!wSelectedItems.length){alert('ยังไม่มีรายการที่เลือก');return;}
+  document.getElementById('w-pdf-date').textContent=new Date().toLocaleDateString('th-TH',{year:'numeric',month:'long',day:'numeric'});
+  window.print();
+}
+
+// ============================================================
+// PAGE 4: WAGE TABLE
+// ============================================================
+function wFilterTable(){
+  const cat=document.getElementById('w-tbl-cat').value;
+  const q=(document.getElementById('w-tbl-search').value||'').trim().toLowerCase();
+  const data=wageData.filter(d=>{
+    const catOk=!cat||d.sheetLabel===cat;
+    const full=[d.h1,d.h2,d.h3,d.h4].join(' ').toLowerCase();
+    const textOk=!q||full.includes(q);
+    return catOk&&textOk;
+  });
+  wRenderTable(data);
+}
+
+function wRenderTable(data){
+  const tbody=document.getElementById('w-tbl-body');
+  if(!data.length){tbody.innerHTML=`<tr><td colspan="6"><div class="state-box">ไม่พบรายการ</div></td></tr>`;document.getElementById('w-row-count').textContent='';return;}
+  tbody.innerHTML=data.map(it=>{
+    const isNum=it.price!==null;
+    return `<tr>
+      <td class="nm"><span title="${it.h1}">${it.h1}</span></td>
+      <td class="sm">${it.h2&&it.h2!=='-'?it.h2:''}</td>
+      <td class="nm"><span title="${it.h3}">${it.h3&&it.h3!=='-'?it.h3:''}</span></td>
+      <td class="sm col-hide-tablet">${it.h4&&it.h4!=='-'?it.h4:''}</td>
+      <td style="white-space:nowrap;color:var(--text2);font-size:12px">${it.unit}</td>
+      <td class="${isNum?'hi-w':'r'}" style="${!isNum?'color:var(--text2);font-size:11px':''}">
+        ${it.price?fmt(it.price):it.rawPrice||'—'}
+      </td>
+    </tr>`;
+  }).join('');
+  document.getElementById('w-row-count').textContent=`แสดง ${data.length.toLocaleString()} รายการ จากทั้งหมด ${wageData.length.toLocaleString()} รายการ`;
+}
+
+function wRefreshData(){
+  wageData=[];
+  document.getElementById('w-tbl-body').innerHTML=`<tr><td colspan="6"><div class="state-box"><div class="loading-dots"><span></span><span></span><span></span></div><p style="margin-top:10px">กำลังโหลด...</p></div></td></tr>`;
+  loadWageData();
+}
+
+// ============================================================
+// INIT
+// ============================================================
 loadData();
+loadWageData();
 </script>
+
 <div class="credit-bar">
   พัฒนาโดย <strong>ส่วนควบคุมการก่อสร้าง สำนักช่าง เทศบาลนครอุดรธานี</strong>
 </div>
-
 </body>
 </html>
