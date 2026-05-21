@@ -239,10 +239,24 @@ table.main td.sm{font-size:11px;color:var(--text2);}
   </div>
 </div>
 
-<!-- WARNING BANNER -->
-<div class="warn-banner">
+<!-- WARNING BANNER ราคาวัสดุ (หน้า 1-2) -->
+<div class="warn-banner" id="mat-warn">
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15" style="flex-shrink:0"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-  <span><strong>ข้อควรระวัง:</strong> กรุณาตรวจสอบราคาจากเว็บไซต์พาณิชย์จังหวัดทุกครั้งก่อนนำไปใช้งาน เพื่อตรวจสอบความถูกต้องและความเป็นปัจจุบันของราคา | ค่าแรงอ้างอิงบัญชีค่าแรงงาน ว.809 กรมบัญชีกลาง</span>
+  <span><strong>ข้อควรระวัง:</strong> กรุณาตรวจสอบราคาจากเว็บไซต์พาณิชย์จังหวัดทุกครั้งก่อนนำไปใช้งาน เพื่อตรวจสอบความถูกต้องและความเป็นปัจจุบันของราคา</span>
+</div>
+
+<!-- WAGE NOTE (หน้า 3-4) -->
+<div class="warn-banner" id="wage-warn" style="display:none;flex-direction:column;gap:8px">
+  <div style="display:flex;align-items:flex-start;gap:8px">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15" style="flex-shrink:0;margin-top:2px"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+    <span><strong>กรุณาตรวจสอบค่าแรงตาม</strong> หนังสือที่ กค 0433.2/ว809 ลงวันที่ 14 พฤศจิกายน 2568 เรื่อง การปรับปรุงบัญชีค่าแรงงาน/ดำเนินการสำหรับถอดแบบคำนวณราคากลางงานก่อสร้าง</span>
+  </div>
+  <div style="padding-left:23px;font-size:12px;color:var(--text2);line-height:1.8">
+    <strong style="color:var(--amber)">หมายเหตุ:</strong><br>
+    1. ค่าแรงงานที่อยู่นอกเหนือจากรายการที่กำหนดไว้นี้ ใช้คิดเหมารวมร้อยละ 30-37 ของยอดค่าวัสดุมาเป็นค่าแรงงาน ส่วนจะคำนวณจากยอดค่าวัสดุร้อยละเท่าใด ระหว่างร้อยละ 30-37 ให้ขึ้นอยู่กับการพิจารณาของผู้มีหน้าที่คำนวณราคากลาง<br>
+    2. ค่าแรงงานของบางรายการงานก่อสร้างที่ไม่ได้กำหนดไว้ในบัญชีค่าแรงงานฯ ฉบับนี้ ให้ผู้มีหน้าที่คำนวณราคากลางกำหนดเองตามความเหมาะสมและสอดคล้องกับลักษณะงาน และราคาค่าแรงงานในท้องถิ่นนั้น<br>
+    3. การปรับปรุงบัญชีค่าแรงงานฯ ให้เป็นไปตามแนวทางและวิธีการที่กำหนดในส่วนของแนวทางและวิธีปฏิบัติเกี่ยวกับหลักเกณฑ์การคำนวณราคากลางงานก่อสร้าง ในส่วนที่เกี่ยวข้องกับบัญชีค่าแรงงานฯ กรมบัญชีกลาง
+  </div>
 </div>
 
 <!-- PAGE 1: ค้นหาราคาวัสดุ -->
@@ -330,10 +344,20 @@ table.main td.sm{font-size:11px;color:var(--text2);}
 <div class="search-wrap">
   <div class="page-title">ค้นหาค่าแรงก่อสร้าง</div>
   <div class="page-sub">อ้างอิงบัญชีค่าแรงงาน ว.809 กรมบัญชีกลาง</div>
-  <div class="filter-row">
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:10px">
     <div>
       <div class="field-label">หมวดงาน</div>
       <select id="w-sel-cat" onchange="wOnCatChange()"><option value="">— เลือกหมวดงาน —</option></select>
+    </div>
+    <div>
+      <div class="field-label">หมวดย่อย 1 (h1)</div>
+      <select id="w-sel-h1" onchange="wOnH1Change()" disabled><option value="">— เลือกหมวดย่อย —</option></select>
+    </div>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
+    <div>
+      <div class="field-label">หมวดย่อย 2 (h2)</div>
+      <select id="w-sel-h2" onchange="wOnH2Change()" disabled><option value="">— เลือกหมวดย่อย —</option></select>
     </div>
     <div>
       <div class="field-label">รายการงาน</div>
@@ -460,6 +484,9 @@ function switchPage(p){
     tab.classList.remove('active','active-wage');
     if(x===p) tab.classList.add(p.startsWith('wage')?'active-wage':'active');
   });
+  const isWage=p.startsWith('wage');
+  document.getElementById('mat-warn').style.display=isWage?'none':'flex';
+  document.getElementById('wage-warn').style.display=isWage?'flex':'none';
 }
 
 // ============================================================
@@ -733,22 +760,79 @@ function buildWageDropdowns(){
 }
 
 // ============================================================
-// PAGE 3: WAGE SEARCH
+// PAGE 3: WAGE SEARCH — CASCADE DROPDOWN
 // ============================================================
+function wResetBelow(level){
+  // level: 'cat'|'h1'|'h2'|'item'
+  const levels=['h1','h2','item'];
+  const start=level==='cat'?0:level==='h1'?1:level==='h2'?2:3;
+  const ids=['w-sel-h1','w-sel-h2','w-sel-item'];
+  const labels=['— เลือกหมวดย่อย —','— เลือกหมวดย่อย —','— เลือกรายการ —'];
+  for(let i=start;i<ids.length;i++){
+    document.getElementById(ids[i]).innerHTML=`<option value="">${labels[i]}</option>`;
+    document.getElementById(ids[i]).disabled=true;
+  }
+  document.getElementById('wage-result-area').innerHTML='';
+}
+
+function wUniq(arr){return[...new Set(arr.filter(x=>x&&x!=='-'))];}
+
 function wOnCatChange(){
   const cat=document.getElementById('w-sel-cat').value;
-  const isel=document.getElementById('w-sel-item');
   wClearSearch();
-  document.getElementById('wage-result-area').innerHTML='';
-  if(!cat){isel.innerHTML='<option value="">— เลือกรายการ —</option>';isel.disabled=true;return;}
+  wResetBelow('cat');
+  if(!cat)return;
+  // สร้าง unique h1
   const items=wageData.filter(d=>d.sheetLabel===cat);
+  const h1vals=wUniq(items.map(d=>d.h1));
+  if(!h1vals.length)return;
+  const opts=['<option value="">— เลือกหมวดย่อย —</option>'];
+  h1vals.forEach(v=>opts.push(`<option value="${v}">${v}</option>`));
+  const sel=document.getElementById('w-sel-h1');
+  sel.innerHTML=opts.join('');sel.disabled=false;
+}
+
+function wOnH1Change(){
+  const cat=document.getElementById('w-sel-cat').value;
+  const h1=document.getElementById('w-sel-h1').value;
+  wClearSearch();
+  wResetBelow('h1');
+  if(!h1)return;
+  const items=wageData.filter(d=>d.sheetLabel===cat&&d.h1===h1);
+  const h2vals=wUniq(items.map(d=>d.h2));
+  if(!h2vals.length){
+    // ไม่มี h2 → แสดงรายการ item โดยตรง
+    wPopulateItems(items);return;
+  }
+  const opts=['<option value="">— เลือกหมวดย่อย —</option>'];
+  h2vals.forEach(v=>opts.push(`<option value="${v}">${v}</option>`));
+  const sel=document.getElementById('w-sel-h2');
+  sel.innerHTML=opts.join('');sel.disabled=false;
+}
+
+function wOnH2Change(){
+  const cat=document.getElementById('w-sel-cat').value;
+  const h1=document.getElementById('w-sel-h1').value;
+  const h2=document.getElementById('w-sel-h2').value;
+  wClearSearch();
+  wResetBelow('h2');
+  if(!h2)return;
+  const items=wageData.filter(d=>d.sheetLabel===cat&&d.h1===h1&&d.h2===h2);
+  wPopulateItems(items);
+}
+
+function wPopulateItems(items){
+  if(!items.length)return;
   const opts=['<option value="">— เลือกรายการ —</option>'];
-  items.forEach((it,idx)=>{
-    // สร้าง label แสดงชื่องาน
-    const label=[it.h1,it.h2,it.h3,it.h4].filter(x=>x&&x!=='-').join(' › ');
-    opts.push(`<option value="${idx}_${cat}">${label}</option>`);
+  items.forEach(it=>{
+    const idx=wageData.indexOf(it);
+    // label = h3+h4 หรือ h2 หรือ h1
+    const label=[it.h3,it.h4].filter(x=>x&&x!=='-').join(' — ')||it.h2||it.h1;
+    const priceStr=it.price?` (${fmt(it.price)} บาท/${it.unit})`:it.rawPrice?` (${it.rawPrice})`:''
+    opts.push(`<option value="${idx}">${label}${priceStr}</option>`);
   });
-  isel.innerHTML=opts.join('');isel.disabled=false;
+  const sel=document.getElementById('w-sel-item');
+  sel.innerHTML=opts.join('');sel.disabled=false;
 }
 
 function wOnItemChange(){
@@ -756,9 +840,7 @@ function wOnItemChange(){
   wClearSearch();
   document.getElementById('wage-result-area').innerHTML='';
   if(!val)return;
-  const [idxStr,cat]=val.split('_');
-  const items=wageData.filter(d=>d.sheetLabel===val.substring(val.indexOf('_')+1));
-  const item=wageData.filter(d=>d.sheetLabel===document.getElementById('w-sel-cat').value)[parseInt(idxStr)];
+  const item=wageData[parseInt(val)];
   if(item)showWageResult(item);
 }
 
@@ -850,9 +932,9 @@ function wAddToList(idx){
   if(wSelectedItems.find(s=>s._idx===key)){alert('รายการนี้มีอยู่แล้ว');return;}
   wSelectedItems.push({...item,_idx:key});
   wRenderSelected();
+  // reset cascade
   document.getElementById('w-sel-cat').value='';
-  document.getElementById('w-sel-item').innerHTML='<option value="">— เลือกรายการ —</option>';
-  document.getElementById('w-sel-item').disabled=true;
+  wResetBelow('cat');
   const toast=document.createElement('div');
   toast.style.cssText='padding:11px 15px;background:var(--amber-dim);border:1px solid var(--amber-border);border-radius:var(--radius-sm);color:var(--amber);font-size:13px;margin-bottom:14px;transition:opacity .6s';
   const nm=[item.h3||item.h2,item.h4].filter(x=>x&&x!=='-').join(' — ')||item.h1;
