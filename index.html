@@ -1116,9 +1116,14 @@ const COMP_GROUPS = {
   '15':'ท่อระบายน้ำ','16':'โครงคร่าว',
 };
 
+// ราคาตายตัว: item_code → ราคา (บาท/หน่วย)
+const FIXED_PRICES = {
+  '8': 0.0164,  // น้ำ บาท/ลิตร
+};
+
 let compLoaded=false, compList=[], compItems=[], matRefMap={};
 let cpSelectedItems=[], currentCalcId=null;
-let modalTargetRow=null; // {compId,seq,el}
+let modalTargetRow=null;
 
 async function fetchCompSheet(sh){
   const url=`https://docs.google.com/spreadsheets/d/${COMP_SHEET_ID}/gviz/tq?sheet=${encodeURIComponent(sh)}&tqx=out:json`;
@@ -1129,36 +1134,51 @@ async function fetchCompSheet(sh){
 
 async function loadCompData(){
   try{
-    // mat_ref
+    // mat_ref — รหัสเป็น 1-2 หลัก ไม่ต้อง pad แล้ว
     const mt=await fetchCompSheet('mat_ref');
     matRefMap={};
     if(mt&&mt.rows) mt.rows.forEach(row=>{
       const code=cv(row.c[0]);
-      if(!code||code==='รหัส')return;
-      matRefMap[String(code).padStart(3,'0')]={
+      if(!code||code==='รหัส'||!cv(row.c[1]))return;
+      const key=String(code).trim();
+      matRefMap[key]={
         name:cv(row.c[1]), unit:cv(row.c[2]), commodityCode:cv(row.c[3])
       };
     });
 
-    // comp_list
+    // comp_list — comp_id เป็นตัวเลข เช่น 11, 31, 81
     const cl=await fetchCompSheet('comp_list');
     compList=[];
     if(cl&&cl.rows) cl.rows.forEach(row=>{
       const id=cv(row.c[0]);
       if(!id||id==='comp_id')return;
-      compList.push({id, group:cv(row.c[1]), sub:cv(row.c[2]), name:cv(row.c[3]), unit:cv(row.c[4])});
+      compList.push({
+        id:String(id).trim(),
+        group:cv(row.c[1]),
+        sub:cv(row.c[2]),
+        name:cv(row.c[3]),
+        unit:cv(row.c[4])
+      });
     });
 
-    // comp_items
+    // comp_items — item_code เป็น 1-2 หลัก เช่น 3, 8, 37
     const ci=await fetchCompSheet('comp_items');
     compItems=[];
     if(ci&&ci.rows) ci.rows.forEach(row=>{
       const cid=cv(row.c[0]);
       if(!cid||cid==='comp_id')return;
+      const itemCode=String(cv(row.c[2])).trim();
+      const fixedPrice=itemCode&&FIXED_PRICES[itemCode]?FIXED_PRICES[itemCode]:null;
       compItems.push({
-        compId:cid, seq:cv(row.c[1]), itemCode:cv(row.c[2]),
-        itemName:cv(row.c[3]), qty:parseFloat(cv(row.c[4]))||0,
-        unit:cv(row.c[5]), commodityCode:cv(row.c[6]), userInput:cv(row.c[7])
+        compId:String(cid).trim(),
+        seq:cv(row.c[1]),
+        itemCode,
+        itemName:cv(row.c[3]),
+        qty:parseFloat(cv(row.c[4]))||0,
+        unit:cv(row.c[5]),
+        commodityCode:cv(row.c[6]),
+        userInput:cv(row.c[7]),
+        fixedPrice,  // ราคาตายตัว (ถ้ามี)
       });
     });
 
@@ -1166,7 +1186,8 @@ async function loadCompData(){
     buildCompDropdowns();
   }catch(e){
     console.error('loadCompData error',e);
-    document.getElementById('cp-calc-area').innerHTML=`<div class="state-box" style="color:var(--red)">โหลดข้อมูลไม่สำเร็จ: ${e.message}</div>`;
+    document.getElementById('cp-calc-area').innerHTML=
+      `<div class="state-box" style="color:var(--red)">โหลดข้อมูลไม่สำเร็จ: ${e.message}</div>`;
   }
 }
 
@@ -1232,47 +1253,65 @@ function cpSelectFromList(id){
 function renderCalc(compId){
   currentCalcId=compId;
   const comp=compList.find(d=>d.id===compId);
-  if(!comp) return;
+  if(!comp)return;
+
+  // ถ้า unit ว่างให้ดูจาก comp_items ว่าเป็น ลบ.ม. หรือ ตร.ม.
+  const compUnit=comp.unit||'หน่วย';
+
   const items=compItems.filter(d=>d.compId===compId);
 
   const rows=items.map((it,i)=>{
     const hasCode=it.commodityCode&&it.commodityCode.length>5;
-    // ราคาจาก allData (ถ้ามี commodityCode)
     const matItem=hasCode?allData.find(d=>d.code===it.commodityCode):null;
     const autoPrice=matItem?matItem.price:null;
     const autoProv=matItem?matItem.province:'';
+
+    // ราคาเริ่มต้น: ราคาตายตัว > ราคาพาณิชย์ > ว่าง
+    const initPrice=it.fixedPrice!==null?it.fixedPrice:autoPrice;
+    const initProv=it.fixedPrice!==null?'(ราคาตายตัว)':autoProv;
+    const isFixed=it.fixedPrice!==null;
+
+    const sub=initPrice?it.qty*initPrice:null;
 
     return `<tr id="cp-row-${compId}-${i}">
       <td style="color:var(--text3);font-size:12px">${i+1}</td>
       <td>
         <div style="font-size:13px">${it.itemName}</div>
-        ${it.itemCode?`<div style="font-size:11px;color:var(--text3)">${it.itemCode}</div>`:''}
+        ${it.itemCode?`<div style="font-size:11px;color:var(--text3)">รหัส ${it.itemCode}</div>`:''}
       </td>
-      <td class="r" style="font-family:'IBM Plex Mono',monospace;font-size:12px">${it.qty.toLocaleString('th-TH',{minimumFractionDigits:2,maximumFractionDigits:3})}</td>
+      <td class="r" style="font-family:'IBM Plex Mono',monospace;font-size:12px">
+        ${it.qty.toLocaleString('th-TH',{minimumFractionDigits:2,maximumFractionDigits:3})}
+      </td>
       <td style="font-size:12px;color:var(--text2);white-space:nowrap">${it.unit}</td>
       <td>
-        <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
-          ${hasCode?`<button class="price-mode-btn ${autoPrice?'active-mat':''}" onclick="cpUseMat(${i},'${compId}')" title="ใช้ราคาพาณิชย์จังหวัด">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
-            พาณิชย์${autoPrice?` (${fmt(autoPrice)})`:' (เลือก)'}
-          </button>`:''}
-          <button class="price-mode-btn active-manual" onclick="cpUseManual(${i},'${compId}')" title="กรอกราคาเอง">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-            กรอกเอง
-          </button>
-        </div>
-        <div style="margin-top:6px;display:flex;align-items:center;gap:8px">
-          <input class="price-inp ${autoPrice?'has-val':''}" type="number" step="0.01" min="0"
-            id="cp-price-${compId}-${i}"
-            value="${autoPrice||''}"
-            placeholder="0.00"
-            oninput="cpCalcTotal('${compId}')"
-          >
-          <span style="font-size:11px;color:var(--text3)" id="cp-prov-${compId}-${i}">${autoProv?'📍 '+autoProv:''}</span>
-        </div>
+        ${isFixed
+          ?`<div style="font-size:12px;color:var(--text3);padding:5px 0">
+              <span style="background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:3px 8px;font-family:'IBM Plex Mono',monospace;color:var(--text2)">${fmt(it.fixedPrice)}</span>
+              <span style="font-size:11px;margin-left:6px;color:var(--text3)">บาท/${it.unit} (ราคาตายตัว)</span>
+            </div>`
+          :`<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+              ${hasCode?`<button class="price-mode-btn ${autoPrice?'active-mat':''}" onclick="cpUseMat(${i},'${compId}')" title="ใช้ราคาพาณิชย์จังหวัด">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                พาณิชย์${autoPrice?` (${fmt(autoPrice)})`:' (เลือก)'}
+              </button>`:''}
+              <button class="price-mode-btn active-manual" onclick="cpUseManual(${i},'${compId}')" title="กรอกราคาเอง">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                กรอกเอง
+              </button>
+            </div>
+            <div style="margin-top:6px;display:flex;align-items:center;gap:8px">
+              <input class="price-inp ${initPrice?'has-val':''}" type="number" step="0.01" min="0"
+                id="cp-price-${compId}-${i}"
+                value="${initPrice||''}"
+                placeholder="0.00"
+                oninput="cpCalcTotal('${compId}')"
+              >
+              <span style="font-size:11px;color:var(--text3)" id="cp-prov-${compId}-${i}">${initProv?'📍 '+initProv:''}</span>
+            </div>`
+        }
       </td>
-      <td class="r subtotal-cell ${!autoPrice?'zero':''}" id="cp-sub-${compId}-${i}">
-        ${autoPrice?(it.qty*autoPrice).toLocaleString('th-TH',{minimumFractionDigits:2,maximumFractionDigits:2}):'—'}
+      <td class="r subtotal-cell ${!sub?'zero':''}" id="cp-sub-${compId}-${i}">
+        ${sub?sub.toLocaleString('th-TH',{minimumFractionDigits:2,maximumFractionDigits:2}):'—'}
       </td>
     </tr>`;
   }).join('');
@@ -1284,7 +1323,7 @@ function renderCalc(compId){
           <div class="calc-title">${comp.sub} ${comp.name}</div>
           <div class="calc-sub">${COMP_GROUPS[comp.group]||''}</div>
         </div>
-        <span class="comp-pill">${comp.unit}</span>
+        <span class="comp-pill">${compUnit}</span>
       </div>
       <div style="overflow-x:auto">
         <table class="items-tbl">
@@ -1294,7 +1333,7 @@ function renderCalc(compId){
             <th class="r">ปริมาณ</th>
             <th>หน่วย</th>
             <th>ราคา/หน่วย (บาท)</th>
-            <th class="r">ราคา (บาท/${comp.unit})</th>
+            <th class="r">ราคา (บาท/${compUnit})</th>
           </tr></thead>
           <tbody>${rows}</tbody>
         </table>
@@ -1302,11 +1341,11 @@ function renderCalc(compId){
       <div class="total-bar">
         <div>
           <div class="total-label">รวมราคาวัสดุ (ค่างานต้นทุน)</div>
-          <div style="font-size:11px;color:var(--text3)">ราคาต่อ 1 ${comp.unit}</div>
+          <div style="font-size:11px;color:var(--text3)">ราคาต่อ 1 ${compUnit}</div>
         </div>
         <div style="display:flex;align-items:baseline;gap:8px">
           <div class="total-val" id="cp-total-${compId}">—</div>
-          <div class="total-unit">บาท / ${comp.unit}</div>
+          <div class="total-unit">บาท / ${compUnit}</div>
         </div>
       </div>
       <div style="padding:12px 18px;display:flex;justify-content:flex-end">
@@ -1322,14 +1361,24 @@ function renderCalc(compId){
 
 function cpCalcTotal(compId){
   const items=compItems.filter(d=>d.compId===compId);
-  let total=0; let allFilled=true;
+  let total=0;
   items.forEach((it,i)=>{
-    const inp=document.getElementById(`cp-price-${compId}-${i}`);
     const subEl=document.getElementById(`cp-sub-${compId}-${i}`);
-    if(!inp||!subEl)return;
-    const price=parseFloat(inp.value)||0;
+    if(!subEl)return;
+
+    let price=0;
+    if(it.fixedPrice!==null){
+      // ราคาตายตัว — ไม่มี input
+      price=it.fixedPrice;
+    } else {
+      const inp=document.getElementById(`cp-price-${compId}-${i}`);
+      if(!inp||!inp.value||parseFloat(inp.value)<=0){
+        subEl.textContent='—';subEl.className='r subtotal-cell zero';return;
+      }
+      price=parseFloat(inp.value)||0;
+    }
+
     const sub=it.qty*price;
-    if(!inp.value||price<=0){allFilled=false;subEl.textContent='—';subEl.className='r subtotal-cell zero';return;}
     total+=sub;
     subEl.textContent=sub.toLocaleString('th-TH',{minimumFractionDigits:2,maximumFractionDigits:2});
     subEl.className='r subtotal-cell';
