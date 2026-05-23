@@ -1249,29 +1249,72 @@ function cpSelectFromList(id){
   renderCalc(id);
 }
 
-// ===== RENDER CALCULATOR =====
+// ============================================================
+// UNIT CONVERSION
+// ============================================================
+// แปลงราคาจากหน่วยพาณิชย์ → หน่วยของวัสดุมวลรวม
+function convertPrice(price, fromUnit, toUnit){
+  if(!price||!fromUnit||!toUnit) return price;
+  const f=fromUnit.trim().toLowerCase();
+  const t=toUnit.trim().toLowerCase();
+  if(f===t) return price;
+
+  // ตัน ↔ กก.
+  if(f==='ตัน'&&(t==='กก.'||t==='กก')) return price/1000;
+  if((f==='กก.'||f==='กก')&&t==='ตัน') return price*1000;
+
+  // ลบ.ม. ↔ ลิตร
+  if(f==='ลบ.ม.'&&t==='ลิตร') return price/1000;
+  if(f==='ลิตร'&&t==='ลบ.ม.') return price*1000;
+
+  // ลบ.ม. ↔ ลบ.ซม.
+  if(f==='ลบ.ม.'&&(t==='ลบ.ซม.'||t==='cc')) return price/1000000;
+  if((f==='ลบ.ซม.'||f==='cc')&&t==='ลบ.ม.') return price*1000000;
+
+  // ตร.ม. ↔ ตร.ซม.
+  if(f==='ตร.ม.'&&t==='ตร.ซม.') return price/10000;
+  if(f==='ตร.ซม.'&&t==='ตร.ม.') return price*10000;
+
+  // ม. ↔ ซม.
+  if(f==='ม.'&&t==='ซม.') return price/100;
+  if(f==='ซม.'&&t==='ม.') return price*100;
+
+  return price; // ถ้าไม่รู้จักคู่หน่วย ส่งราคาเดิมกลับ
+}
+
+function unitConvNote(fromUnit, toUnit){
+  if(!fromUnit||!toUnit||fromUnit.trim()===toUnit.trim()) return '';
+  return ` <span style="font-size:10px;color:var(--amber);background:var(--amber-dim);border-radius:3px;padding:1px 5px">แปลงจาก ${fromUnit}→${toUnit}</span>`;
+}
 function renderCalc(compId){
   currentCalcId=compId;
   const comp=compList.find(d=>d.id===compId);
   if(!comp)return;
-
-  // ถ้า unit ว่างให้ดูจาก comp_items ว่าเป็น ลบ.ม. หรือ ตร.ม.
   const compUnit=comp.unit||'หน่วย';
-
   const items=compItems.filter(d=>d.compId===compId);
 
   const rows=items.map((it,i)=>{
     const hasCode=it.commodityCode&&it.commodityCode.length>5;
     const matItem=hasCode?allData.find(d=>d.code===it.commodityCode):null;
-    const autoPrice=matItem?matItem.price:null;
-    const autoProv=matItem?matItem.province:'';
 
-    // ราคาเริ่มต้น: ราคาตายตัว > ราคาพาณิชย์ > ว่าง
+    // แปลงหน่วยราคาพาณิชย์ → หน่วยของวัสดุมวลรวม
+    const matUnit=matItem?matItem.unit:'';
+    const rawPrice=matItem?matItem.price:null;
+    const autoPrice=rawPrice!==null?convertPrice(rawPrice,matUnit,it.unit):null;
+    const autoProv=matItem?matItem.province:'';
+    const converted=matItem&&matUnit&&it.unit&&matUnit.trim()!==it.unit.trim();
+    const convNote=converted?unitConvNote(matUnit,it.unit):'';
+
+    // ราคาเริ่มต้น: ราคาตายตัว > ราคาพาณิชย์แปลงแล้ว > ว่าง
     const initPrice=it.fixedPrice!==null?it.fixedPrice:autoPrice;
     const initProv=it.fixedPrice!==null?'(ราคาตายตัว)':autoProv;
     const isFixed=it.fixedPrice!==null;
+    const sub=initPrice!==null?it.qty*initPrice:null;
 
-    const sub=initPrice?it.qty*initPrice:null;
+    // แสดงราคาพาณิชย์ที่แปลงแล้วในปุ่ม
+    const matPriceLabel=autoPrice!==null
+      ?` (${autoPrice<1?autoPrice.toFixed(5).replace(/\.?0+$/,''):fmt(autoPrice)} บาท/${it.unit})`
+      :' (เลือก)';
 
     return `<tr id="cp-row-${compId}-${i}">
       <td style="color:var(--text3);font-size:12px">${i+1}</td>
@@ -1286,23 +1329,23 @@ function renderCalc(compId){
       <td>
         ${isFixed
           ?`<div style="font-size:12px;color:var(--text3);padding:5px 0">
-              <span style="background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:3px 8px;font-family:'IBM Plex Mono',monospace;color:var(--text2)">${fmt(it.fixedPrice)}</span>
+              <span style="background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:3px 8px;font-family:'IBM Plex Mono',monospace;color:var(--text2)">${it.fixedPrice}</span>
               <span style="font-size:11px;margin-left:6px;color:var(--text3)">บาท/${it.unit} (ราคาตายตัว)</span>
             </div>`
           :`<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
-              ${hasCode?`<button class="price-mode-btn ${autoPrice?'active-mat':''}" onclick="cpUseMat(${i},'${compId}')" title="ใช้ราคาพาณิชย์จังหวัด">
+              ${hasCode?`<button class="price-mode-btn ${autoPrice!==null?'active-mat':''}" onclick="cpUseMat(${i},'${compId}')" title="ใช้ราคาพาณิชย์จังหวัด">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
-                พาณิชย์${autoPrice?` (${fmt(autoPrice)})`:' (เลือก)'}
-              </button>`:''}
+                พาณิชย์${matPriceLabel}
+              </button>${convNote}`:''}
               <button class="price-mode-btn active-manual" onclick="cpUseManual(${i},'${compId}')" title="กรอกราคาเอง">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                 กรอกเอง
               </button>
             </div>
             <div style="margin-top:6px;display:flex;align-items:center;gap:8px">
-              <input class="price-inp ${initPrice?'has-val':''}" type="number" step="0.01" min="0"
+              <input class="price-inp ${initPrice!==null?'has-val':''}" type="number" step="0.00001" min="0"
                 id="cp-price-${compId}-${i}"
-                value="${initPrice||''}"
+                value="${initPrice!==null?initPrice:''}"
                 placeholder="0.00"
                 oninput="cpCalcTotal('${compId}')"
               >
@@ -1311,7 +1354,7 @@ function renderCalc(compId){
         }
       </td>
       <td class="r subtotal-cell ${!sub?'zero':''}" id="cp-sub-${compId}-${i}">
-        ${sub?sub.toLocaleString('th-TH',{minimumFractionDigits:2,maximumFractionDigits:2}):'—'}
+        ${sub!==null?sub.toLocaleString('th-TH',{minimumFractionDigits:2,maximumFractionDigits:2}):'—'}
       </td>
     </tr>`;
   }).join('');
@@ -1388,20 +1431,20 @@ function cpCalcTotal(compId){
 }
 
 function cpUseMat(rowIdx, compId){
-  // ถ้ามีราคาจาก allData อยู่แล้วใส่ได้เลย
   const items=compItems.filter(d=>d.compId===compId);
   const it=items[rowIdx];
   if(!it)return;
   const matItem=it.commodityCode?allData.find(d=>d.code===it.commodityCode):null;
-  if(matItem&&matItem.price){
+  if(matItem&&matItem.price!==null){
+    // แปลงหน่วยก่อนใส่
+    const converted=convertPrice(matItem.price, matItem.unit, it.unit);
     const inp=document.getElementById(`cp-price-${compId}-${rowIdx}`);
     const provEl=document.getElementById(`cp-prov-${compId}-${rowIdx}`);
-    if(inp){inp.value=matItem.price;inp.classList.add('has-val');}
-    if(provEl)provEl.textContent='📍 '+matItem.province;
+    if(inp){inp.value=converted;inp.classList.add('has-val');}
+    if(provEl) provEl.textContent='📍 '+matItem.province+(matItem.unit!==it.unit?` (แปลงจาก ${matItem.unit})`:'' );
     cpCalcTotal(compId);
   } else {
-    // เปิด modal ให้เลือกราคาจากพาณิชย์
-    openMatModal(rowIdx, compId, it.itemName);
+    openMatModal(rowIdx, compId, it.itemName, it.unit);
   }
 }
 
