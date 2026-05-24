@@ -1169,9 +1169,6 @@ async function loadCompData(){
       if(!cid||cid==='comp_id')return;
       const itemCode=String(cv(row.c[2])).trim();
       const fixedPrice=itemCode&&FIXED_PRICES[itemCode]?FIXED_PRICES[itemCode]:null;
-      // strip ="..." wrapper ที่อาจติดมาจาก CSV import
-      const rawCode=cv(row.c[6]);
-      const commodityCode=rawCode.replace(/^="?|"?$/g,'').trim();
       compItems.push({
         compId:String(cid).trim(),
         seq:cv(row.c[1]),
@@ -1179,9 +1176,9 @@ async function loadCompData(){
         itemName:cv(row.c[3]),
         qty:parseFloat(cv(row.c[4]))||0,
         unit:cv(row.c[5]),
-        commodityCode,
+        commodityCode:cv(row.c[6]),
         userInput:cv(row.c[7]),
-        fixedPrice,
+        fixedPrice,  // ราคาตายตัว (ถ้ามี)
       });
     });
 
