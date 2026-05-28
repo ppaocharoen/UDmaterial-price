@@ -78,15 +78,6 @@ select:disabled{opacity:.4;cursor:not-allowed;}
 .credit-bar{text-align:center;padding:14px 20px;font-size:12px;color:var(--text3);border-top:1px solid var(--border);margin-top:20px;}
 .credit-bar strong{color:var(--text2);}
 
-/* SUB TABS */
-.sub-tabs{display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:20px;}
-.sub-tab{padding:9px 18px;cursor:pointer;font-size:13px;font-weight:500;color:var(--text2);border-bottom:2px solid transparent;transition:all .15s;display:flex;align-items:center;gap:6px;user-select:none;}
-.sub-tab:hover{color:var(--text);}
-.sub-tab.active{color:var(--accent2);border-bottom-color:var(--accent);}
-.sub-tab.active-wage{color:var(--amber);border-bottom-color:var(--amber);}
-.sub-tab svg{width:14px;height:14px;}
-.sub-page{display:none;}.sub-page.active{display:block;}
-
 /* ===== COMPOSITE (วัสดุมวลรวม) ===== */
 --purple:#a78bfa;--purple-dim:rgba(167,139,250,.12);--purple-border:rgba(167,139,250,.25);
 .nav-tab.active-comp{color:#a78bfa;border-bottom-color:#a78bfa;}
@@ -261,28 +252,39 @@ table.main td.sm{font-size:11px;color:var(--text2);}
 
 /* PRINT */
 @media print{
-  @page{size:A4 landscape;margin:12mm 10mm;}
-  .topbar,.warn-banner,.search-input-wrap,.filter-row,.sl-card,.s-del,.sel-actions,.no-print,#result-area,#wage-result-area,.nav-tabs,.meta-bar{display:none!important;}
-  body{background:#fff;color:#000;font-size:12px;}
+  @page{size:A4;margin:12mm 10mm;}
+  .topbar,.warn-banner,.wage-warn,.mat-warn,.search-input-wrap,.filter-row,.sl-card,
+  .s-del,.sel-actions,.no-print,#result-area,#wage-result-area,.nav-tabs,.meta-bar,
+  .sub-tabs,.cp-calc-area,#cp-calc-area{display:none!important;}
+  body{background:#fff;color:#000;font-size:11px;}
   .pdf-only{display:block!important;}
   .page.active{display:block;}
-  .search-wrap{max-width:100%;padding:0;}
-  .sel-sec{margin-top:0;}
-  .pdf-hd{margin-bottom:14px;}
-  .pdf-title{font-size:17px;font-weight:700;margin-bottom:3px;}
-  .pdf-meta{font-size:11px;color:#555;}
-  .sel-wrap{border:1px solid #ccc;border-radius:0;}
-  .sel-tbl th{background:#f0f0f0;color:#333;border-bottom:1px solid #ccc;}
-  .sel-tbl td{border-bottom:1px solid #eee;}
-  .sel-tbl tr:hover td{background:transparent;}
-  .s-num{color:#1a6e3a!important;}
-  .s-num.wage{color:#7a4f00!important;}
-  .pdf-ft{margin-top:10px;font-size:10px;color:#777;border-top:1px solid #ddd;padding-top:6px;}
-  .sel-title{font-size:14px;}
-  .sel-hd{margin-bottom:8px;}
-  .credit-bar{display:none;}
+  .search-wrap,.comp-wrap{max-width:100%;padding:0;}
+  .sel-sec,.cp-sel-sec-print{margin-top:0;}
+
+  /* PDF header */
+  .pdf-hd{margin-bottom:12px;}
+  .pdf-title{font-size:16px;font-weight:700;margin-bottom:3px;}
+  .pdf-meta{font-size:10px;color:#555;}
+  .pdf-ft{margin-top:10px;font-size:9px;color:#777;border-top:1px solid #ddd;padding-top:5px;}
+
+  /* ซ่อน summary table ปกติ ใช้ detail table แทน */
+  .comp-sel-wrap{display:none!important;}
+
+  /* Detail print table */
+  .cp-print-detail{display:block!important;}
+  .cp-item-block{margin-bottom:16px;page-break-inside:avoid;}
+  .cp-item-header{font-size:12px;font-weight:700;background:#f0f0f0;padding:5px 8px;border:1px solid #ccc;}
+  .cp-item-sub{font-size:10px;color:#555;padding:2px 8px 4px;}
+  .cp-detail-tbl{width:100%;border-collapse:collapse;font-size:10px;margin-top:4px;}
+  .cp-detail-tbl th{background:#f5f5f5;padding:4px 6px;text-align:left;border:1px solid #ddd;font-size:9px;}
+  .cp-detail-tbl th.r,.cp-detail-tbl td.r{text-align:right;}
+  .cp-detail-tbl td{padding:3px 6px;border:1px solid #eee;}
+  .cp-detail-tbl tr.total-row td{font-weight:700;background:#f9f9f9;border-top:2px solid #ccc;}
+  .cp-detail-tbl .mono{font-family:monospace;}
 }
-.pdf-only{display:none;}
+.cp-print-detail{display:none;}
+.cp-item-block,.cp-item-header,.cp-item-sub,.cp-detail-tbl{}
 </style>
 </head>
 <body>
@@ -295,13 +297,22 @@ table.main td.sm{font-size:11px;color:var(--text2);}
   </div>
   <div class="nav-tabs">
     <div class="nav-tab active" onclick="switchPage('search')" id="tab-search">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>ราคาวัสดุ
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>ค้นหาราคาวัสดุ
+    </div>
+    <div class="nav-tab" onclick="switchPage('table')" id="tab-table">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg>ตารางราคาวัสดุ
     </div>
     <div class="nav-tab" onclick="switchPage('wage')" id="tab-wage">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5M2 12l10 5 10-5"/></svg>ค่าแรง
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5M2 12l10 5 10-5"/></svg>ค้นหาค่าแรง
+    </div>
+    <div class="nav-tab" onclick="switchPage('wage-table')" id="tab-wage-table">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg>ตารางค่าแรง
     </div>
     <div class="nav-tab" onclick="switchPage('composite')" id="tab-composite">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v18m0 0h10a2 2 0 002-2V9M9 21H5a2 2 0 01-2-2V9m0 0h18"/></svg>วัสดุมวลรวม
+    </div>
+    <div class="nav-tab" onclick="switchPage('composite')" id="tab-composite">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v18m0 0h10a2 2 0 002-2v-4M9 21H5a2 2 0 01-2-2v-4m0 0h18"/></svg>วัสดุมวลรวม
     </div>
   </div>
   <div class="meta-bar">
@@ -333,18 +344,8 @@ table.main td.sm{font-size:11px;color:var(--text2);}
 <!-- PAGE 1: ค้นหาราคาวัสดุ -->
 <div class="page active" id="page-search">
 <div class="search-wrap">
-  <div class="page-title">ราคาวัสดุก่อสร้าง</div>
-  <div class="sub-tabs">
-    <div class="sub-tab active" id="sub-search" onclick="switchSubMat('search')">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>ค้นหาราคา
-    </div>
-    <div class="sub-tab" id="sub-table" onclick="switchSubMat('table')">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg>ตารางราคารวม
-    </div>
-  </div>
-
-  <!-- sub-page: ค้นหา -->
-  <div class="sub-page active" id="subp-search">
+  <div class="page-title">ค้นหาราคาวัสดุก่อสร้าง</div>
+  <div class="page-sub">ตามหลักเกณฑ์ราคากลาง — ใช้ราคาอุดรธานีก่อน หากไม่มีเลือกราคาต่ำสุดจาก 6 จังหวัดข้างเคียง</div>
   <div class="filter-row">
     <div>
       <div class="field-label">หมวดวัสดุ</div>
@@ -389,19 +390,22 @@ table.main td.sm{font-size:11px;color:var(--text2);}
       <div>* ราคาตามหลักเกณฑ์ราคากลางราชการ: ใช้ราคาพาณิชย์จังหวัดอุดรธานีก่อน หากไม่มีให้ใช้ราคาต่ำสุดจากจังหวัดใกล้เคียง (หนองคาย เลย สกลนคร หนองบัวลำภู กาฬสินธุ์ ขอนแก่น)</div>
     </div>
   </div>
-  </div><!-- end subp-search -->
+</div>
+</div>
 
-  <!-- sub-page: ตารางรวม -->
-  <div class="sub-page" id="subp-table">
-  <div class="page-sub" style="margin-bottom:14px">ราคาจากพาณิชย์ทุกจังหวัด — ตัวเลขสีเขียวคือราคาที่นำมาใช้ตามหลักเกณฑ์ราคากลาง</div>
-  <div class="tbl-ctrls" style="max-width:100%">
+<!-- PAGE 2: ตารางราคาวัสดุ -->
+<div class="page" id="page-table">
+<div class="table-wrap">
+  <div class="page-title">ตารางราคารวมทุกรายการ</div>
+  <div class="page-sub">ราคาจากพาณิชย์ทุกจังหวัด — ตัวเลขสีเขียวคือราคาที่นำมาใช้ตามหลักเกณฑ์ราคากลาง</div>
+  <div class="tbl-ctrls">
     <div class="fg"><div class="field-label">กรองหมวด</div><select id="tbl-cat" onchange="filterTable()"><option value="">ทุกหมวด</option></select></div>
     <div class="fg"><div class="field-label">ค้นหา</div><input type="text" id="tbl-search" placeholder="ชื่อวัสดุ หรือรหัส..." oninput="filterTable()"></div>
     <button class="btn btn-ghost" onclick="refreshData()">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>รีเฟรช
     </button>
   </div>
-  <div class="tbl-outer" style="max-width:100%;max-height:calc(100vh - 280px)">
+  <div class="tbl-outer">
     <table class="main">
       <thead><tr>
         <th>หมวด</th><th class="col-hide-tablet">รหัสวัสดุ</th><th>ชื่อวัสดุ</th><th>หน่วย</th>
@@ -414,26 +418,13 @@ table.main td.sm{font-size:11px;color:var(--text2);}
     </table>
   </div>
   <div class="row-count" id="row-count"></div>
-  </div><!-- end subp-table -->
-
-</div><!-- end search-wrap -->
-</div><!-- end page-search -->
+</div>
+</div>
 
 <!-- PAGE 3: ค้นหาค่าแรง -->
 <div class="page" id="page-wage">
 <div class="search-wrap">
-  <div class="page-title">ค่าแรงก่อสร้าง</div>
-  <div class="sub-tabs">
-    <div class="sub-tab active-wage active" id="sub-wage" onclick="switchSubWage('search')">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>ค้นหาค่าแรง
-    </div>
-    <div class="sub-tab" id="sub-wage-table" onclick="switchSubWage('table')">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg>ตารางค่าแรง
-    </div>
-  </div>
-
-  <!-- sub-page: ค้นหาค่าแรง -->
-  <div class="sub-page active" id="subp-wage">
+  <div class="page-title">ค้นหาค่าแรงก่อสร้าง</div>
   <div class="page-sub">อ้างอิงบัญชีค่าแรงงาน ว.809 กรมบัญชีกลาง</div>
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:10px">
     <div>
@@ -488,19 +479,22 @@ table.main td.sm{font-size:11px;color:var(--text2);}
       <div>* ค่าแรงอ้างอิงบัญชีค่าแรงงานและค่าขนส่งวัสดุก่อสร้าง ว.809 กรมบัญชีกลาง กระทรวงการคลัง</div>
     </div>
   </div>
-  </div><!-- end subp-wage -->
+</div>
+</div>
 
-  <!-- sub-page: ตารางค่าแรง -->
-  <div class="sub-page" id="subp-wage-table">
-  <div class="page-sub" style="margin-bottom:14px">บัญชีค่าแรงงาน ว.809 กรมบัญชีกลาง — ครอบคลุมทุกหมวดงานก่อสร้าง</div>
-  <div class="tbl-ctrls" style="max-width:100%">
+<!-- PAGE 4: ตารางค่าแรง -->
+<div class="page" id="page-wage-table">
+<div class="table-wrap">
+  <div class="page-title">ตารางค่าแรงทุกรายการ</div>
+  <div class="page-sub">บัญชีค่าแรงงาน ว.809 กรมบัญชีกลาง — ครอบคลุมทุกหมวดงานก่อสร้าง</div>
+  <div class="tbl-ctrls">
     <div class="fg"><div class="field-label">กรองหมวดงาน</div><select id="w-tbl-cat" onchange="wFilterTable()"><option value="">ทุกหมวด</option></select></div>
     <div class="fg"><div class="field-label">ค้นหา</div><input type="text" id="w-tbl-search" placeholder="ชื่องาน..." oninput="wFilterTable()"></div>
     <button class="btn btn-ghost" onclick="wRefreshData()">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>รีเฟรช
     </button>
   </div>
-  <div class="tbl-outer" style="max-width:100%;max-height:calc(100vh - 280px)">
+  <div class="tbl-outer">
     <table class="main">
       <thead><tr>
         <th>หมวด 1</th><th>หมวด 2</th><th>หมวด 3</th><th class="col-hide-tablet">หมวด 4</th><th>หน่วย</th><th class="r">ค่าแรง (บาท)</th>
@@ -509,10 +503,8 @@ table.main td.sm{font-size:11px;color:var(--text2);}
     </table>
   </div>
   <div class="row-count" id="w-row-count"></div>
-  </div><!-- end subp-wage-table -->
-
-</div><!-- end search-wrap -->
-</div><!-- end page-wage -->
+</div>
+</div>
 
 <script>
 // ============================================================
@@ -568,43 +560,22 @@ function fmt(n){
 // PAGE SWITCH
 // ============================================================
 function switchPage(p){
-  ['search','wage','composite'].forEach(x=>{
+  ['search','table','wage','wage-table','composite'].forEach(x=>{
     document.getElementById('page-'+x).classList.toggle('active',x===p);
     const tab=document.getElementById('tab-'+x);
     if(!tab)return;
     tab.classList.remove('active','active-wage','active-comp');
     if(x===p){
-      if(p==='wage') tab.classList.add('active-wage');
+      if(p.startsWith('wage')) tab.classList.add('active-wage');
       else if(p==='composite') tab.classList.add('active-comp');
       else tab.classList.add('active');
     }
   });
-  const isWage=p==='wage';
+  const isWage=p.startsWith('wage');
   const isComp=p==='composite';
   document.getElementById('mat-warn').style.display=(!isWage&&!isComp)?'flex':'none';
   document.getElementById('wage-warn').style.display=isWage?'flex':'none';
   if(isComp&&!compLoaded) loadCompData();
-}
-
-function switchSubMat(sub){
-  ['search','table'].forEach(x=>{
-    document.getElementById('subp-'+x).classList.toggle('active',x===sub);
-    const t=document.getElementById('sub-'+x);
-    if(t) t.classList.toggle('active',x===sub);
-  });
-}
-
-function switchSubWage(sub){
-  ['wage','wage-table'].forEach(x=>{
-    const sid = x==='wage'?'subp-wage':'subp-wage-table';
-    document.getElementById(sid).classList.toggle('active',x===(sub==='search'?'wage':'wage-table'));
-    const tid = x==='wage'?'sub-wage':'sub-wage-table';
-    const t=document.getElementById(tid);
-    if(!t)return;
-    const isActive=x===(sub==='search'?'wage':'wage-table');
-    t.classList.toggle('active',isActive);
-    t.classList.toggle('active-wage',isActive);
-  });
 }
 
 // ============================================================
@@ -1625,7 +1596,57 @@ function cpClearSelected(){
 
 function cpPrintPDF(){
   if(!cpSelectedItems.length){alert('ยังไม่มีรายการที่เลือก');return;}
-  document.getElementById('cp-pdf-date').textContent=new Date().toLocaleDateString('th-TH',{year:'numeric',month:'long',day:'numeric'});
+  document.getElementById('cp-pdf-date').textContent=
+    new Date().toLocaleDateString('th-TH',{year:'numeric',month:'long',day:'numeric'});
+
+  // สร้าง HTML รายละเอียดการคำนวณ
+  const detail=document.getElementById('cp-print-detail');
+  detail.innerHTML=cpSelectedItems.map((s,idx)=>{
+    const compUnit=s.comp.unit||'หน่วย';
+    const itemRows=s.snapshot.map((it,i)=>{
+      const isFixed=it.fixedPrice!==null;
+      const price=isFixed?it.fixedPrice:(it.price||0);
+      const sub=it.qty*price;
+      const priceDisplay=price>0
+        ?(price<1?price.toFixed(5).replace(/\.?0+$/,''):price.toLocaleString('th-TH',{minimumFractionDigits:2,maximumFractionDigits:2}))
+        :'—';
+      const subDisplay=price>0
+        ?sub.toLocaleString('th-TH',{minimumFractionDigits:2,maximumFractionDigits:2})
+        :'—';
+      const provNote=isFixed?'(ราคาตายตัว)':it.province?it.province:'';
+      return `<tr>
+        <td>${i+1}</td>
+        <td>${it.itemName}</td>
+        <td class="r mono">${it.qty.toLocaleString('th-TH',{minimumFractionDigits:2,maximumFractionDigits:3})}</td>
+        <td>${it.unit}</td>
+        <td class="r mono">${priceDisplay}</td>
+        <td style="font-size:9px;color:#666">${provNote}</td>
+        <td class="r mono">${subDisplay}</td>
+      </tr>`;
+    }).join('');
+
+    return `<div class="cp-item-block">
+      <div class="cp-item-header">${idx+1}. ${s.comp.sub} ${s.comp.name}</div>
+      <div class="cp-item-sub">${COMP_GROUPS[s.comp.group]||''} &nbsp;|&nbsp; พื้นที่ 1 ${compUnit}</div>
+      <table class="cp-detail-tbl">
+        <thead><tr>
+          <th style="width:24px">#</th>
+          <th>รายการวัสดุ</th>
+          <th class="r" style="width:70px">ปริมาณ</th>
+          <th style="width:45px">หน่วย</th>
+          <th class="r" style="width:80px">ราคา/หน่วย (บาท)</th>
+          <th style="width:80px">แหล่งที่มา</th>
+          <th class="r" style="width:90px">ราคา (บาท/${compUnit})</th>
+        </tr></thead>
+        <tbody>${itemRows}</tbody>
+        <tfoot><tr class="total-row">
+          <td colspan="6" style="text-align:right">รวมราคาวัสดุมวลรวม (ค่างานต้นทุน) พื้นที่ 1 ${compUnit}</td>
+          <td class="r mono">${s.total.toLocaleString('th-TH',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
+        </tr></tfoot>
+      </table>
+    </div>`;
+  }).join('');
+
   window.print();
 }
 
@@ -1696,6 +1717,9 @@ loadWageData();
     <div class="pdf-only pdf-ft">
       <div>* ราคาวัสดุมวลรวมคำนวณตามหลักเกณฑ์กรมบัญชีกลาง กระทรวงการคลัง</div>
     </div>
+
+    <!-- รายละเอียดการคำนวณ (แสดงเฉพาะตอนพิมพ์) -->
+    <div class="cp-print-detail" id="cp-print-detail"></div>
   </div>
 </div>
 </div>
