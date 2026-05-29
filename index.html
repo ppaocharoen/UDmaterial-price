@@ -255,12 +255,13 @@ table.main td.sm{font-size:11px;color:var(--text2);}
   @page{size:A4;margin:12mm 10mm;}
   .topbar,.warn-banner,.wage-warn,.mat-warn,.search-input-wrap,.filter-row,.sl-card,
   .s-del,.sel-actions,.no-print,#result-area,#wage-result-area,.nav-tabs,.meta-bar,
-  .sub-tabs,.cp-calc-area,#cp-calc-area{display:none!important;}
+  .sub-tabs,.cp-calc-area,#cp-calc-area,.sub-page:not(.active),
+  .credit-bar,.modal-overlay{display:none!important;}
   body{background:#fff;color:#000;font-size:11px;}
   .pdf-only{display:block!important;}
   .page.active{display:block;}
   .search-wrap,.comp-wrap{max-width:100%;padding:0;}
-  .sel-sec,.cp-sel-sec-print{margin-top:0;}
+  .sel-sec{margin-top:0;}
 
   /* PDF header */
   .pdf-hd{margin-bottom:12px;}
@@ -268,10 +269,19 @@ table.main td.sm{font-size:11px;color:var(--text2);}
   .pdf-meta{font-size:10px;color:#555;}
   .pdf-ft{margin-top:10px;font-size:9px;color:#777;border-top:1px solid #ddd;padding-top:5px;}
 
-  /* ซ่อน summary table ปกติ ใช้ detail table แทน */
-  .comp-sel-wrap{display:none!important;}
+  /* sel-sec (ราคาวัสดุ + ค่าแรง) */
+  .sel-wrap,.comp-sel-wrap{border:1px solid #ccc;border-radius:0;}
+  .sel-tbl th,.comp-sel-tbl th{background:#f0f0f0;color:#333;border-bottom:1px solid #ccc;font-size:10px;padding:4px 8px;}
+  .sel-tbl td,.comp-sel-tbl td{border-bottom:1px solid #eee;font-size:11px;padding:4px 8px;}
+  .sel-tbl tr:hover td,.comp-sel-tbl tr:hover td{background:transparent;}
+  .sel-title{font-size:13px;}
+  .sel-hd{margin-bottom:6px;}
+  .s-num{color:#1a6e3a!important;}
+  .s-num.wage{color:#7a4f00!important;}
+  .cat-badge{background:#eee;border:1px solid #ccc;color:#333;}
 
-  /* Detail print table */
+  /* วัสดุมวลรวม — ซ่อน summary ใช้ detail แทน */
+  .comp-sel-wrap{display:none!important;}
   .cp-print-detail{display:block!important;}
   .cp-item-block{margin-bottom:16px;page-break-inside:avoid;}
   .cp-item-header{font-size:12px;font-weight:700;background:#f0f0f0;padding:5px 8px;border:1px solid #ccc;}
@@ -297,22 +307,13 @@ table.main td.sm{font-size:11px;color:var(--text2);}
   </div>
   <div class="nav-tabs">
     <div class="nav-tab active" onclick="switchPage('search')" id="tab-search">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>ค้นหาราคาวัสดุ
-    </div>
-    <div class="nav-tab" onclick="switchPage('table')" id="tab-table">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg>ตารางราคาวัสดุ
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>ราคาวัสดุ
     </div>
     <div class="nav-tab" onclick="switchPage('wage')" id="tab-wage">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5M2 12l10 5 10-5"/></svg>ค้นหาค่าแรง
-    </div>
-    <div class="nav-tab" onclick="switchPage('wage-table')" id="tab-wage-table">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg>ตารางค่าแรง
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5M2 12l10 5 10-5"/></svg>ค่าแรง
     </div>
     <div class="nav-tab" onclick="switchPage('composite')" id="tab-composite">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v18m0 0h10a2 2 0 002-2V9M9 21H5a2 2 0 01-2-2V9m0 0h18"/></svg>วัสดุมวลรวม
-    </div>
-    <div class="nav-tab" onclick="switchPage('composite')" id="tab-composite">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v18m0 0h10a2 2 0 002-2v-4M9 21H5a2 2 0 01-2-2v-4m0 0h18"/></svg>วัสดุมวลรวม
     </div>
   </div>
   <div class="meta-bar">
@@ -344,15 +345,24 @@ table.main td.sm{font-size:11px;color:var(--text2);}
 <!-- PAGE 1: ค้นหาราคาวัสดุ -->
 <div class="page active" id="page-search">
 <div class="search-wrap">
-  <div class="page-title">ค้นหาราคาวัสดุก่อสร้าง</div>
+  <div class="page-title">ราคาวัสดุก่อสร้าง</div>
+  <div class="sub-tabs">
+    <div class="sub-tab active" id="sub-search" onclick="switchSubMat('search')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>ค้นหาราคา
+    </div>
+    <div class="sub-tab" id="sub-table" onclick="switchSubMat('table')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg>ตารางราคารวม
+    </div>
+  </div>
+
+  <!-- sub-page: ค้นหา -->
+  <div class="sub-page active" id="subp-search">
   <div class="page-sub">ตามหลักเกณฑ์ราคากลาง — ใช้ราคาอุดรธานีก่อน หากไม่มีเลือกราคาต่ำสุดจาก 6 จังหวัดข้างเคียง</div>
   <div class="filter-row">
-    <div>
-      <div class="field-label">หมวดวัสดุ</div>
+    <div><div class="field-label">หมวดวัสดุ</div>
       <select id="sel-cat" onchange="onCatChange()"><option value="">— เลือกหมวดวัสดุ —</option></select>
     </div>
-    <div>
-      <div class="field-label">รายการวัสดุ</div>
+    <div><div class="field-label">รายการวัสดุ</div>
       <select id="sel-item" onchange="onItemChange()" disabled><option value="">— เลือกรายการ —</option></select>
     </div>
   </div>
@@ -390,22 +400,19 @@ table.main td.sm{font-size:11px;color:var(--text2);}
       <div>* ราคาตามหลักเกณฑ์ราคากลางราชการ: ใช้ราคาพาณิชย์จังหวัดอุดรธานีก่อน หากไม่มีให้ใช้ราคาต่ำสุดจากจังหวัดใกล้เคียง (หนองคาย เลย สกลนคร หนองบัวลำภู กาฬสินธุ์ ขอนแก่น)</div>
     </div>
   </div>
-</div>
-</div>
+  </div><!-- end subp-search -->
 
-<!-- PAGE 2: ตารางราคาวัสดุ -->
-<div class="page" id="page-table">
-<div class="table-wrap">
-  <div class="page-title">ตารางราคารวมทุกรายการ</div>
-  <div class="page-sub">ราคาจากพาณิชย์ทุกจังหวัด — ตัวเลขสีเขียวคือราคาที่นำมาใช้ตามหลักเกณฑ์ราคากลาง</div>
-  <div class="tbl-ctrls">
+  <!-- sub-page: ตารางราคารวม -->
+  <div class="sub-page" id="subp-table">
+  <div class="page-sub" style="margin-bottom:14px">ราคาจากพาณิชย์ทุกจังหวัด — ตัวเลขสีเขียวคือราคาที่นำมาใช้ตามหลักเกณฑ์ราคากลาง</div>
+  <div class="tbl-ctrls" style="max-width:100%">
     <div class="fg"><div class="field-label">กรองหมวด</div><select id="tbl-cat" onchange="filterTable()"><option value="">ทุกหมวด</option></select></div>
     <div class="fg"><div class="field-label">ค้นหา</div><input type="text" id="tbl-search" placeholder="ชื่อวัสดุ หรือรหัส..." oninput="filterTable()"></div>
     <button class="btn btn-ghost" onclick="refreshData()">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>รีเฟรช
     </button>
   </div>
-  <div class="tbl-outer">
+  <div class="tbl-outer" style="max-width:100%;max-height:calc(100vh - 280px)">
     <table class="main">
       <thead><tr>
         <th>หมวด</th><th class="col-hide-tablet">รหัสวัสดุ</th><th>ชื่อวัสดุ</th><th>หน่วย</th>
@@ -418,94 +425,12 @@ table.main td.sm{font-size:11px;color:var(--text2);}
     </table>
   </div>
   <div class="row-count" id="row-count"></div>
-</div>
-</div>
+  </div><!-- end subp-table -->
 
-<!-- PAGE 3: ค้นหาค่าแรง -->
-<div class="page" id="page-wage">
-<div class="search-wrap">
-  <div class="page-title">ค้นหาค่าแรงก่อสร้าง</div>
-  <div class="page-sub">อ้างอิงบัญชีค่าแรงงาน ว.809 กรมบัญชีกลาง</div>
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:10px">
-    <div>
-      <div class="field-label">หมวดงาน</div>
-      <select id="w-sel-cat" onchange="wOnCatChange()"><option value="">— เลือกหมวดงาน —</option></select>
-    </div>
-    <div>
-      <div class="field-label">หมวดย่อย 1 (h1)</div>
-      <select id="w-sel-h1" onchange="wOnH1Change()" disabled><option value="">— เลือกหมวดย่อย —</option></select>
-    </div>
-  </div>
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
-    <div>
-      <div class="field-label">หมวดย่อย 2 (h2)</div>
-      <select id="w-sel-h2" onchange="wOnH2Change()" disabled><option value="">— เลือกหมวดย่อย —</option></select>
-    </div>
-    <div>
-      <div class="field-label">รายการงาน</div>
-      <select id="w-sel-item" onchange="wOnItemChange()" disabled><option value="">— เลือกรายการ —</option></select>
-    </div>
-  </div>
-  <div class="field-label">หรือพิมพ์ชื่อเพื่อค้นหา</div>
-  <div class="search-input-wrap">
-    <div class="s-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg></div>
-    <input type="text" id="w-search-text" placeholder="พิมพ์ชื่องาน เช่น เสาเข็ม แบบหล่อ ท่อ PVC..." oninput="wOnSearchText()" autocomplete="off">
-  </div>
-  <div id="wage-search-list"></div>
-  <div id="wage-result-area"></div>
-  <div class="sel-sec" id="w-sel-sec" style="display:none">
-    <div class="pdf-only pdf-hd">
-      <div class="pdf-title">รายการค่าแรงก่อสร้าง</div>
-      <div class="pdf-meta">อ้างอิงบัญชีค่าแรงงาน ว.809 กรมบัญชีกลาง &nbsp;|&nbsp; วันที่พิมพ์: <span id="w-pdf-date"></span></div>
-    </div>
-    <div class="sel-hd">
-      <div class="sel-title">รายการที่เลือก <span id="w-sel-count" style="color:var(--amber);font-weight:400"></span></div>
-      <div class="sel-actions">
-        <button class="btn btn-amber" onclick="wPrintPDF()">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>ออกรายงาน PDF
-        </button>
-        <button class="btn btn-red" onclick="wClearSelected()">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>ล้างรายการ
-        </button>
-      </div>
-    </div>
-    <div class="sel-wrap">
-      <table class="sel-tbl">
-        <thead><tr><th style="width:32px">#</th><th>รายการงาน</th><th>หมวดงาน</th><th>หน่วย</th><th class="r">ค่าแรง (บาท)</th><th class="no-print" style="width:40px"></th></tr></thead>
-        <tbody id="w-sel-body"></tbody>
-      </table>
-    </div>
-    <div class="pdf-only pdf-ft">
-      <div>* ค่าแรงอ้างอิงบัญชีค่าแรงงานและค่าขนส่งวัสดุก่อสร้าง ว.809 กรมบัญชีกลาง กระทรวงการคลัง</div>
-    </div>
-  </div>
-</div>
-</div>
+</div><!-- end search-wrap -->
+</div><!-- end page-search -->
 
-<!-- PAGE 4: ตารางค่าแรง -->
-<div class="page" id="page-wage-table">
-<div class="table-wrap">
-  <div class="page-title">ตารางค่าแรงทุกรายการ</div>
-  <div class="page-sub">บัญชีค่าแรงงาน ว.809 กรมบัญชีกลาง — ครอบคลุมทุกหมวดงานก่อสร้าง</div>
-  <div class="tbl-ctrls">
-    <div class="fg"><div class="field-label">กรองหมวดงาน</div><select id="w-tbl-cat" onchange="wFilterTable()"><option value="">ทุกหมวด</option></select></div>
-    <div class="fg"><div class="field-label">ค้นหา</div><input type="text" id="w-tbl-search" placeholder="ชื่องาน..." oninput="wFilterTable()"></div>
-    <button class="btn btn-ghost" onclick="wRefreshData()">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>รีเฟรช
-    </button>
-  </div>
-  <div class="tbl-outer">
-    <table class="main">
-      <thead><tr>
-        <th>หมวด 1</th><th>หมวด 2</th><th>หมวด 3</th><th class="col-hide-tablet">หมวด 4</th><th>หน่วย</th><th class="r">ค่าแรง (บาท)</th>
-      </tr></thead>
-      <tbody id="w-tbl-body"><tr><td colspan="6"><div class="state-box"><div class="loading-dots"><span></span><span></span><span></span></div><p style="margin-top:10px">กำลังโหลดข้อมูล...</p></div></td></tr></tbody>
-    </table>
-  </div>
-  <div class="row-count" id="w-row-count"></div>
-</div>
-</div>
-
+<!-- SCRIPT -->
 <script>
 // ============================================================
 // CONFIG
@@ -560,22 +485,52 @@ function fmt(n){
 // PAGE SWITCH
 // ============================================================
 function switchPage(p){
-  ['search','table','wage','wage-table','composite'].forEach(x=>{
-    document.getElementById('page-'+x).classList.toggle('active',x===p);
+  ['search','wage','composite'].forEach(x=>{
+    const pg=document.getElementById('page-'+x);
+    if(pg) pg.classList.toggle('active',x===p);
     const tab=document.getElementById('tab-'+x);
     if(!tab)return;
     tab.classList.remove('active','active-wage','active-comp');
     if(x===p){
-      if(p.startsWith('wage')) tab.classList.add('active-wage');
+      if(p==='wage') tab.classList.add('active-wage');
       else if(p==='composite') tab.classList.add('active-comp');
       else tab.classList.add('active');
     }
   });
-  const isWage=p.startsWith('wage');
+  const isWage=p==='wage';
   const isComp=p==='composite';
-  document.getElementById('mat-warn').style.display=(!isWage&&!isComp)?'flex':'none';
-  document.getElementById('wage-warn').style.display=isWage?'flex':'none';
+  const mw=document.getElementById('mat-warn');
+  const ww=document.getElementById('wage-warn');
+  if(mw) mw.style.display=(!isWage&&!isComp)?'flex':'none';
+  if(ww) ww.style.display=isWage?'flex':'none';
   if(isComp&&!compLoaded) loadCompData();
+}
+
+function switchSubMat(sub){
+  ['search','table'].forEach(x=>{
+    const sp=document.getElementById('subp-'+x);
+    const st=document.getElementById('sub-'+x);
+    if(sp) sp.classList.toggle('active',x===sub);
+    if(st){
+      st.classList.toggle('active',x===sub);
+    }
+  });
+}
+
+function switchSubWage(sub){
+  // sub = 'search' หรือ 'table'
+  const isSearch=sub==='search';
+  ['subp-wage','subp-wage-table'].forEach((id,i)=>{
+    const el=document.getElementById(id);
+    if(el) el.classList.toggle('active',i===0?isSearch:!isSearch);
+  });
+  ['sub-wage','sub-wage-table'].forEach((id,i)=>{
+    const el=document.getElementById(id);
+    if(!el)return;
+    const on=i===0?isSearch:!isSearch;
+    el.classList.toggle('active',on);
+    el.classList.toggle('active-wage',on);
+  });
 }
 
 // ============================================================
@@ -1657,7 +1612,98 @@ loadData();
 loadWageData();
 </script>
 
-<!-- PAGE 5: วัสดุมวลรวม -->
+<!-- PAGE 2: ค่าแรง -->
+<div class="page" id="page-wage">
+<div class="search-wrap">
+  <div class="page-title">ค่าแรงก่อสร้าง</div>
+  <div class="sub-tabs">
+    <div class="sub-tab active-wage active" id="sub-wage" onclick="switchSubWage('search')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>ค้นหาค่าแรง
+    </div>
+    <div class="sub-tab" id="sub-wage-table" onclick="switchSubWage('table')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg>ตารางค่าแรง
+    </div>
+  </div>
+
+  <!-- sub-page: ค้นหาค่าแรง -->
+  <div class="sub-page active" id="subp-wage">
+  <div class="page-sub">อ้างอิงบัญชีค่าแรงงาน ว.809 กรมบัญชีกลาง</div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:10px">
+    <div><div class="field-label">หมวดงาน</div>
+      <select id="w-sel-cat" onchange="wOnCatChange()"><option value="">— เลือกหมวดงาน —</option></select>
+    </div>
+    <div><div class="field-label">หมวดย่อย 1</div>
+      <select id="w-sel-h1" onchange="wOnH1Change()" disabled><option value="">— เลือกหมวดย่อย —</option></select>
+    </div>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
+    <div><div class="field-label">หมวดย่อย 2</div>
+      <select id="w-sel-h2" onchange="wOnH2Change()" disabled><option value="">— เลือกหมวดย่อย —</option></select>
+    </div>
+    <div><div class="field-label">รายการงาน</div>
+      <select id="w-sel-item" onchange="wOnItemChange()" disabled><option value="">— เลือกรายการ —</option></select>
+    </div>
+  </div>
+  <div class="field-label">หรือพิมพ์ชื่อเพื่อค้นหา</div>
+  <div class="search-input-wrap">
+    <div class="s-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg></div>
+    <input type="text" id="w-search-text" placeholder="พิมพ์ชื่องาน เช่น เสาเข็ม แบบหล่อ ท่อ PVC..." oninput="wOnSearchText()" autocomplete="off">
+  </div>
+  <div id="wage-search-list"></div>
+  <div id="wage-result-area"></div>
+  <div class="sel-sec" id="w-sel-sec" style="display:none">
+    <div class="pdf-only pdf-hd">
+      <div class="pdf-title">รายการค่าแรงก่อสร้าง</div>
+      <div class="pdf-meta">อ้างอิงบัญชีค่าแรงงาน ว.809 กรมบัญชีกลาง &nbsp;|&nbsp; วันที่พิมพ์: <span id="w-pdf-date"></span></div>
+    </div>
+    <div class="sel-hd">
+      <div class="sel-title">รายการที่เลือก <span id="w-sel-count" style="color:var(--amber);font-weight:400"></span></div>
+      <div class="sel-actions">
+        <button class="btn btn-amber" onclick="wPrintPDF()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>ออกรายงาน PDF
+        </button>
+        <button class="btn btn-red" onclick="wClearSelected()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>ล้างรายการ
+        </button>
+      </div>
+    </div>
+    <div class="sel-wrap">
+      <table class="sel-tbl">
+        <thead><tr><th style="width:32px">#</th><th>รายการงาน</th><th>หมวดงาน</th><th>หน่วย</th><th class="r">ค่าแรง (บาท)</th><th class="no-print" style="width:40px"></th></tr></thead>
+        <tbody id="w-sel-body"></tbody>
+      </table>
+    </div>
+    <div class="pdf-only pdf-ft">
+      <div>* ค่าแรงอ้างอิงบัญชีค่าแรงงาน ว.809 กรมบัญชีกลาง กระทรวงการคลัง</div>
+    </div>
+  </div>
+  </div><!-- end subp-wage -->
+
+  <!-- sub-page: ตารางค่าแรง -->
+  <div class="sub-page" id="subp-wage-table">
+  <div class="page-sub" style="margin-bottom:14px">บัญชีค่าแรงงาน ว.809 — ครอบคลุมทุกหมวดงานก่อสร้าง</div>
+  <div class="tbl-ctrls" style="max-width:100%">
+    <div class="fg"><div class="field-label">กรองหมวดงาน</div><select id="w-tbl-cat" onchange="wFilterTable()"><option value="">ทุกหมวด</option></select></div>
+    <div class="fg"><div class="field-label">ค้นหา</div><input type="text" id="w-tbl-search" placeholder="ชื่องาน..." oninput="wFilterTable()"></div>
+    <button class="btn btn-ghost" onclick="wRefreshData()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>รีเฟรช
+    </button>
+  </div>
+  <div class="tbl-outer" style="max-width:100%;max-height:calc(100vh - 280px)">
+    <table class="main">
+      <thead><tr>
+        <th>หมวด 1</th><th>หมวด 2</th><th>หมวด 3</th><th class="col-hide-tablet">หมวด 4</th><th>หน่วย</th><th class="r">ค่าแรง (บาท)</th>
+      </tr></thead>
+      <tbody id="w-tbl-body"><tr><td colspan="6"><div class="state-box"><div class="loading-dots"><span></span><span></span><span></span></div><p style="margin-top:10px">กำลังโหลดข้อมูล...</p></div></td></tr></tbody>
+    </table>
+  </div>
+  <div class="row-count" id="w-row-count"></div>
+  </div><!-- end subp-wage-table -->
+
+</div><!-- end search-wrap -->
+</div><!-- end page-wage -->
+
+<!-- PAGE 3: วัสดุมวลรวม -->
 <div class="page" id="page-composite">
 <div class="comp-wrap">
   <div class="page-title">คำนวณราคาวัสดุมวลรวม</div>
