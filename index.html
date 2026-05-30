@@ -250,6 +250,16 @@ table.main td.sm{font-size:11px;color:var(--text2);}
   .tbl-ctrls .fg{min-width:120px;}
 }
 
+/* SUB TABS */
+.sub-tabs{display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:20px;}
+.sub-tab{padding:9px 18px;cursor:pointer;font-size:13px;font-weight:500;color:var(--text2);border-bottom:2px solid transparent;transition:all .15s;display:flex;align-items:center;gap:6px;user-select:none;}
+.sub-tab:hover{color:var(--text);}
+.sub-tab.active{color:var(--accent2);border-bottom-color:var(--accent);}
+.sub-tab.active-wage{color:var(--amber);border-bottom-color:var(--amber);}
+.sub-tab svg{width:14px;height:14px;flex-shrink:0;}
+.sub-page{display:none;}.sub-page.active{display:block;}
+.cp-print-detail{display:none;}
+
 /* PRINT */
 @media print{
   @page{size:A4;margin:12mm 10mm;}
