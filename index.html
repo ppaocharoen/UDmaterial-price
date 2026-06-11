@@ -533,6 +533,10 @@ function fmt(n){
   if(n===null||n===undefined)return null;
   return n.toLocaleString('th-TH',{minimumFractionDigits:2,maximumFractionDigits:2});
 }
+function esc(s){
+  if(s===null||s===undefined)return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
 
 // ============================================================
 // PAGE SWITCH
@@ -617,8 +621,15 @@ async function loadData(){
     buildMatDropdowns();
     filterTable();
   }catch(e){
-    console.error(e);
-    document.getElementById('tbl-body').innerHTML=`<tr><td colspan="15"><div class="state-box" style="color:var(--red)">โหลดข้อมูลไม่สำเร็จ: ${e.message}</div></td></tr>`;
+    const errEl=document.getElementById('tbl-body');
+    const errDiv=document.createElement('tr');
+    errDiv.innerHTML='<td colspan="15"></td>';
+    const inner=document.createElement('div');
+    inner.className='state-box';
+    inner.style.color='var(--red)';
+    inner.textContent='โหลดข้อมูลไม่สำเร็จ: '+e.message;
+    errDiv.querySelector('td').appendChild(inner);
+    errEl.innerHTML='';errEl.appendChild(errDiv);
     document.getElementById('meta-period').textContent='โหลดไม่สำเร็จ';
   }
 }
@@ -676,14 +687,16 @@ function clearMatSearch(){
 }
 function renderMatSearchList(res,q){
   const el=document.getElementById('search-list');
-  if(!res.length){el.innerHTML=`<div class="state-box">ไม่พบรายการที่ตรงกับ "${q}"</div>`;return;}
-  const esc=q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
-  const re=new RegExp(esc,'g');
+  if(!res.length){el.innerHTML=`<div class="state-box">ไม่พบรายการที่ตรงกับ "${esc(q)}"</div>`;return;}
+  const escQ=esc(q);
+  const reEsc=q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+  const re=new RegExp(reEsc,'g');
   const rows=res.map(it=>{
-    const hl=it.name.replace(re,`<mark style="background:var(--accent-dim2);color:var(--accent2);border-radius:2px;padding:0 2px">${q}</mark>`);
-    return `<div class="sl-row" onclick="matSelectFromList('${it.code}')">
-      <div style="flex:1;min-width:0"><div class="sl-name">${hl}</div><div class="sl-meta">${it.code} · ${it.catName}</div></div>
-      <div><div class="sl-price-val">${it.price?fmt(it.price):'—'}</div><div class="sl-price-meta">${it.unit} · ${it.province||''}</div></div>
+    const safeName=esc(it.name);
+    const hl=safeName.replace(re,`<mark style="background:var(--accent-dim2);color:var(--accent2);border-radius:2px;padding:0 2px">${escQ}</mark>`);
+    return `<div class="sl-row" onclick="matSelectFromList('${esc(it.code)}')">
+      <div style="flex:1;min-width:0"><div class="sl-name">${hl}</div><div class="sl-meta">${esc(it.code)} · ${esc(it.catName)}</div></div>
+      <div><div class="sl-price-val">${it.price?fmt(it.price):'—'}</div><div class="sl-price-meta">${esc(it.unit)} · ${esc(it.province||'')}</div></div>
     </div>`;
   }).join('');
   el.innerHTML=`<div class="sl-card"><div class="sl-hd">พบ ${res.length} รายการ — คลิกเพื่อดูรายละเอียด</div>${rows}</div>`;
@@ -699,27 +712,27 @@ function showMatResult(item){
   const provRows=item.provinces.map(p=>{
     const isSel=p.name===item.province;
     const vs=p.val?fmt(p.val):null;
-    return `<div class="detail-row"><span class="detail-key">${p.name}</span><span class="detail-val ${isSel?'':''}${!vs?' style=color:var(--text3)':''}">${vs||'—'}</span></div>`;
+    return `<div class="detail-row"><span class="detail-key">${esc(p.name)}</span><span class="detail-val ${isSel?'':''}${!vs?' style=color:var(--text3)':''}">${vs||'—'}</span></div>`;
   }).join('');
   document.getElementById('result-area').innerHTML=`
     <div class="rc">
       <div class="rc-hd">
-        <div><div class="rc-name">${item.name}</div><div class="rc-sub">${item.code}</div></div>
-        <span class="cat-pill">${item.catName}</span>
+        <div><div class="rc-name">${esc(item.name)}</div><div class="rc-sub">${esc(item.code)}</div></div>
+        <span class="cat-pill">${esc(item.catName)}</span>
       </div>
       <div class="rc-body">
         <div class="price-box">
           <div class="pb-label">ราคากลางที่ใช้</div>
           <div class="pb-val">${ps}</div>
-          <div class="pb-unit">บาท / ${item.unit}</div>
-          <div style="margin-top:6px;font-size:12px;color:var(--text3)">พาณิชย์จังหวัด <strong style="color:var(--accent2)">${item.province||'—'}</strong></div>
-          <div class="add-btn-wrap"><button class="btn btn-primary" style="width:100%;justify-content:center" onclick="matAddToList('${item.code}')">
+          <div class="pb-unit">บาท / ${esc(item.unit)}</div>
+          <div style="margin-top:6px;font-size:12px;color:var(--text3)">พาณิชย์จังหวัด <strong style="color:var(--accent2)">${esc(item.province||'—')}</strong></div>
+          <div class="add-btn-wrap"><button class="btn btn-primary" style="width:100%;justify-content:center" onclick="matAddToList('${esc(item.code)}')">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>เพิ่มในรายการ
           </button></div>
         </div>
         <div class="rc-detail-box"><div class="rc-detail-label">ราคาเทียบทุกจังหวัด</div>${provRows}</div>
       </div>
-      <div class="rc-ft"><span>${item.period.replace('ระยะเวลา ','')}</span><span>${item.dlDate.replace('วันที่ดาวน์โหลดไฟล์ ','')}</span></div>
+      <div class="rc-ft"><span>${esc(item.period.replace('ระยะเวลา ',''))}</span><span>${esc(item.dlDate.replace('วันที่ดาวน์โหลดไฟล์ ',''))}</span></div>
     </div>`;
 }
 function matAddToList(code){
@@ -749,12 +762,12 @@ function renderSelected(){
   document.getElementById('sel-body').innerHTML=selectedItems.map((it,i)=>`
     <tr>
       <td style="color:var(--text3);font-size:12px">${i+1}</td>
-      <td>${it.name}</td>
-      <td><span class="cat-badge">${it.catName}</span></td>
-      <td style="white-space:nowrap;color:var(--text2)">${it.unit}</td>
+      <td>${esc(it.name)}</td>
+      <td><span class="cat-badge">${esc(it.catName)}</span></td>
+      <td style="white-space:nowrap;color:var(--text2)">${esc(it.unit)}</td>
       <td class="r s-num">${it.price?fmt(it.price):'—'}</td>
-      <td style="color:var(--accent2);font-size:12px">${it.province||'—'}</td>
-      <td class="no-print"><span class="s-del" onclick="removeFromList('${it.code}')" title="ลบ">×</span></td>
+      <td style="color:var(--accent2);font-size:12px">${esc(it.province||'—')}</td>
+      <td class="no-print"><span class="s-del" onclick="removeFromList('${esc(it.code)}')" title="ลบ">×</span></td>
     </tr>`).join('');
 }
 function clearSelected(){
@@ -791,15 +804,15 @@ function renderTable(data){
       return vs?`<td class="r ${isSel?'hi':''}">${vs}</td>`:`<td class="na">—</td>`;
     }).join('');
     return `<tr>
-      <td><span class="cat-badge">${it.catName}</span></td>
-      <td class="cd col-hide-tablet" style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text3)">${it.code}</td>
-      <td class="nm"><span title="${it.name}">${it.name}</span></td>
-      <td style="white-space:nowrap;color:var(--text2);font-size:12px">${it.unit}</td>
+      <td><span class="cat-badge">${esc(it.catName)}</span></td>
+      <td class="cd col-hide-tablet" style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text3)">${esc(it.code)}</td>
+      <td class="nm"><span title="${esc(it.name)}">${esc(it.name)}</span></td>
+      <td style="white-space:nowrap;color:var(--text2);font-size:12px">${esc(it.unit)}</td>
       ${pcells}
       <td class="hi">${it.price?fmt(it.price):'—'}</td>
-      <td style="color:var(--accent2);font-size:11px;font-weight:500;white-space:nowrap">${it.province||'—'}</td>
-      <td class="sm col-hide-tablet">${it.period.replace('ระยะเวลา ','')}</td>
-      <td class="col-hide-tablet" style="font-size:10px;color:var(--text3)">${it.dlDate.replace('วันที่ดาวน์โหลดไฟล์ ','')}</td>
+      <td style="color:var(--accent2);font-size:11px;font-weight:500;white-space:nowrap">${esc(it.province||'—')}</td>
+      <td class="sm col-hide-tablet">${esc(it.period.replace('ระยะเวลา ',''))}</td>
+      <td class="col-hide-tablet" style="font-size:10px;color:var(--text3)">${esc(it.dlDate.replace('วันที่ดาวน์โหลดไฟล์ ',''))}</td>
     </tr>`;
   }).join('');
   document.getElementById('row-count').textContent=`แสดง ${data.length.toLocaleString()} รายการ จากทั้งหมด ${allData.length.toLocaleString()} รายการ`;
@@ -837,8 +850,14 @@ async function loadWageData(){
     buildWageDropdowns();
     wFilterTable();
   }catch(e){
-    console.error(e);
-    document.getElementById('w-tbl-body').innerHTML=`<tr><td colspan="6"><div class="state-box" style="color:var(--red)">โหลดข้อมูลไม่สำเร็จ: ${e.message}</div></td></tr>`;
+    const tb=document.getElementById('w-tbl-body');
+    const tr=document.createElement('tr');
+    const td=document.createElement('td');
+    td.setAttribute('colspan','6');
+    const d=document.createElement('div');
+    d.className='state-box';d.style.color='var(--red)';
+    d.textContent='โหลดข้อมูลไม่สำเร็จ: '+e.message;
+    td.appendChild(d);tr.appendChild(td);tb.innerHTML='';tb.appendChild(tr);
   }
 }
 
@@ -962,16 +981,18 @@ function wClearSearch(){
 
 function renderWageSearchList(res,q){
   const el=document.getElementById('wage-search-list');
-  if(!res.length){el.innerHTML=`<div class="state-box">ไม่พบรายการที่ตรงกับ "${q}"</div>`;return;}
-  const esc=q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
-  const re=new RegExp(esc,'gi');
+  if(!res.length){el.innerHTML=`<div class="state-box">ไม่พบรายการที่ตรงกับ "${esc(q)}"</div>`;return;}
+  const escQ=esc(q);
+  const reEsc=q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+  const re=new RegExp(reEsc,'gi');
   const rows=res.map((it,i)=>{
     const fullName=[it.h1,it.h2,it.h3,it.h4].filter(x=>x&&x!=='-').join(' › ');
-    const hl=fullName.replace(re,m=>`<mark style="background:rgba(245,166,35,.25);color:var(--amber);border-radius:2px;padding:0 2px">${m}</mark>`);
+    const safeName=esc(fullName);
+    const hl=safeName.replace(re,m=>`<mark style="background:rgba(245,166,35,.25);color:var(--amber);border-radius:2px;padding:0 2px">${esc(m)}</mark>`);
     const priceStr=it.price?fmt(it.price):it.rawPrice||'—';
     return `<div class="sl-row" onclick="wSelectFromList(${wageData.indexOf(it)})">
-      <div style="flex:1;min-width:0"><div class="sl-name">${hl}</div><div class="sl-meta">${it.sheetLabel}</div></div>
-      <div><div class="sl-price-val wage">${priceStr}</div><div class="sl-price-meta">${it.unit}</div></div>
+      <div style="flex:1;min-width:0"><div class="sl-name">${hl}</div><div class="sl-meta">${esc(it.sheetLabel)}</div></div>
+      <div><div class="sl-price-val wage">${priceStr}</div><div class="sl-price-meta">${esc(it.unit)}</div></div>
     </div>`;
   }).join('');
   el.innerHTML=`<div class="sl-card"><div class="sl-hd">พบ ${res.length} รายการ — คลิกเพื่อดูรายละเอียด</div>${rows}</div>`;
@@ -989,27 +1010,29 @@ function showWageResult(item){
   const isNumeric=item.price!==null;
   const wageIdx=wageData.indexOf(item);
 
-  // แสดง context — รายการที่เกี่ยวข้องใน h1 เดียวกัน
   const related=wageData.filter(d=>d.sheetLabel===item.sheetLabel&&d.h1===item.h1&&d!==item).slice(0,8);
   const relRows=related.map(r=>{
     const rn=[r.h2,r.h3,r.h4].filter(x=>x&&x!=='-').join(' › ')||r.h2||'—';
-    return `<div class="detail-row"><span class="detail-key" style="font-size:12px">${rn}</span><span class="detail-val" style="font-family:'IBM Plex Mono',monospace;font-size:12px">${r.price?fmt(r.price):r.rawPrice||'—'} ${r.unit}</span></div>`;
+    return `<div class="detail-row"><span class="detail-key" style="font-size:12px">${esc(rn)}</span><span class="detail-val" style="font-family:'IBM Plex Mono',monospace;font-size:12px">${r.price?fmt(r.price):esc(r.rawPrice||'—')} ${esc(r.unit)}</span></div>`;
   }).join('');
+
+  const h3h4=[item.h3||item.h2,item.h4].filter(x=>x&&x!=='-').join(' — ')||item.h1;
+  const h1h2=item.sheetLabel+' › '+item.h1+(item.h2&&item.h2!=='-'?' › '+item.h2:'');
 
   document.getElementById('wage-result-area').innerHTML=`
     <div class="rc">
       <div class="rc-hd">
         <div>
-          <div class="rc-name">${[item.h3||item.h2,item.h4].filter(x=>x&&x!=='-').join(' — ')||item.h1}</div>
-          <div class="rc-sub">${item.sheetLabel} › ${item.h1}${item.h2&&item.h2!=='-'?' › '+item.h2:''}</div>
+          <div class="rc-name">${esc(h3h4)}</div>
+          <div class="rc-sub">${esc(h1h2)}</div>
         </div>
-        <span class="cat-pill wage">${item.sheetLabel}</span>
+        <span class="cat-pill wage">${esc(item.sheetLabel)}</span>
       </div>
       <div class="rc-body">
         <div class="price-box wage">
           <div class="pb-label wage">ค่าแรง ว.809</div>
           <div class="pb-val wage">${priceStr}</div>
-          <div class="pb-unit">บาท / ${item.unit}</div>
+          <div class="pb-unit">บาท / ${esc(item.unit)}</div>
           ${isNumeric?`<div class="add-btn-wrap"><button class="btn btn-amber" style="width:100%;justify-content:center" onclick="wAddToList(${wageIdx})">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>เพิ่มในรายการ
           </button></div>`:'<div style="margin-top:8px;font-size:12px;color:var(--text3)">* ราคาเป็นเปอร์เซ็นต์ ไม่สามารถเพิ่มในรายการได้</div>'}
@@ -1052,12 +1075,13 @@ function wRenderSelected(){
   document.getElementById('w-sel-count').textContent=`(${wSelectedItems.length} รายการ)`;
   document.getElementById('w-sel-body').innerHTML=wSelectedItems.map((it,i)=>{
     const nm=[it.h3||it.h2,it.h4].filter(x=>x&&x!=='-').join(' — ')||it.h1;
+    const sub=it.h2&&it.h2!=='-'?`<div style="font-size:11px;color:var(--text3)">${esc(it.h1)}${it.h2&&it.h2!=='-'?' › '+esc(it.h2):''}</div>`:'';
     return `<tr>
       <td style="color:var(--text3);font-size:12px">${i+1}</td>
-      <td>${nm}${it.h2&&it.h2!=='-'?`<div style="font-size:11px;color:var(--text3)">${it.h1}${it.h2&&it.h2!=='-'?' › '+it.h2:''}</div>`:''}</td>
-      <td><span class="cat-badge">${it.sheetLabel}</span></td>
-      <td style="white-space:nowrap;color:var(--text2)">${it.unit}</td>
-      <td class="r s-num wage">${it.price?fmt(it.price):it.rawPrice||'—'}</td>
+      <td>${esc(nm)}${sub}</td>
+      <td><span class="cat-badge">${esc(it.sheetLabel)}</span></td>
+      <td style="white-space:nowrap;color:var(--text2)">${esc(it.unit)}</td>
+      <td class="r s-num wage">${it.price?fmt(it.price):esc(it.rawPrice||'—')}</td>
       <td class="no-print"><span class="s-del" onclick="wRemoveFromList(${it._idx})" title="ลบ">×</span></td>
     </tr>`;
   }).join('');
@@ -1097,13 +1121,13 @@ function wRenderTable(data){
   tbody.innerHTML=data.map(it=>{
     const isNum=it.price!==null;
     return `<tr>
-      <td class="nm"><span title="${it.h1}">${it.h1}</span></td>
-      <td class="sm">${it.h2&&it.h2!=='-'?it.h2:''}</td>
-      <td class="nm"><span title="${it.h3}">${it.h3&&it.h3!=='-'?it.h3:''}</span></td>
-      <td class="sm col-hide-tablet">${it.h4&&it.h4!=='-'?it.h4:''}</td>
-      <td style="white-space:nowrap;color:var(--text2);font-size:12px">${it.unit}</td>
+      <td class="nm"><span title="${esc(it.h1)}">${esc(it.h1)}</span></td>
+      <td class="sm">${it.h2&&it.h2!=='-'?esc(it.h2):''}</td>
+      <td class="nm"><span title="${esc(it.h3)}">${it.h3&&it.h3!=='-'?esc(it.h3):''}</span></td>
+      <td class="sm col-hide-tablet">${it.h4&&it.h4!=='-'?esc(it.h4):''}</td>
+      <td style="white-space:nowrap;color:var(--text2);font-size:12px">${esc(it.unit)}</td>
       <td class="${isNum?'hi-w':'r'}" style="${!isNum?'color:var(--text2);font-size:11px':''}">
-        ${it.price?fmt(it.price):it.rawPrice||'—'}
+        ${it.price?fmt(it.price):esc(it.rawPrice||'—')}
       </td>
     </tr>`;
   }).join('');
@@ -1190,8 +1214,6 @@ async function loadCompData(){
       // strip ="..." wrapper ที่อาจติดมาจาก CSV import
       const rawCode=cv(row.c[6]);
       const commodityCode=rawCode.replace(/^="?|"?$/g,'').trim();
-      // DEBUG — ลบออกหลังแก้เสร็จ
-      if(commodityCode) console.log('commodityCode raw:',JSON.stringify(rawCode),'→ clean:',commodityCode,'allData match:',!!allData.find(d=>d.code===commodityCode));
       compItems.push({
         compId:String(cid).trim(),
         seq:cv(row.c[1]),
@@ -1208,9 +1230,11 @@ async function loadCompData(){
     compLoaded=true;
     buildCompDropdowns();
   }catch(e){
-    console.error('loadCompData error',e);
-    document.getElementById('cp-calc-area').innerHTML=
-      `<div class="state-box" style="color:var(--red)">โหลดข้อมูลไม่สำเร็จ: ${e.message}</div>`;
+    const ca=document.getElementById('cp-calc-area');
+    const d=document.createElement('div');
+    d.className='state-box';d.style.color='var(--red)';
+    d.textContent='โหลดข้อมูลไม่สำเร็จ: '+e.message;
+    ca.innerHTML='';ca.appendChild(d);
   }
 }
 
@@ -1251,11 +1275,11 @@ function cpOnSearch(){
   if(q.length<2){document.getElementById('cp-search-list').innerHTML='';return;}
   cpTimer=setTimeout(()=>{
     const res=compList.filter(d=>d.name.includes(q)||d.sub.includes(q)).slice(0,30);
-    if(!res.length){document.getElementById('cp-search-list').innerHTML=`<div class="state-box">ไม่พบ "${q}"</div>`;return;}
+    if(!res.length){document.getElementById('cp-search-list').innerHTML=`<div class="state-box">ไม่พบ "${esc(q)}"</div>`;return;}
     const rows=res.map(it=>`
-      <div class="sl-row" onclick="cpSelectFromList('${it.id}')">
-        <div style="flex:1"><div class="sl-name">${it.sub} ${it.name}</div>
-        <div class="sl-meta">${COMP_GROUPS[it.group]||''}</div></div>
+      <div class="sl-row" onclick="cpSelectFromList('${esc(it.id)}')">
+        <div style="flex:1"><div class="sl-name">${esc(it.sub)} ${esc(it.name)}</div>
+        <div class="sl-meta">${esc(COMP_GROUPS[it.group]||'')}</div></div>
         <div style="font-size:12px;color:var(--text2);flex-shrink:0">${it.unit}</div>
       </div>`).join('');
     document.getElementById('cp-search-list').innerHTML=`<div class="sl-card"><div class="sl-hd">พบ ${res.length} รายการ</div>${rows}</div>`;
@@ -1339,44 +1363,44 @@ function renderCalc(compId){
       ?` (${autoPrice<1?autoPrice.toFixed(5).replace(/\.?0+$/,''):fmt(autoPrice)} บาท/${it.unit})`
       :' (เลือก)';
 
-    return `<tr id="cp-row-${compId}-${i}">
+    return `<tr id="cp-row-${esc(compId)}-${i}">
       <td style="color:var(--text3);font-size:12px">${i+1}</td>
       <td>
-        <div style="font-size:13px">${it.itemName}</div>
-        ${it.itemCode?`<div style="font-size:11px;color:var(--text3)">รหัส ${it.itemCode}</div>`:''}
+        <div style="font-size:13px">${esc(it.itemName)}</div>
+        ${it.itemCode?`<div style="font-size:11px;color:var(--text3)">รหัส ${esc(it.itemCode)}</div>`:''}
       </td>
       <td class="r" style="font-family:'IBM Plex Mono',monospace;font-size:12px">
         ${it.qty.toLocaleString('th-TH',{minimumFractionDigits:2,maximumFractionDigits:3})}
       </td>
-      <td style="font-size:12px;color:var(--text2);white-space:nowrap">${it.unit}</td>
+      <td style="font-size:12px;color:var(--text2);white-space:nowrap">${esc(it.unit)}</td>
       <td>
         ${isFixed
           ?`<div style="font-size:12px;color:var(--text3);padding:5px 0">
               <span style="background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:3px 8px;font-family:'IBM Plex Mono',monospace;color:var(--text2)">${it.fixedPrice}</span>
-              <span style="font-size:11px;margin-left:6px;color:var(--text3)">บาท/${it.unit} (ราคาตายตัว)</span>
+              <span style="font-size:11px;margin-left:6px;color:var(--text3)">บาท/${esc(it.unit)} (ราคาตายตัว)</span>
             </div>`
           :`<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
-              ${hasCode?`<button class="price-mode-btn ${autoPrice!==null?'active-mat':''}" onclick="cpUseMat(${i},'${compId}')" title="ใช้ราคาพาณิชย์จังหวัด">
+              ${hasCode?`<button class="price-mode-btn ${autoPrice!==null?'active-mat':''}" onclick="cpUseMat(${i},'${esc(compId)}')" title="ใช้ราคาพาณิชย์จังหวัด">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
                 พาณิชย์${matPriceLabel}
               </button>${convNote}`:''}
-              <button class="price-mode-btn active-manual" onclick="cpUseManual(${i},'${compId}')" title="กรอกราคาเอง">
+              <button class="price-mode-btn active-manual" onclick="cpUseManual(${i},'${esc(compId)}')" title="กรอกราคาเอง">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                 กรอกเอง
               </button>
             </div>
             <div style="margin-top:6px;display:flex;align-items:center;gap:8px">
               <input class="price-inp ${initPrice!==null?'has-val':''}" type="number" step="0.00001" min="0"
-                id="cp-price-${compId}-${i}"
+                id="cp-price-${esc(compId)}-${i}"
                 value="${initPrice!==null?initPrice:''}"
                 placeholder="0.00"
-                oninput="cpCalcTotal('${compId}')"
+                oninput="cpCalcTotal('${esc(compId)}')"
               >
-              <span style="font-size:11px;color:var(--text3)" id="cp-prov-${compId}-${i}">${initProv?'📍 '+initProv:''}</span>
+              <span style="font-size:11px;color:var(--text3)" id="cp-prov-${esc(compId)}-${i}">${initProv?'📍 '+esc(initProv):''}</span>
             </div>`
         }
       </td>
-      <td class="r subtotal-cell ${!sub?'zero':''}" id="cp-sub-${compId}-${i}">
+      <td class="r subtotal-cell ${!sub?'zero':''}" id="cp-sub-${esc(compId)}-${i}">
         ${sub!==null?sub.toLocaleString('th-TH',{minimumFractionDigits:2,maximumFractionDigits:2}):'—'}
       </td>
     </tr>`;
@@ -1386,10 +1410,10 @@ function renderCalc(compId){
     <div class="calc-card">
       <div class="calc-hd">
         <div>
-          <div class="calc-title">${comp.sub} ${comp.name}</div>
-          <div class="calc-sub">${COMP_GROUPS[comp.group]||''}</div>
+          <div class="calc-title">${esc(comp.sub)} ${esc(comp.name)}</div>
+          <div class="calc-sub">${esc(COMP_GROUPS[comp.group]||'')}</div>
         </div>
-        <span class="comp-pill">${compUnit}</span>
+        <span class="comp-pill">${esc(compUnit)}</span>
       </div>
       <div style="overflow-x:auto">
         <table class="items-tbl">
@@ -1399,7 +1423,7 @@ function renderCalc(compId){
             <th class="r">ปริมาณ</th>
             <th>หน่วย</th>
             <th>ราคา/หน่วย (บาท)</th>
-            <th class="r">ราคา (บาท/${compUnit})</th>
+            <th class="r">ราคา (บาท/${esc(compUnit)})</th>
           </tr></thead>
           <tbody>${rows}</tbody>
         </table>
@@ -1407,15 +1431,15 @@ function renderCalc(compId){
       <div class="total-bar">
         <div>
           <div class="total-label">รวมราคาวัสดุ (ค่างานต้นทุน)</div>
-          <div style="font-size:11px;color:var(--text3)">ราคาต่อ 1 ${compUnit}</div>
+          <div style="font-size:11px;color:var(--text3)">ราคาต่อ 1 ${esc(compUnit)}</div>
         </div>
         <div style="display:flex;align-items:baseline;gap:8px">
-          <div class="total-val" id="cp-total-${compId}">—</div>
-          <div class="total-unit">บาท / ${compUnit}</div>
+          <div class="total-val" id="cp-total-${esc(compId)}">—</div>
+          <div class="total-unit">บาท / ${esc(compUnit)}</div>
         </div>
       </div>
       <div style="padding:12px 18px;display:flex;justify-content:flex-end">
-        <button class="btn" style="background:#a78bfa;color:#1a0f2e" onclick="cpAddToSelected('${compId}')">
+        <button class="btn" style="background:#a78bfa;color:#1a0f2e" onclick="cpAddToSelected('${esc(compId)}')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
           เพิ่มในรายการ
         </button>
@@ -1506,14 +1530,14 @@ function renderModalList(items){
   const el=document.getElementById('modal-list');
   if(!items.length){el.innerHTML='<div class="state-box">ไม่พบรายการ</div>';return;}
   el.innerHTML=items.map(it=>`
-    <div class="modal-row" onclick="modalSelectItem('${it.code}')">
+    <div class="modal-row" onclick="modalSelectItem('${esc(it.code)}')">
       <div style="flex:1;min-width:0">
-        <div class="modal-row-name">${it.name}</div>
-        <div class="modal-row-meta">${it.code} · ${it.catName} · ${it.province||''}</div>
+        <div class="modal-row-name">${esc(it.name)}</div>
+        <div class="modal-row-meta">${esc(it.code)} · ${esc(it.catName)} · ${esc(it.province||'')}</div>
       </div>
       <div style="text-align:right;flex-shrink:0">
         <div class="modal-row-price">${it.price?fmt(it.price):'—'}</div>
-        <div class="modal-row-meta">${it.unit}</div>
+        <div class="modal-row-meta">${esc(it.unit)}</div>
       </div>
     </div>`).join('');
 }
@@ -1586,13 +1610,13 @@ function cpRenderSelected(){
     const compUnit=s.comp.unit||'หน่วย';
     const mainRow=`<tr style="background:rgba(167,139,250,.08)">
       <td style="color:var(--text3);font-size:12px;vertical-align:top;padding-top:10px">${i+1}</td>
-      <td style="font-weight:600;vertical-align:top;padding-top:10px">${s.comp.sub} ${s.comp.name}</td>
-      <td style="vertical-align:top;padding-top:10px"><span class="cat-badge">${COMP_GROUPS[s.comp.group]||''}</span></td>
-      <td style="color:var(--text2);white-space:nowrap;vertical-align:top;padding-top:10px;font-size:12px">${compUnit}</td>
+      <td style="font-weight:600;vertical-align:top;padding-top:10px">${esc(s.comp.sub)} ${esc(s.comp.name)}</td>
+      <td style="vertical-align:top;padding-top:10px"><span class="cat-badge">${esc(COMP_GROUPS[s.comp.group]||'')}</span></td>
+      <td style="color:var(--text2);white-space:nowrap;vertical-align:top;padding-top:10px;font-size:12px">${esc(compUnit)}</td>
       <td class="r" style="font-family:'IBM Plex Mono',monospace;font-weight:700;color:#a78bfa;vertical-align:top;padding-top:10px">
         ${s.total.toLocaleString('th-TH',{minimumFractionDigits:2,maximumFractionDigits:2})}
       </td>
-      <td class="no-print" style="vertical-align:top;padding-top:10px"><span class="s-del" onclick="cpRemoveSelected('${s.compId}')" title="ลบ">×</span></td>
+      <td class="no-print" style="vertical-align:top;padding-top:10px"><span class="s-del" onclick="cpRemoveSelected('${esc(s.compId)}')" title="ลบ">×</span></td>
     </tr>`;
     const detailRows=s.snapshot.map(it=>{
       const isFixed=it.fixedPrice!==null;
@@ -1603,15 +1627,15 @@ function cpRenderSelected(){
       const provNote=isFixed?'(ตายตัว)':it.province||'';
       return `<tr>
         <td></td>
-        <td style="padding:4px 12px 4px 28px;font-size:12px;color:var(--text2)">${it.itemName}${provNote?`<span style="font-size:10px;color:var(--text3);margin-left:5px">📍${provNote}</span>`:''}</td>
-        <td class="r" style="font-size:11px;font-family:'IBM Plex Mono',monospace;color:var(--text3);white-space:nowrap">${it.qty.toLocaleString('th-TH',{minimumFractionDigits:2,maximumFractionDigits:3})} ${it.unit}</td>
+        <td style="padding:4px 12px 4px 28px;font-size:12px;color:var(--text2)">${esc(it.itemName)}${provNote?`<span style="font-size:10px;color:var(--text3);margin-left:5px">📍${esc(provNote)}</span>`:''}</td>
+        <td class="r" style="font-size:11px;font-family:'IBM Plex Mono',monospace;color:var(--text3);white-space:nowrap">${it.qty.toLocaleString('th-TH',{minimumFractionDigits:2,maximumFractionDigits:3})} ${esc(it.unit)}</td>
         <td class="r" style="font-size:11px;font-family:'IBM Plex Mono',monospace;color:var(--text3);white-space:nowrap">@${priceStr}</td>
         <td class="r" style="font-size:11px;font-family:'IBM Plex Mono',monospace;color:var(--green)">${subStr}</td>
         <td></td>
       </tr>`;
     }).join('');
     const totalRow=`<tr style="border-bottom:2px solid rgba(167,139,250,.3)">
-      <td colspan="4" style="padding:5px 12px;font-size:11px;color:var(--text3);text-align:right;font-style:italic">รวมราคาวัสดุ (ค่างานต้นทุน) ต่อ 1 ${compUnit}</td>
+      <td colspan="4" style="padding:5px 12px;font-size:11px;color:var(--text3);text-align:right;font-style:italic">รวมราคาวัสดุ (ค่างานต้นทุน) ต่อ 1 ${esc(compUnit)}</td>
       <td class="r" style="font-family:'IBM Plex Mono',monospace;font-weight:700;font-size:13px;color:#a78bfa;padding:5px 12px">${s.total.toLocaleString('th-TH',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
       <td></td>
     </tr>`;
@@ -1637,21 +1661,21 @@ function cpPrintPDF(){
       const sub=it.qty*price;
       const pd=price>0?(price<1?price.toFixed(5).replace(/\.?0+$/,''):price.toLocaleString('th-TH',{minimumFractionDigits:2,maximumFractionDigits:2})):'—';
       const sd=price>0?sub.toLocaleString('th-TH',{minimumFractionDigits:2,maximumFractionDigits:2}):'—';
-      return `<tr><td>${i+1}</td><td>${it.itemName}</td>
+      return `<tr><td>${i+1}</td><td>${esc(it.itemName)}</td>
         <td class="r mono">${it.qty.toLocaleString('th-TH',{minimumFractionDigits:2,maximumFractionDigits:3})}</td>
-        <td>${it.unit}</td><td class="r mono">${pd}</td>
-        <td style="font-size:9px;color:#666">${isFixed?'(ตายตัว)':it.province||''}</td>
+        <td>${esc(it.unit)}</td><td class="r mono">${pd}</td>
+        <td style="font-size:9px;color:#666">${isFixed?'(ตายตัว)':esc(it.province||'')}</td>
         <td class="r mono">${sd}</td></tr>`;
     }).join('');
     return `<div class="cp-item-block">
-      <div class="cp-item-header">${idx+1}. ${s.comp.sub} ${s.comp.name}</div>
-      <div class="cp-item-sub">${COMP_GROUPS[s.comp.group]||''} | พื้นที่ 1 ${compUnit}</div>
+      <div class="cp-item-header">${idx+1}. ${esc(s.comp.sub)} ${esc(s.comp.name)}</div>
+      <div class="cp-item-sub">${esc(COMP_GROUPS[s.comp.group]||'')} | พื้นที่ 1 ${esc(compUnit)}</div>
       <table class="cp-detail-tbl">
         <thead><tr><th>#</th><th>รายการวัสดุ</th><th class="r">ปริมาณ</th><th>หน่วย</th>
-          <th class="r">ราคา/หน่วย (บาท)</th><th>แหล่งที่มา</th><th class="r">ราคา (บาท/${compUnit})</th></tr></thead>
+          <th class="r">ราคา/หน่วย (บาท)</th><th>แหล่งที่มา</th><th class="r">ราคา (บาท/${esc(compUnit)})</th></tr></thead>
         <tbody>${itemRows}</tbody>
         <tfoot><tr class="total-row">
-          <td colspan="6" style="text-align:right">รวมราคาวัสดุมวลรวม (ค่างานต้นทุน) พื้นที่ 1 ${compUnit}</td>
+          <td colspan="6" style="text-align:right">รวมราคาวัสดุมวลรวม (ค่างานต้นทุน) พื้นที่ 1 ${esc(compUnit)}</td>
           <td class="r mono">${s.total.toLocaleString('th-TH',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
         </tr></tfoot>
       </table>
