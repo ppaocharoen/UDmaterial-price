@@ -1055,6 +1055,11 @@ function wOnCatChange(){
   sel.innerHTML=opts.join('');sel.disabled=false;
 }
 
+// ตรวจว่า item เป็น "leaf ที่ h2" หรือไม่ (h3 และ h4 ว่าง/'-' แต่มีราคา)
+function wIsLeafH2(it){
+  return (!it.h3||it.h3==='-')&&(!it.h4||it.h4==='-');
+}
+
 function wOnH1Change(){
   const cat=document.getElementById('w-sel-cat').value;
   const h1=document.getElementById('w-sel-h1').value;
@@ -1065,6 +1070,11 @@ function wOnH1Change(){
   const h2vals=wUniq(items.map(d=>d.h2));
   if(!h2vals.length){
     // ไม่มี h2 → แสดงรายการ item โดยตรง
+    wPopulateItems(items);return;
+  }
+  // ตรวจว่าทุก item ใน h1 นี้เป็น leaf-h2 ทั้งหมด → ข้ามขั้น h2 dropdown
+  const allLeaf=items.every(wIsLeafH2);
+  if(allLeaf){
     wPopulateItems(items);return;
   }
   const opts=['<option value="">— เลือกหมวดย่อย —</option>'];
@@ -1081,6 +1091,11 @@ function wOnH2Change(){
   wResetBelow('h2');
   if(!h2)return;
   const items=wageData.filter(d=>d.sheetLabel===cat&&d.h1===h1&&d.h2===h2);
+  // ถ้า item ใน h2 นี้เป็น leaf-h2 ทั้งหมด → แสดงรายการตรง ไม่ต้องรอ dropdown item
+  if(items.length&&items.every(wIsLeafH2)){
+    wPopulateItems(items);return;
+  }
+  // กรณีปกติ: มี h3/h4 → filter เฉพาะที่ไม่ใช่ leaf-h2
   wPopulateItems(items);
 }
 
@@ -1089,8 +1104,10 @@ function wPopulateItems(items){
   const opts=['<option value="">— เลือกรายการ —</option>'];
   items.forEach(it=>{
     const idx=wageData.indexOf(it);
-    // label = h3+h4 หรือ h2 หรือ h1
-    const label=[it.h3,it.h4].filter(x=>x&&x!=='-').join(' — ')||it.h2||it.h1;
+    // leaf-h2: ใช้ h2 เป็นชื่อ; ปกติ: h3+h4
+    const label=wIsLeafH2(it)
+      ?it.h2||it.h1
+      :[it.h3,it.h4].filter(x=>x&&x!=='-').join(' — ')||it.h2||it.h1;
     const priceStr=it.price?` (${fmt(it.price)} บาท/${it.unit})`:it.rawPrice?` (${it.rawPrice})`:''
     opts.push(`<option value="${idx}">${label}${priceStr}</option>`);
   });
@@ -1165,8 +1182,10 @@ function showWageResult(item){
     return `<div class="detail-row"><span class="detail-key" style="font-size:12px">${esc(rn)}</span><span class="detail-val" style="font-family:'IBM Plex Mono',monospace;font-size:12px">${r.price?fmt(r.price):esc(r.rawPrice||'—')} ${esc(r.unit)}</span></div>`;
   }).join('');
 
-  const h3h4=[item.h3||item.h2,item.h4].filter(x=>x&&x!=='-').join(' — ')||item.h1;
-  const h1h2=item.sheetLabel+' › '+item.h1+(item.h2&&item.h2!=='-'?' › '+item.h2:'');
+  const h3h4=wIsLeafH2(item)
+    ?item.h2||item.h1
+    :[item.h3||item.h2,item.h4].filter(x=>x&&x!=='-').join(' — ')||item.h1;
+  const h1h2=item.sheetLabel+' › '+item.h1+((!wIsLeafH2(item)&&item.h2&&item.h2!=='-')?' › '+item.h2:'');
 
   document.getElementById('wage-result-area').innerHTML=`
     <div class="rc">
@@ -1223,8 +1242,8 @@ function wRenderSelected(){
   sec.style.display='block';
   document.getElementById('w-sel-count').textContent=`(${wSelectedItems.length} รายการ)`;
   document.getElementById('w-sel-body').innerHTML=wSelectedItems.map((it,i)=>{
-    const nm=[it.h3||it.h2,it.h4].filter(x=>x&&x!=='-').join(' — ')||it.h1;
-    const sub=it.h2&&it.h2!=='-'?`<div style="font-size:11px;color:var(--text3)">${esc(it.h1)}${it.h2&&it.h2!=='-'?' › '+esc(it.h2):''}</div>`:'';
+    const nm=wIsLeafH2(it)?it.h2||it.h1:[it.h3||it.h2,it.h4].filter(x=>x&&x!=='-').join(' — ')||it.h1;
+    const sub=(!wIsLeafH2(it)&&it.h2&&it.h2!=='-')?`<div style="font-size:11px;color:var(--text3)">${esc(it.h1)}${it.h2&&it.h2!=='-'?' › '+esc(it.h2):''}</div>`:'';
     return `<tr>
       <td style="color:var(--text3);font-size:12px">${i+1}</td>
       <td>${esc(nm)}${sub}</td>
