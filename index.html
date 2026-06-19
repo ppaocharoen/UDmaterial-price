@@ -351,7 +351,7 @@ table.main td.sm{font-size:11px;color:var(--text2);}
   </div>
   <div class="nav-tabs">
     <div class="nav-tab active" onclick="switchPage('ai')" id="tab-ai">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>ค้นหาอัจฉริยะ
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>ระบบค้นหารวม
     </div>
     <div class="nav-tab" onclick="switchPage('search')" id="tab-search">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>ราคาวัสดุ
@@ -389,7 +389,7 @@ table.main td.sm{font-size:11px;color:var(--text2);}
   </div>
 </div>
 
-<!-- PAGE AI: ค้นหาอัจฉริยะ -->
+<!-- PAGE AI: ระบบค้นหารวม -->
 <div class="page active" id="page-ai">
 <div class="ai-wrap">
   <div class="ai-hero">
@@ -622,8 +622,67 @@ function esc(s){
 }
 
 // ============================================================
-// PAGE SWITCH
+// SMART SEARCH ENGINE — Multi-word Token + Weighted Scoring
 // ============================================================
+// tokenize: แยกคำค้นหาเป็น array ของ token ขนาด >= 2 ตัวอักษร
+// (ยกเว้นตัวเลขล้วน เช่น "240" ให้ผ่านได้ที่ 2+ char)
+function smTokenize(q){
+  return q.trim().toLowerCase()
+    .split(/[\s,]+/)
+    .map(t=>t.trim())
+    .filter(t=>t.length>=2||(t.length>=2&&/^\d+$/.test(t)));
+}
+
+// smScore: คืน score > 0 ถ้า item match ทุก token, คืน 0 ถ้า miss แม้แต่ token เดียว
+// fields: array ของ { text:string, weight:number }
+// score = ผลรวม weight ของแต่ละ token (ใช้ weight สูงสุดของ field ที่ match)
+function smScore(tokens, fields){
+  if(!tokens.length) return 1; // ไม่มี token = match ทุกอย่าง
+  let total=0;
+  for(const tok of tokens){
+    let best=0;
+    for(const f of fields){
+      if(!f.text) continue;
+      const t=f.text.toLowerCase();
+      // prefix match ใน word boundary → weight x 1.5
+      const wordStart=t===tok||t.startsWith(tok)||t.includes(' '+tok)||t.includes('\t'+tok);
+      if(wordStart){ best=Math.max(best, f.weight*1.5); continue; }
+      if(t.includes(tok)) best=Math.max(best, f.weight);
+    }
+    if(best===0) return 0; // token ไม่ match เลย → ตัดทิ้ง
+    total+=best;
+  }
+  return total;
+}
+
+// smFilter: กรอง+เรียงลำดับตาม relevance, คืน array ไม่เกิน limit รายการ
+// items: array ข้อมูล
+// q: string คำค้นหาจาก user
+// getFields: function(item) → [{text, weight}, ...]
+function smFilter(items, q, getFields, limit=40){
+  const tokens=smTokenize(q);
+  if(!tokens.length) return [];
+  const scored=[];
+  for(const it of items){
+    const s=smScore(tokens, getFields(it));
+    if(s>0) scored.push({it, s});
+  }
+  scored.sort((a,b)=>b.s-a.s);
+  return scored.slice(0,limit).map(x=>x.it);
+}
+
+// highlight หลาย token พร้อมกัน (ใช้แทน single-token hl เดิม)
+function smHl(str, tokens, bgColor){
+  let safe=esc(str);
+  tokens.forEach(tok=>{
+    const reEsc=tok.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+    safe=safe.replace(new RegExp(reEsc,'gi'),
+      m=>`<mark style="background:${bgColor};border-radius:2px;padding:0 2px">${esc(m)}</mark>`);
+  });
+  return safe;
+}
+
+
 function switchPage(p){
   ['ai','search','wage','composite'].forEach(x=>{
     const pg=document.getElementById('page-'+x);
@@ -760,8 +819,12 @@ function onSearchText(){
   document.getElementById('result-area').innerHTML='';
   if(q.length<2){document.getElementById('search-list').innerHTML='';return;}
   matTimer=setTimeout(()=>{
-    const res=allData.filter(d=>d.name.includes(q)||d.code.includes(q)).slice(0,40);
-    renderMatSearchList(res,q);
+    const res=smFilter(allData, q, d=>[
+      {text:d.code,    weight:10},
+      {text:d.name,    weight:6},
+      {text:d.catName, weight:2},
+    ], 40);
+    renderMatSearchList(res, q);
   },200);
 }
 function clearMatSearch(){
@@ -771,14 +834,11 @@ function clearMatSearch(){
 function renderMatSearchList(res,q){
   const el=document.getElementById('search-list');
   if(!res.length){el.innerHTML=`<div class="state-box">ไม่พบรายการที่ตรงกับ "${esc(q)}"</div>`;return;}
-  const escQ=esc(q);
-  const reEsc=q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
-  const re=new RegExp(reEsc,'g');
+  const tokens=smTokenize(q);
   const rows=res.map(it=>{
-    const safeName=esc(it.name);
-    const hl=safeName.replace(re,`<mark style="background:var(--accent-dim2);color:var(--accent2);border-radius:2px;padding:0 2px">${escQ}</mark>`);
+    const hlName=smHl(it.name, tokens, 'var(--accent-dim2)');
     return `<div class="sl-row" onclick="matSelectFromList('${esc(it.code)}')">
-      <div style="flex:1;min-width:0"><div class="sl-name">${hl}</div><div class="sl-meta">${esc(it.code)} · ${esc(it.catName)}</div></div>
+      <div style="flex:1;min-width:0"><div class="sl-name">${hlName}</div><div class="sl-meta">${esc(it.code)} · ${esc(it.catName)}</div></div>
       <div><div class="sl-price-val">${it.price?fmt(it.price):'—'}</div><div class="sl-price-meta">${esc(it.unit)} · ${esc(it.province||'')}</div></div>
     </div>`;
   }).join('');
@@ -873,8 +933,15 @@ function printPDF(){
 // ============================================================
 function filterTable(){
   const cid=document.getElementById('tbl-cat').value;
-  const q=(document.getElementById('tbl-search').value||'').trim().toLowerCase();
-  const data=allData.filter(d=>(!cid||d.catId===cid)&&(!q||d.name.toLowerCase().includes(q)||d.code.includes(q)));
+  const q=(document.getElementById('tbl-search').value||'').trim();
+  let data=allData.filter(d=>!cid||d.catId===cid);
+  if(q.length>=2){
+    data=smFilter(data, q, d=>[
+      {text:d.code,    weight:10},
+      {text:d.name,    weight:6},
+      {text:d.catName, weight:2},
+    ], 5000);
+  }
   renderTable(data);
 }
 function renderTable(data){
@@ -1050,10 +1117,12 @@ function wOnSearchText(){
   document.getElementById('wage-result-area').innerHTML='';
   if(q.length<2){document.getElementById('wage-search-list').innerHTML='';return;}
   wTimer=setTimeout(()=>{
-    const res=wageData.filter(d=>{
-      const full=[d.h1,d.h2,d.h3,d.h4].join(' ').toLowerCase();
-      return full.includes(q.toLowerCase());
-    }).slice(0,50);
+    const res=smFilter(wageData, q, d=>[
+      {text:[d.h3,d.h4].filter(x=>x&&x!=='-').join(' '), weight:8},
+      {text:d.h2&&d.h2!=='-'?d.h2:'',                   weight:5},
+      {text:d.h1,                                         weight:3},
+      {text:d.sheetLabel,                                 weight:1},
+    ], 50);
     renderWageSearchList(res,q);
   },200);
 }
@@ -1065,16 +1134,13 @@ function wClearSearch(){
 function renderWageSearchList(res,q){
   const el=document.getElementById('wage-search-list');
   if(!res.length){el.innerHTML=`<div class="state-box">ไม่พบรายการที่ตรงกับ "${esc(q)}"</div>`;return;}
-  const escQ=esc(q);
-  const reEsc=q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
-  const re=new RegExp(reEsc,'gi');
-  const rows=res.map((it,i)=>{
+  const tokens=smTokenize(q);
+  const rows=res.map(it=>{
     const fullName=[it.h1,it.h2,it.h3,it.h4].filter(x=>x&&x!=='-').join(' › ');
-    const safeName=esc(fullName);
-    const hl=safeName.replace(re,m=>`<mark style="background:rgba(245,166,35,.25);color:var(--amber);border-radius:2px;padding:0 2px">${esc(m)}</mark>`);
+    const hlName=smHl(fullName, tokens, 'rgba(245,166,35,.25)');
     const priceStr=it.price?fmt(it.price):it.rawPrice||'—';
     return `<div class="sl-row" onclick="wSelectFromList(${wageData.indexOf(it)})">
-      <div style="flex:1;min-width:0"><div class="sl-name">${hl}</div><div class="sl-meta">${esc(it.sheetLabel)}</div></div>
+      <div style="flex:1;min-width:0"><div class="sl-name">${hlName}</div><div class="sl-meta">${esc(it.sheetLabel)}</div></div>
       <div><div class="sl-price-val wage">${priceStr}</div><div class="sl-price-meta">${esc(it.unit)}</div></div>
     </div>`;
   }).join('');
@@ -1188,13 +1254,16 @@ function wPrintPDF(){
 // ============================================================
 function wFilterTable(){
   const cat=document.getElementById('w-tbl-cat').value;
-  const q=(document.getElementById('w-tbl-search').value||'').trim().toLowerCase();
-  const data=wageData.filter(d=>{
-    const catOk=!cat||d.sheetLabel===cat;
-    const full=[d.h1,d.h2,d.h3,d.h4].join(' ').toLowerCase();
-    const textOk=!q||full.includes(q);
-    return catOk&&textOk;
-  });
+  const q=(document.getElementById('w-tbl-search').value||'').trim();
+  let data=wageData.filter(d=>!cat||d.sheetLabel===cat);
+  if(q.length>=2){
+    data=smFilter(data, q, d=>[
+      {text:[d.h3,d.h4].filter(x=>x&&x!=='-').join(' '), weight:8},
+      {text:d.h2&&d.h2!=='-'?d.h2:'',                   weight:5},
+      {text:d.h1,                                         weight:3},
+      {text:d.sheetLabel,                                 weight:1},
+    ], 5000);
+  }
   wRenderTable(data);
 }
 
@@ -1356,14 +1425,21 @@ function cpOnSearch(){
   document.getElementById('cp-calc-area').innerHTML='';
   if(q.length<2){document.getElementById('cp-search-list').innerHTML='';return;}
   cpTimer=setTimeout(()=>{
-    const res=compList.filter(d=>d.name.includes(q)||d.sub.includes(q)).slice(0,30);
+    const res=smFilter(compList, q, d=>[
+      {text:d.name,                          weight:8},
+      {text:d.sub,                           weight:5},
+      {text:COMP_GROUPS[d.group]||'',        weight:2},
+    ], 30);
     if(!res.length){document.getElementById('cp-search-list').innerHTML=`<div class="state-box">ไม่พบ "${esc(q)}"</div>`;return;}
-    const rows=res.map(it=>`
-      <div class="sl-row" onclick="cpSelectFromList('${esc(it.id)}')">
-        <div style="flex:1"><div class="sl-name">${esc(it.sub)} ${esc(it.name)}</div>
+    const tokens=smTokenize(q);
+    const rows=res.map(it=>{
+      const hlName=smHl(it.sub+' '+it.name, tokens, 'rgba(167,139,250,.25)');
+      return `<div class="sl-row" onclick="cpSelectFromList('${esc(it.id)}')">
+        <div style="flex:1"><div class="sl-name">${hlName}</div>
         <div class="sl-meta">${esc(COMP_GROUPS[it.group]||'')}</div></div>
-        <div style="font-size:12px;color:var(--text2);flex-shrink:0">${it.unit}</div>
-      </div>`).join('');
+        <div style="font-size:12px;color:var(--text2);flex-shrink:0">${esc(it.unit)}</div>
+      </div>`;
+    }).join('');
     document.getElementById('cp-search-list').innerHTML=`<div class="sl-card"><div class="sl-hd">พบ ${res.length} รายการ</div>${rows}</div>`;
   },200);
 }
@@ -1612,7 +1688,11 @@ function closeMatModal(e){
 function modalSearch(){
   const q=document.getElementById('modal-search-inp').value.trim();
   if(!q){renderModalList(allData.slice(0,60));return;}
-  const res=allData.filter(d=>d.name.includes(q)||d.code.includes(q)).slice(0,60);
+  const res=smFilter(allData, q, d=>[
+    {text:d.code,    weight:10},
+    {text:d.name,    weight:6},
+    {text:d.catName, weight:2},
+  ], 60);
   renderModalList(res);
 }
 
@@ -1807,31 +1887,36 @@ function aiSearch(){
 
 function aiRender(q){
   const el=document.getElementById('ai-results');
+  const tokens=smTokenize(q);
   const ql=q.toLowerCase();
 
   // ---- วัสดุก่อสร้าง ----
-  const matRes=allData.filter(d=>
-    d.name.toLowerCase().includes(ql)||d.code.toLowerCase().includes(ql)||d.catName.toLowerCase().includes(ql)
-  ).slice(0,12);
+  const matRes=smFilter(allData, q, d=>[
+    {text:d.code,    weight:10},
+    {text:d.name,    weight:6},
+    {text:d.catName, weight:2},
+  ], 12);
 
   // ---- ค่าแรง ----
-  // ตรวจจับ intent: ถ้ามีคำว่า ค่าแรง / งาน / ขุด / เสา / เข็ม / ฉาบ → ให้ลำดับค่าแรงขึ้นก่อน
-  const wageKeywords=['ค่าแรง','แรงงาน','ขุด','ถม','ปรับ','เสา','เข็ม','คาน','พื้น','ผนัง','ฉาบ','หล่อ','ท่อ','สี','ไฟฟ้า','งาน'];
-  const isWageIntent=wageKeywords.some(k=>ql.includes(k));
+  // intent detection: ถ้า token ใด match keyword ค่าแรง → เลื่อนค่าแรงขึ้นก่อน
+  const wageKeywords=['ค่าแรง','แรงงาน','ขุด','ถม','ปรับ','เสา','เข็ม','คาน','พื้น','ผนัง','ฉาบ','หล่อ','ท่อ','ไฟฟ้า','งาน'];
+  const isWageIntent=tokens.some(tok=>wageKeywords.some(k=>k.includes(tok)||tok.includes(k)));
 
-  const wageRes=wageData.filter(d=>{
-    const full=[d.h1,d.h2,d.h3,d.h4].join(' ').toLowerCase();
-    return full.includes(ql);
-  }).slice(0,12);
+  const wageRes=smFilter(wageData, q, d=>[
+    {text:[d.h3,d.h4].filter(x=>x&&x!=='-').join(' '), weight:8},
+    {text:d.h2&&d.h2!=='-'?d.h2:'',                   weight:5},
+    {text:d.h1,                                         weight:3},
+    {text:d.sheetLabel,                                 weight:1},
+  ], 12);
 
   // ---- วัสดุมวลรวม ----
-  // โหลด lazy — ถ้ายังไม่โหลดจะแสดง note
   let compRes=[];
   if(compLoaded){
-    compRes=compList.filter(d=>
-      d.name.toLowerCase().includes(ql)||d.sub.toLowerCase().includes(ql)||
-      (COMP_GROUPS[d.group]||'').toLowerCase().includes(ql)
-    ).slice(0,10);
+    compRes=smFilter(compList, q, d=>[
+      {text:d.name,                   weight:8},
+      {text:d.sub,                    weight:5},
+      {text:COMP_GROUPS[d.group]||'', weight:2},
+    ], 10);
   }
 
   const totalFound=matRes.length+wageRes.length+compRes.length;
@@ -1840,23 +1925,14 @@ function aiRender(q){
     return;
   }
 
-  const escQ=esc(q);
-  const reEsc=q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
-  const reHl=new RegExp(reEsc,'gi');
-
-  function hl(str,color){
-    return esc(str).replace(reHl,m=>`<mark style="background:${color};border-radius:2px;padding:0 2px">${esc(m)}</mark>`);
-  }
-
   // สร้าง section
   const sections=[];
 
-  // section วัสดุ (แสดงก่อน เว้นแต่ intent เป็นค่าแรง)
   if(matRes.length){
     const rows=matRes.map(it=>`
       <div class="ai-row" onclick="aiGoMat('${esc(it.code)}')">
         <div style="flex:1;min-width:0">
-          <div class="ai-row-name">${hl(it.name,'var(--accent-dim2)')}</div>
+          <div class="ai-row-name">${smHl(it.name, tokens, 'var(--accent-dim2)')}</div>
           <div class="ai-row-meta">${esc(it.code)} · ${esc(it.catName)}</div>
         </div>
         <div>
@@ -1881,7 +1957,7 @@ function aiRender(q){
       const priceStr=it.price?fmt(it.price):it.rawPrice||'—';
       return `<div class="ai-row" onclick="aiGoWage(${idx})">
         <div style="flex:1;min-width:0">
-          <div class="ai-row-name">${hl(fullName,'rgba(245,166,35,.2)')}</div>
+          <div class="ai-row-name">${smHl(fullName, tokens, 'rgba(245,166,35,.2)')}</div>
           <div class="ai-row-meta">${esc(it.sheetLabel)}</div>
         </div>
         <div>
@@ -1904,7 +1980,7 @@ function aiRender(q){
     const rows=compRes.map(it=>`
       <div class="ai-row" onclick="aiGoComp('${esc(it.id)}')">
         <div style="flex:1;min-width:0">
-          <div class="ai-row-name">${hl(it.sub+' '+it.name,'rgba(167,139,250,.2)')}</div>
+          <div class="ai-row-name">${smHl(it.sub+' '+it.name, tokens, 'rgba(167,139,250,.2)')}</div>
           <div class="ai-row-meta">${esc(COMP_GROUPS[it.group]||'')}</div>
         </div>
         <div>
@@ -1920,7 +1996,7 @@ function aiRender(q){
           <span class="ai-count">พบ ${compRes.length} รายการ</span>
         </div>${rows}
       </div>`});
-  } else if(!compLoaded&&(ql.includes('มวลรวม')||ql.includes('คำนวณ')||ql.includes('ปู')||ql.includes('ฉาบ')||ql.includes('ก่อ'))){
+  } else if(!compLoaded&&tokens.some(t=>['มวลรวม','คำนวณ','ปู','ฉาบ','ก่อ'].some(k=>k.includes(t)||t.includes(k)))){
     sections.push({order:3,html:`
       <div class="ai-section">
         <div class="ai-sec-hd">
