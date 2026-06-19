@@ -265,7 +265,7 @@ table.main td.sm{font-size:11px;color:var(--text2);}
   @page{size:A4;margin:12mm 10mm;}
   .topbar,.warn-banner,.search-input-wrap,.filter-row,.sl-card,
   .s-del,.sel-actions,.no-print,#result-area,#wage-result-area,.nav-tabs,.meta-bar,
-  .sub-tabs,#cp-calc-area,.sub-page:not(.active),.credit-bar,.modal-overlay{display:none!important;}
+  .sub-tabs,#cp-calc-area,.sub-page:not(.active),.credit-bar,.modal-overlay,#page-ai{display:none!important;}
   body{background:#fff;color:#000;font-size:11px;}
   .pdf-only{display:block!important;}
   .page.active{display:block;}
@@ -292,6 +292,53 @@ table.main td.sm{font-size:11px;color:var(--text2);}
   .cp-detail-tbl .mono{font-family:monospace;}
 }
 .pdf-only{display:none;}
+
+/* ===== AI SEARCH PAGE ===== */
+.ai-wrap{max-width:860px;margin:0 auto;padding:32px 20px 60px;}
+.ai-hero{text-align:center;margin-bottom:28px;}
+.ai-hero-title{font-size:22px;font-weight:700;color:var(--text);margin-bottom:6px;display:flex;align-items:center;justify-content:center;gap:10px;}
+.ai-hero-sub{font-size:13px;color:var(--text3);}
+.ai-search-box{position:relative;margin-bottom:14px;}
+.ai-search-box input{width:100%;background:var(--bg2);border:2px solid var(--border2);border-radius:12px;color:var(--text);font-family:'Sarabun',sans-serif;font-size:16px;padding:14px 52px 14px 18px;outline:none;transition:border-color .2s,box-shadow .2s;}
+.ai-search-box input:focus{border-color:var(--accent);box-shadow:0 0 0 4px var(--accent-dim);}
+.ai-search-icon{position:absolute;right:16px;top:50%;transform:translateY(-50%);color:var(--text3);pointer-events:none;}
+.ai-search-icon svg{width:20px;height:20px;}
+.ai-chips{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-bottom:28px;}
+.ai-chip{background:var(--bg3);border:1px solid var(--border);border-radius:20px;padding:6px 14px;font-size:12px;color:var(--text2);cursor:pointer;transition:all .15s;white-space:nowrap;}
+.ai-chip:hover{border-color:var(--accent);color:var(--accent2);background:var(--accent-dim);}
+.ai-results{display:flex;flex-direction:column;gap:16px;}
+.ai-section{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;}
+.ai-sec-hd{padding:10px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:10px;}
+.ai-sec-title{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;display:flex;align-items:center;gap:7px;}
+.ai-badge{display:inline-flex;align-items:center;border-radius:4px;font-size:11px;font-weight:700;padding:3px 9px;white-space:nowrap;}
+.ai-badge-mat{background:var(--accent-dim);color:var(--accent2);border:1px solid rgba(79,142,247,.3);}
+.ai-badge-wage{background:var(--amber-dim);color:var(--amber);border:1px solid var(--amber-border);}
+.ai-badge-comp{background:var(--purple-dim,rgba(167,139,250,.12));color:#a78bfa;border:1px solid rgba(167,139,250,.3);}
+.ai-count{font-size:12px;color:var(--text3);}
+.ai-row{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px 16px;cursor:pointer;border-bottom:1px solid var(--border);transition:background .1s;}
+.ai-row:last-child{border-bottom:none;}
+.ai-row:hover{background:var(--accent-dim);}
+.ai-row-name{font-size:13px;line-height:1.4;font-weight:500;}
+.ai-row-meta{font-size:11px;color:var(--text3);margin-top:2px;}
+.ai-row-price{font-family:'IBM Plex Mono',monospace;font-weight:700;font-size:14px;text-align:right;flex-shrink:0;}
+.ai-row-price.mat{color:var(--green);}
+.ai-row-price.wage{color:var(--amber);}
+.ai-row-price.comp{color:#a78bfa;}
+.ai-row-unit{font-size:11px;color:var(--text3);text-align:right;}
+.ai-empty{text-align:center;padding:32px 20px;color:var(--text3);font-size:13px;}
+.ai-welcome{text-align:center;padding:36px 20px;color:var(--text3);}
+.ai-welcome svg{opacity:.3;margin-bottom:12px;}
+.ai-welcome-title{font-size:14px;font-weight:600;color:var(--text2);margin-bottom:6px;}
+.ai-welcome-sub{font-size:12px;line-height:1.8;}
+.ai-goto{margin-left:auto;font-size:11px;color:var(--accent2);white-space:nowrap;flex-shrink:0;opacity:.7;}
+.ai-row:hover .ai-goto{opacity:1;}
+@media(max-width:600px){
+  .ai-wrap{padding:20px 12px 60px;}
+  .ai-hero-title{font-size:18px;}
+  .ai-search-box input{font-size:15px;padding:12px 44px 12px 14px;}
+  .ai-chips{gap:6px;}
+  .ai-chip{font-size:11px;padding:5px 11px;}
+}
 </style>
 </head>
 <body>
@@ -303,7 +350,10 @@ table.main td.sm{font-size:11px;color:var(--text2);}
     <span class="logo-text"><strong style="color:#fff;letter-spacing:.03em">UD-Cost Hub</strong> <span style="color:var(--text3);font-weight:400;font-size:11px">ระบบข้อมูลราคางานก่อสร้าง เทศบาลนครอุดรธานี</span></span>
   </div>
   <div class="nav-tabs">
-    <div class="nav-tab active" onclick="switchPage('search')" id="tab-search">
+    <div class="nav-tab active" onclick="switchPage('ai')" id="tab-ai">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>ค้นหาอัจฉริยะ
+    </div>
+    <div class="nav-tab" onclick="switchPage('search')" id="tab-search">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>ราคาวัสดุ
     </div>
     <div class="nav-tab" onclick="switchPage('wage')" id="tab-wage">
@@ -339,8 +389,41 @@ table.main td.sm{font-size:11px;color:var(--text2);}
   </div>
 </div>
 
+<!-- PAGE AI: ค้นหาอัจฉริยะ -->
+<div class="page active" id="page-ai">
+<div class="ai-wrap">
+  <div class="ai-hero">
+    <div class="ai-hero-title">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="26" height="26" style="color:var(--accent)"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+      ค้นหาข้อมูลราคาก่อสร้าง
+    </div>
+    <div class="ai-hero-sub">ค้นหาพร้อมกันทั้ง ราคาวัสดุ · ค่าแรง · วัสดุมวลรวม ในครั้งเดียว</div>
+  </div>
+
+  <div class="ai-search-box">
+    <input type="text" id="ai-input" placeholder="พิมพ์ชื่อวัสดุ รายการงาน หรือวัสดุมวลรวม เช่น คอนกรีต, ขุดดิน, ปูกระเบื้อง..." oninput="aiSearch()" autocomplete="off">
+    <div class="ai-search-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg></div>
+  </div>
+
+  <div class="ai-chips">
+    <span class="ai-chip" onclick="aiChip('คอนกรีต 240')">คอนกรีต 240 ksc</span>
+    <span class="ai-chip" onclick="aiChip('เหล็กเส้น')">เหล็กเส้น</span>
+    <span class="ai-chip" onclick="aiChip('ปูนซีเมนต์')">ปูนซีเมนต์</span>
+    <span class="ai-chip" onclick="aiChip('ขุดดิน')">ขุดดิน</span>
+    <span class="ai-chip" onclick="aiChip('เสาเข็ม')">เสาเข็ม</span>
+    <span class="ai-chip" onclick="aiChip('ปูกระเบื้อง')">ปูกระเบื้องพื้น</span>
+    <span class="ai-chip" onclick="aiChip('ฉาบปูน')">ฉาบปูน</span>
+    <span class="ai-chip" onclick="aiChip('ทาสี')">ทาสี</span>
+    <span class="ai-chip" onclick="aiChip('ก่อผนัง')">ก่อผนังอิฐ</span>
+    <span class="ai-chip" onclick="aiChip('ท่อ PVC')">ท่อ PVC</span>
+  </div>
+
+  <div id="ai-results"></div>
+</div>
+</div>
+
 <!-- PAGE 1: ราคาวัสดุ -->
-<div class="page active" id="page-search">
+<div class="page" id="page-search">
 <div class="search-wrap">
   <div class="page-title">ราคาวัสดุก่อสร้าง</div>
   <div class="sub-tabs">
@@ -542,7 +625,7 @@ function esc(s){
 // PAGE SWITCH
 // ============================================================
 function switchPage(p){
-  ['search','wage','composite'].forEach(x=>{
+  ['ai','search','wage','composite'].forEach(x=>{
     const pg=document.getElementById('page-'+x);
     if(pg) pg.classList.toggle('active',x===p);
     const tab=document.getElementById('tab-'+x);
@@ -558,7 +641,7 @@ function switchPage(p){
   const isComp=p==='composite';
   const mw=document.getElementById('mat-warn');
   const ww=document.getElementById('wage-warn');
-  if(mw) mw.style.display=(!isWage&&!isComp)?'flex':'none';
+  if(mw) mw.style.display=(!isWage&&!isComp&&p!=='ai')?'flex':'none';
   if(ww) ww.style.display=isWage?'flex':'none';
   if(isComp&&!compLoaded) loadCompData();
 }
@@ -1695,8 +1778,227 @@ function cpPrintPDF(){
 }
 
 // ============================================================
+// AI SEARCH — ค้นหาข้ามแท็บ
+// ============================================================
+let aiTimer;
+
+function aiChip(q){
+  document.getElementById('ai-input').value=q;
+  aiSearch();
+}
+
+function aiSearch(){
+  clearTimeout(aiTimer);
+  const raw=document.getElementById('ai-input').value;
+  const q=raw.trim();
+  const el=document.getElementById('ai-results');
+
+  if(q.length<2){
+    el.innerHTML=`<div class="ai-welcome">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="48" height="48"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+      <div class="ai-welcome-title">พิมพ์คำค้นหาเพื่อเริ่มต้น</div>
+      <div class="ai-welcome-sub">ระบบจะค้นหาพร้อมกันใน ราคาวัสดุ, ค่าแรง และวัสดุมวลรวม<br>คลิกที่ Tag ด้านบนเพื่อใช้ตัวอย่างคำค้นหา</div>
+    </div>`;
+    return;
+  }
+
+  aiTimer=setTimeout(()=>aiRender(q),180);
+}
+
+function aiRender(q){
+  const el=document.getElementById('ai-results');
+  const ql=q.toLowerCase();
+
+  // ---- วัสดุก่อสร้าง ----
+  const matRes=allData.filter(d=>
+    d.name.toLowerCase().includes(ql)||d.code.toLowerCase().includes(ql)||d.catName.toLowerCase().includes(ql)
+  ).slice(0,12);
+
+  // ---- ค่าแรง ----
+  // ตรวจจับ intent: ถ้ามีคำว่า ค่าแรง / งาน / ขุด / เสา / เข็ม / ฉาบ → ให้ลำดับค่าแรงขึ้นก่อน
+  const wageKeywords=['ค่าแรง','แรงงาน','ขุด','ถม','ปรับ','เสา','เข็ม','คาน','พื้น','ผนัง','ฉาบ','หล่อ','ท่อ','สี','ไฟฟ้า','งาน'];
+  const isWageIntent=wageKeywords.some(k=>ql.includes(k));
+
+  const wageRes=wageData.filter(d=>{
+    const full=[d.h1,d.h2,d.h3,d.h4].join(' ').toLowerCase();
+    return full.includes(ql);
+  }).slice(0,12);
+
+  // ---- วัสดุมวลรวม ----
+  // โหลด lazy — ถ้ายังไม่โหลดจะแสดง note
+  let compRes=[];
+  if(compLoaded){
+    compRes=compList.filter(d=>
+      d.name.toLowerCase().includes(ql)||d.sub.toLowerCase().includes(ql)||
+      (COMP_GROUPS[d.group]||'').toLowerCase().includes(ql)
+    ).slice(0,10);
+  }
+
+  const totalFound=matRes.length+wageRes.length+compRes.length;
+  if(!totalFound){
+    el.innerHTML=`<div class="ai-empty">ไม่พบรายการที่ตรงกับ "<strong>${esc(q)}</strong>" ในทุกหมวดหมู่</div>`;
+    return;
+  }
+
+  const escQ=esc(q);
+  const reEsc=q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+  const reHl=new RegExp(reEsc,'gi');
+
+  function hl(str,color){
+    return esc(str).replace(reHl,m=>`<mark style="background:${color};border-radius:2px;padding:0 2px">${esc(m)}</mark>`);
+  }
+
+  // สร้าง section
+  const sections=[];
+
+  // section วัสดุ (แสดงก่อน เว้นแต่ intent เป็นค่าแรง)
+  if(matRes.length){
+    const rows=matRes.map(it=>`
+      <div class="ai-row" onclick="aiGoMat('${esc(it.code)}')">
+        <div style="flex:1;min-width:0">
+          <div class="ai-row-name">${hl(it.name,'var(--accent-dim2)')}</div>
+          <div class="ai-row-meta">${esc(it.code)} · ${esc(it.catName)}</div>
+        </div>
+        <div>
+          <div class="ai-row-price mat">${it.price?fmt(it.price):'—'}</div>
+          <div class="ai-row-unit">${esc(it.unit)} · ${esc(it.province||'')}</div>
+        </div>
+        <span class="ai-goto">→ ราคาวัสดุ</span>
+      </div>`).join('');
+    sections.push({order:isWageIntent?2:1,html:`
+      <div class="ai-section">
+        <div class="ai-sec-hd">
+          <div class="ai-sec-title"><span class="ai-badge ai-badge-mat">วัสดุก่อสร้าง</span></div>
+          <span class="ai-count">พบ ${matRes.length} รายการ</span>
+        </div>${rows}
+      </div>`});
+  }
+
+  if(wageRes.length){
+    const rows=wageRes.map(it=>{
+      const idx=wageData.indexOf(it);
+      const fullName=[it.h1,it.h2,it.h3,it.h4].filter(x=>x&&x!=='-').join(' › ');
+      const priceStr=it.price?fmt(it.price):it.rawPrice||'—';
+      return `<div class="ai-row" onclick="aiGoWage(${idx})">
+        <div style="flex:1;min-width:0">
+          <div class="ai-row-name">${hl(fullName,'rgba(245,166,35,.2)')}</div>
+          <div class="ai-row-meta">${esc(it.sheetLabel)}</div>
+        </div>
+        <div>
+          <div class="ai-row-price wage">${priceStr}</div>
+          <div class="ai-row-unit">${esc(it.unit)}</div>
+        </div>
+        <span class="ai-goto">→ ค่าแรง</span>
+      </div>`;
+    }).join('');
+    sections.push({order:isWageIntent?1:2,html:`
+      <div class="ai-section">
+        <div class="ai-sec-hd">
+          <div class="ai-sec-title"><span class="ai-badge ai-badge-wage">บัญชีค่าแรง ว.809</span></div>
+          <span class="ai-count">พบ ${wageRes.length} รายการ</span>
+        </div>${rows}
+      </div>`});
+  }
+
+  if(compRes.length){
+    const rows=compRes.map(it=>`
+      <div class="ai-row" onclick="aiGoComp('${esc(it.id)}')">
+        <div style="flex:1;min-width:0">
+          <div class="ai-row-name">${hl(it.sub+' '+it.name,'rgba(167,139,250,.2)')}</div>
+          <div class="ai-row-meta">${esc(COMP_GROUPS[it.group]||'')}</div>
+        </div>
+        <div>
+          <div class="ai-row-price comp">คำนวณ</div>
+          <div class="ai-row-unit">${esc(it.unit)}</div>
+        </div>
+        <span class="ai-goto">→ มวลรวม</span>
+      </div>`).join('');
+    sections.push({order:3,html:`
+      <div class="ai-section">
+        <div class="ai-sec-hd">
+          <div class="ai-sec-title"><span class="ai-badge ai-badge-comp">ใบคำนวณมวลรวม</span></div>
+          <span class="ai-count">พบ ${compRes.length} รายการ</span>
+        </div>${rows}
+      </div>`});
+  } else if(!compLoaded&&(ql.includes('มวลรวม')||ql.includes('คำนวณ')||ql.includes('ปู')||ql.includes('ฉาบ')||ql.includes('ก่อ'))){
+    sections.push({order:3,html:`
+      <div class="ai-section">
+        <div class="ai-sec-hd">
+          <div class="ai-sec-title"><span class="ai-badge ai-badge-comp">ใบคำนวณมวลรวม</span></div>
+        </div>
+        <div class="ai-empty" style="padding:16px">
+          <span style="color:var(--text3)">ข้อมูลวัสดุมวลรวมยังไม่ได้โหลด — </span>
+          <span style="color:#a78bfa;cursor:pointer" onclick="switchPage('composite')">ไปที่แท็บวัสดุมวลรวมเพื่อโหลด</span>
+        </div>
+      </div>`});
+  }
+
+  sections.sort((a,b)=>a.order-b.order);
+  el.innerHTML=`<div class="ai-results">${sections.map(s=>s.html).join('')}</div>`;
+}
+
+// ---- Navigation functions ----
+function aiGoMat(code){
+  switchPage('search');
+  // รอให้ page switch เสร็จ แล้ว trigger showMatResult
+  setTimeout(()=>{
+    const item=allData.find(d=>d.code===code);
+    if(item){
+      document.getElementById('search-text').value='';
+      document.getElementById('search-list').innerHTML='';
+      showMatResult(item);
+      document.getElementById('result-area').scrollIntoView({behavior:'smooth',block:'nearest'});
+    }
+  },50);
+}
+
+function aiGoWage(idx){
+  switchPage('wage');
+  setTimeout(()=>{
+    const item=wageData[idx];
+    if(item){
+      document.getElementById('w-search-text').value='';
+      document.getElementById('wage-search-list').innerHTML='';
+      showWageResult(item);
+      document.getElementById('wage-result-area').scrollIntoView({behavior:'smooth',block:'nearest'});
+    }
+  },50);
+}
+
+function aiGoComp(compId){
+  switchPage('composite');
+  setTimeout(()=>{
+    if(!compLoaded){loadCompData().then(()=>_doRenderComp(compId));return;}
+    _doRenderComp(compId);
+  },50);
+}
+
+function _doRenderComp(compId){
+  const comp=compList.find(d=>d.id===compId);
+  if(!comp)return;
+  // set dropdown group
+  document.getElementById('cp-cat').value=comp.group;
+  cpOnCatChange();
+  document.getElementById('cp-item').value=compId;
+  renderCalc(compId);
+  document.getElementById('cp-calc-area').scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+
+// ============================================================
 // INIT
 // ============================================================
+// ซ่อน mat-warn เพราะหน้าแรกคือ AI Search
+(function(){
+  const mw=document.getElementById('mat-warn');
+  if(mw) mw.style.display='none';
+  // แสดง welcome state
+  const el=document.getElementById('ai-results');
+  if(el) el.innerHTML=`<div class="ai-welcome">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="48" height="48"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+    <div class="ai-welcome-title">พิมพ์คำค้นหาเพื่อเริ่มต้น</div>
+    <div class="ai-welcome-sub">ระบบจะค้นหาพร้อมกันใน ราคาวัสดุ, ค่าแรง และวัสดุมวลรวม<br>คลิกที่ Tag ด้านบนเพื่อใช้ตัวอย่างคำค้นหา</div>
+  </div>`;
+})();
 loadData();
 loadWageData();
 </script>
