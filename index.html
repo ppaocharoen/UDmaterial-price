@@ -1996,15 +1996,14 @@ function aiRender(q){
           <span class="ai-count">พบ ${compRes.length} รายการ</span>
         </div>${rows}
       </div>`});
-  } else if(!compLoaded&&tokens.some(t=>['มวลรวม','คำนวณ','ปู','ฉาบ','ก่อ'].some(k=>k.includes(t)||t.includes(k)))){
+  } else if(!compLoaded){
     sections.push({order:3,html:`
       <div class="ai-section">
         <div class="ai-sec-hd">
           <div class="ai-sec-title"><span class="ai-badge ai-badge-comp">ใบคำนวณมวลรวม</span></div>
         </div>
-        <div class="ai-empty" style="padding:16px">
-          <span style="color:var(--text3)">ข้อมูลวัสดุมวลรวมยังไม่ได้โหลด — </span>
-          <span style="color:#a78bfa;cursor:pointer" onclick="switchPage('composite')">ไปที่แท็บวัสดุมวลรวมเพื่อโหลด</span>
+        <div class="ai-empty" style="padding:16px;color:var(--text3)">
+          <span style="opacity:.6">⏳ กำลังโหลดข้อมูลวัสดุมวลรวม...</span>
         </div>
       </div>`});
   }
@@ -2077,6 +2076,7 @@ function _doRenderComp(compId){
 })();
 loadData();
 loadWageData();
+loadCompData(); // โหลด comp ใน background ทันที เพื่อให้ AI Search ค้นหาได้
 </script>
 
 <!-- PAGE 5: วัสดุมวลรวม -->
