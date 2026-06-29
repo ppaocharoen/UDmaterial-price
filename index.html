@@ -1072,8 +1072,9 @@ function wOnH1Change(){
     // ไม่มี h2 → แสดงรายการ item โดยตรง
     wPopulateItems(items);return;
   }
-  // ตรวจว่าทุก item ใน h1 นี้เป็น leaf-h2 ทั้งหมด → ข้ามขั้น h2 dropdown
-  const allLeaf=items.every(wIsLeafH2);
+  // ตรวจจาก payable items เท่านั้น (ตัด header row ที่ไม่มีราคาออก)
+  const payable=items.filter(it=>it.price!==null||it.rawPrice);
+  const allLeaf=payable.length>0&&payable.every(wIsLeafH2);
   if(allLeaf){
     wPopulateItems(items);return;
   }
@@ -1091,18 +1092,22 @@ function wOnH2Change(){
   wResetBelow('h2');
   if(!h2)return;
   const items=wageData.filter(d=>d.sheetLabel===cat&&d.h1===h1&&d.h2===h2);
-  // ถ้า item ใน h2 นี้เป็น leaf-h2 ทั้งหมด → แสดงรายการตรง ไม่ต้องรอ dropdown item
-  if(items.length&&items.every(wIsLeafH2)){
+  // ถ้า payable items ใน h2 นี้เป็น leaf-h2 ทั้งหมด → แสดงรายการตรง ไม่ต้องรอ dropdown item
+  const payable=items.filter(it=>it.price!==null||it.rawPrice);
+  if(payable.length&&payable.every(wIsLeafH2)){
     wPopulateItems(items);return;
   }
-  // กรณีปกติ: มี h3/h4 → filter เฉพาะที่ไม่ใช่ leaf-h2
+  // กรณีปกติ: มี h3/h4 → populate dropdown item
   wPopulateItems(items);
 }
 
 function wPopulateItems(items){
   if(!items.length)return;
+  // กรองเฉพาะ item ที่มีราคา (ตัดทิ้ง header row ที่ไม่มีราคา)
+  const payable=items.filter(it=>it.price!==null||it.rawPrice);
+  if(!payable.length)return;
   const opts=['<option value="">— เลือกรายการ —</option>'];
-  items.forEach(it=>{
+  payable.forEach(it=>{
     const idx=wageData.indexOf(it);
     // leaf-h2: ใช้ h2 เป็นชื่อ; ปกติ: h3+h4
     const label=wIsLeafH2(it)
