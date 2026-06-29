@@ -1050,7 +1050,7 @@ function wOnCatChange(){
   const h1vals=wUniq(items.map(d=>d.h1));
   if(!h1vals.length)return;
   const opts=['<option value="">— เลือกหมวดย่อย —</option>'];
-  h1vals.forEach(v=>opts.push(`<option value="${v}">${v}</option>`));
+  h1vals.forEach(v=>opts.push(`<option value="${esc(v)}">${esc(v)}</option>`));
   const sel=document.getElementById('w-sel-h1');
   sel.innerHTML=opts.join('');sel.disabled=false;
 }
@@ -1079,7 +1079,7 @@ function wOnH1Change(){
     wPopulateItems(items);return;
   }
   const opts=['<option value="">— เลือกหมวดย่อย —</option>'];
-  h2vals.forEach(v=>opts.push(`<option value="${v}">${v}</option>`));
+  h2vals.forEach(v=>opts.push(`<option value="${esc(v)}">${esc(v)}</option>`));
   const sel=document.getElementById('w-sel-h2');
   sel.innerHTML=opts.join('');sel.disabled=false;
 }
