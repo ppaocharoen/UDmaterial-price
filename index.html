@@ -1092,12 +1092,6 @@ function wOnH2Change(){
   wResetBelow('h2');
   if(!h2)return;
   const items=wageData.filter(d=>d.sheetLabel===cat&&d.h1===h1&&d.h2===h2);
-  // ถ้า payable items ใน h2 นี้เป็น leaf-h2 ทั้งหมด → แสดงรายการตรง ไม่ต้องรอ dropdown item
-  const payable=items.filter(it=>it.price!==null||it.rawPrice);
-  if(payable.length&&payable.every(wIsLeafH2)){
-    wPopulateItems(items);return;
-  }
-  // กรณีปกติ: มี h3/h4 → populate dropdown item
   wPopulateItems(items);
 }
 
@@ -1118,6 +1112,11 @@ function wPopulateItems(items){
   });
   const sel=document.getElementById('w-sel-item');
   sel.innerHTML=opts.join('');sel.disabled=false;
+  // auto-select เมื่อมีแค่ 1 รายการ
+  if(payable.length===1){
+    sel.value=String(wageData.indexOf(payable[0]));
+    showWageResult(payable[0]);
+  }
 }
 
 function wOnItemChange(){
