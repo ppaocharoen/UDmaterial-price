@@ -458,6 +458,9 @@ table.main td.sm{font-size:11px;color:var(--text2);}
           <button class="btn btn-green" onclick="printPDF()">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>ออกรายงาน PDF
           </button>
+          <button class="btn" style="background:#1d6f42;color:#fff" onclick="matExportExcel()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/><path d="M9.5 12.5l5 5M14.5 12.5l-5 5"/></svg>ออกรายงาน Excel
+          </button>
           <button class="btn btn-red" onclick="clearSelected()">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>ล้างรายการ
           </button>
@@ -537,6 +540,7 @@ table.main td.sm{font-size:11px;color:var(--text2);}
         <div class="sel-title">รายการที่เลือก <span id="w-sel-count" style="color:var(--amber);font-weight:400"></span></div>
         <div class="sel-actions">
           <button class="btn btn-amber" onclick="wPrintPDF()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>ออกรายงาน PDF</button>
+          <button class="btn" style="background:#1d6f42;color:#fff" onclick="wExportExcel()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/><path d="M9.5 12.5l5 5M14.5 12.5l-5 5"/></svg>ออกรายงาน Excel</button>
           <button class="btn btn-red" onclick="wClearSelected()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>ล้างรายการ</button>
         </div>
       </div>
@@ -2083,6 +2087,114 @@ function _doRenderComp(compId){
 }
 
 // ============================================================
+// EXCEL EXPORT (SheetJS lazy-loaded จาก CDN)
+// ============================================================
+let xlsxLibPromise=null;
+function loadXLSXLib(){
+  if(window.XLSX) return Promise.resolve();
+  if(xlsxLibPromise) return xlsxLibPromise;
+  xlsxLibPromise=new Promise((resolve,reject)=>{
+    const s=document.createElement('script');
+    s.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+    s.onload=()=>resolve();
+    s.onerror=()=>{xlsxLibPromise=null;reject(new Error('โหลดไลบรารี Excel ไม่สำเร็จ (ตรวจสอบการเชื่อมต่ออินเทอร์เน็ต)'));};
+    document.head.appendChild(s);
+  });
+  return xlsxLibPromise;
+}
+function xlsxFileName(kind){
+  const d=new Date();
+  const beYear=d.getFullYear()+543;
+  const mm=String(d.getMonth()+1).padStart(2,'0');
+  const dd=String(d.getDate()).padStart(2,'0');
+  return `UD-CostHub_${kind}_${beYear}-${mm}-${dd}.xlsx`;
+}
+
+// ---- ราคาวัสดุ (Excel) ----
+async function matExportExcel(){
+  if(!selectedItems.length){alert('ยังไม่มีรายการที่เลือก');return;}
+  try{
+    await loadXLSXLib();
+    const header=['#','ชื่อวัสดุ','หมวด','หน่วย','ราคา (บาท)','พาณิชย์จังหวัด'];
+    const rows=selectedItems.map((it,i)=>[i+1,it.name,it.catName,it.unit,it.price!==null?it.price:null,it.province||'']);
+    const ws=XLSX.utils.aoa_to_sheet([header,...rows]);
+    ws['!cols']=[{wch:5},{wch:42},{wch:22},{wch:10},{wch:14},{wch:16}];
+    const wb=XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb,ws,'ราคาวัสดุ');
+    XLSX.writeFile(wb,xlsxFileName('ราคาวัสดุ'));
+  }catch(e){alert('ออกไฟล์ Excel ไม่สำเร็จ: '+e.message);}
+}
+
+// ---- ค่าแรง (Excel) ----
+async function wExportExcel(){
+  if(!wSelectedItems.length){alert('ยังไม่มีรายการที่เลือก');return;}
+  try{
+    await loadXLSXLib();
+    const header=['#','รายการงาน','หมวดงาน','หน่วย','ค่าแรง (บาท)'];
+    const rows=wSelectedItems.map((it,i)=>{
+      const nm=wIsLeafH2(it)?(it.h2||it.h1):([it.h3||it.h2,it.h4].filter(x=>x&&x!=='-').join(' — ')||it.h1);
+      const priceVal=it.price!==null?it.price:(it.rawPrice||'');
+      return [i+1,nm,it.sheetLabel,it.unit,priceVal];
+    });
+    const ws=XLSX.utils.aoa_to_sheet([header,...rows]);
+    ws['!cols']=[{wch:5},{wch:46},{wch:26},{wch:10},{wch:14}];
+    const wb=XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb,ws,'ค่าแรง');
+    XLSX.writeFile(wb,xlsxFileName('ค่าแรง'));
+  }catch(e){alert('ออกไฟล์ Excel ไม่สำเร็จ: '+e.message);}
+}
+
+// ---- วัสดุมวลรวม (Excel) — มีสูตรคำนวณ แก้ราคาต่อหน่วยแล้วยอดรวมอัปเดตอัตโนมัติ ----
+async function cpExportExcel(){
+  if(!cpSelectedItems.length){alert('ยังไม่มีรายการที่เลือก');return;}
+  try{
+    await loadXLSXLib();
+    const aoa=[];
+    const formulaCells=[]; // [{addr, formula}]
+    const merges=[];
+
+    cpSelectedItems.forEach((s,idx)=>{
+      const compUnit=s.comp.unit||'หน่วย';
+
+      aoa.push([`${idx+1}. ${s.comp.sub} ${s.comp.name}`,'','','','','']);
+      merges.push({s:{r:aoa.length-1,c:0},e:{r:aoa.length-1,c:5}});
+
+      aoa.push([`${COMP_GROUPS[s.comp.group]||''} — ราคาต่อ 1 ${compUnit}`,'','','','','']);
+      merges.push({s:{r:aoa.length-1,c:0},e:{r:aoa.length-1,c:5}});
+
+      aoa.push(['#','รายการวัสดุ','ปริมาณ','หน่วย','ราคา/หน่วย (บาท)','ราคา (บาท)']);
+
+      const startRow=aoa.length+1; // แถวข้อมูลแรก (1-based)
+      s.snapshot.forEach((it,i)=>{
+        const price=it.fixedPrice!==null?it.fixedPrice:(it.price||0);
+        const sub=it.qty*price;
+        aoa.push([i+1,it.itemName,it.qty,it.unit,price,sub]);
+      });
+      const endRow=aoa.length; // แถวข้อมูลสุดท้าย (1-based)
+      for(let rn=startRow;rn<=endRow;rn++) formulaCells.push({addr:`F${rn}`, formula:`C${rn}*E${rn}`});
+
+      aoa.push(['','','','','รวมราคาวัสดุมวลรวม (บาท/'+compUnit+')', s.total]);
+      formulaCells.push({addr:`F${aoa.length}`, formula:`SUM(F${startRow}:F${endRow})`});
+      merges.push({s:{r:aoa.length-1,c:0},e:{r:aoa.length-1,c:4}});
+
+      aoa.push(['','','','','','']); // เว้นบรรทัด
+    });
+
+    const ws=XLSX.utils.aoa_to_sheet(aoa);
+    formulaCells.forEach(fc=>{
+      const cell=ws[fc.addr];
+      const val=cell?cell.v:0;
+      ws[fc.addr]={t:'n', f:fc.formula, v:val};
+    });
+    ws['!merges']=merges;
+    ws['!cols']=[{wch:5},{wch:40},{wch:12},{wch:10},{wch:18},{wch:16}];
+    const wb=XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb,ws,'วัสดุมวลรวม');
+    XLSX.writeFile(wb,xlsxFileName('วัสดุมวลรวม'));
+  }catch(e){alert('ออกไฟล์ Excel ไม่สำเร็จ: '+e.message);}
+}
+
+// ============================================================
 // INIT
 // ============================================================
 // ซ่อน mat-warn เพราะหน้าแรกคือ AI Search
@@ -2140,6 +2252,9 @@ loadCompData(); // โหลด comp ใน background ทันที เพื
       <div class="sel-actions">
         <button class="btn" style="background:#a78bfa;color:#1a0f2e" onclick="cpPrintPDF()">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>ออกรายงาน PDF
+        </button>
+        <button class="btn" style="background:#1d6f42;color:#fff" onclick="cpExportExcel()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/><path d="M9.5 12.5l5 5M14.5 12.5l-5 5"/></svg>ออกรายงาน Excel
         </button>
         <button class="btn btn-red" onclick="cpClearSelected()">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>ล้างรายการ
