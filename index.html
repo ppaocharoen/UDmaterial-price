@@ -43,6 +43,31 @@ body{font-family:'Sarabun',sans-serif;background:var(--bg);color:var(--text);min
   .nav-tab{flex:1;justify-content:center;padding:9px 4px;font-size:11px;gap:3px;}
 }
 
+/* PROJECT SELECTOR */
+.proj-widget{position:relative;margin-left:10px;}
+.proj-btn{display:flex;align-items:center;gap:6px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text2);font-family:'Sarabun',sans-serif;font-size:12px;padding:7px 10px;cursor:pointer;white-space:nowrap;}
+.proj-btn:hover{color:var(--text);border-color:var(--border2);}
+.proj-btn svg{width:14px;height:14px;flex-shrink:0;}
+.proj-btn-label{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:140px;}
+.proj-chevron{opacity:.6;}
+.proj-menu{position:absolute;top:calc(100% + 6px);right:0;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);min-width:260px;box-shadow:0 8px 24px rgba(0,0,0,.45);z-index:150;overflow:hidden;}
+.proj-menu-hd{padding:9px 14px;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);border-bottom:1px solid var(--border);}
+.proj-menu-item{padding:10px 14px;font-size:13px;color:var(--text);cursor:pointer;display:flex;align-items:center;gap:8px;white-space:nowrap;}
+.proj-menu-item svg{flex-shrink:0;}
+.proj-menu-item:hover{background:var(--accent-dim);}
+.proj-menu-item.active{color:var(--accent2);font-weight:600;background:var(--accent-dim);}
+.proj-menu-item.proj-menu-danger{color:var(--red);}
+.proj-menu-item.proj-menu-danger:hover{background:rgba(240,96,96,.12);}
+.proj-menu-sep{height:1px;background:var(--border);margin:4px 0;}
+.proj-menu-empty{padding:10px 14px;font-size:12px;color:var(--text3);}
+.proj-print-all{display:none;}
+@media(max-width:700px){
+  .proj-widget{margin-left:6px;}
+  .proj-btn{padding:6px 8px;font-size:11px;}
+  .proj-btn-label{max-width:80px;}
+  .proj-menu{right:auto;left:0;}
+}
+
 /* PAGES */
 .page{display:none;}.page.active{display:block;}
 
@@ -290,6 +315,12 @@ table.main td.sm{font-size:11px;color:var(--text2);}
   .cp-detail-tbl td{padding:3px 6px;border:1px solid #eee;}
   .cp-detail-tbl tr.total-row td{font-weight:700;background:#f9f9f9;border-top:2px solid #ccc;}
   .cp-detail-tbl .mono{font-family:monospace;}
+  #proj-print-all{display:none;}
+}
+/* โหมดพิมพ์รายงานรวมทั้งโครงการ — override การแสดงหน้าปกติ ให้แสดงเฉพาะ #proj-print-all */
+@media print{
+  body.proj-printing .page.active{display:none!important;}
+  body.proj-printing #proj-print-all{display:block!important;}
 }
 .pdf-only{display:none;}
 
@@ -363,11 +394,45 @@ table.main td.sm{font-size:11px;color:var(--text2);}
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v18m0 0h10a2 2 0 002-2V9M9 21H5a2 2 0 01-2-2V9m0 0h18"/></svg>วัสดุมวลรวม
     </div>
   </div>
+  <div class="proj-widget" id="proj-widget">
+    <button class="proj-btn" onclick="toggleProjMenu(event)" type="button">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
+      <span class="proj-btn-label" id="proj-btn-label">ไม่ได้เลือกโครงการ</span>
+      <svg class="proj-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+    </button>
+    <div class="proj-menu" id="proj-menu" style="display:none">
+      <div class="proj-menu-hd">โครงการของฉัน</div>
+      <div id="proj-menu-list"></div>
+      <div class="proj-menu-item" id="proj-menu-none" onclick="projSwitch(null)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>ไม่ใช้โครงการ (ค้นหาอย่างเดียว)
+      </div>
+      <div class="proj-menu-item" onclick="projPromptCreate()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>สร้างโครงการใหม่
+      </div>
+      <div class="proj-menu-sep" id="proj-menu-sep2"></div>
+      <div class="proj-menu-item" id="proj-menu-rename" onclick="projPromptRename()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>เปลี่ยนชื่อโครงการ
+      </div>
+      <div class="proj-menu-item proj-menu-danger" id="proj-menu-delete" onclick="projPromptDelete()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>ลบโครงการนี้
+      </div>
+      <div class="proj-menu-sep"></div>
+      <div class="proj-menu-item" onclick="projExportAllPDF()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>ออกรายงาน PDF ทั้งโครงการ
+      </div>
+      <div class="proj-menu-item" onclick="projExportAllExcel()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/><path d="M9.5 12.5l5 5M14.5 12.5l-5 5"/></svg>ออกรายงาน Excel ทั้งโครงการ
+      </div>
+    </div>
+  </div>
   <div class="meta-bar">
     <div class="meta-period" id="meta-period">กำลังโหลด...</div>
     <div class="meta-dl" id="meta-dl"></div>
   </div>
 </div>
+
+<!-- ที่เก็บเนื้อหาสำหรับพิมพ์รายงานรวมทั้งโครงการ (ซ่อนอยู่ปกติ แสดงเฉพาะตอนสั่งพิมพ์) -->
+<div class="proj-print-all" id="proj-print-all"></div>
 
 <!-- WARNING BANNER ราคาวัสดุ (หน้า 1-2) -->
 <div class="warn-banner" id="mat-warn">
@@ -902,6 +967,7 @@ function matAddToList(code){
 }
 function removeFromList(code){selectedItems=selectedItems.filter(s=>s.code!==code);renderSelected();}
 function renderSelected(){
+  saveActiveProjectData();
   const sec=document.getElementById('sel-sec');
   if(!selectedItems.length){sec.style.display='none';return;}
   sec.style.display='block';
@@ -1245,6 +1311,7 @@ function wRemoveFromList(idx){
 }
 
 function wRenderSelected(){
+  saveActiveProjectData();
   const sec=document.getElementById('w-sel-sec');
   if(!wSelectedItems.length){sec.style.display='none';return;}
   sec.style.display='block';
@@ -1802,6 +1869,7 @@ function cpRemoveSelected(compId){
 }
 
 function cpRenderSelected(){
+  saveActiveProjectData();
   const sec=document.getElementById('cp-sel-sec');
   if(!cpSelectedItems.length){sec.style.display='none';return;}
   sec.style.display='block';
@@ -2195,6 +2263,307 @@ async function cpExportExcel(){
 }
 
 // ============================================================
+// PROJECTS — บันทึกรายการที่เลือกไว้ลง localStorage ของเบราว์เซอร์
+// ผู้ใช้ที่ไม่ได้เลือก/สร้างโครงการ จะยังคงค้นหา+เลือกรายการได้ตามปกติ
+// (แบบชั่วคราวในหน้าปัจจุบัน ไม่บันทึกถาวร) จนกว่าจะเลือกหรือสร้างโครงการเอง
+// ============================================================
+const PROJ_STORE_KEY='udCostHub_projects_v1';
+
+function projLoadStore(){
+  try{
+    const raw=localStorage.getItem(PROJ_STORE_KEY);
+    if(!raw) return {projects:{}, activeProjectId:null};
+    const parsed=JSON.parse(raw);
+    if(!parsed||typeof parsed!=='object') return {projects:{}, activeProjectId:null};
+    return {projects:parsed.projects||{}, activeProjectId:parsed.activeProjectId||null};
+  }catch(e){
+    return {projects:{}, activeProjectId:null};
+  }
+}
+function projSaveStore(){
+  try{
+    localStorage.setItem(PROJ_STORE_KEY, JSON.stringify(projStore));
+    return true;
+  }catch(e){
+    alert('บันทึกโครงการไม่สำเร็จ (พื้นที่จัดเก็บของเบราว์เซอร์อาจเต็ม): '+e.message);
+    return false;
+  }
+}
+
+let projStore=projLoadStore();
+
+function projGetActive(){
+  if(!projStore.activeProjectId) return null;
+  return projStore.projects[projStore.activeProjectId]||null;
+}
+
+// บันทึกข้อมูลปัจจุบันลงโครงการที่ active อยู่ (no-op ถ้าไม่มีโครงการ active)
+function saveActiveProjectData(){
+  const p=projGetActive();
+  if(!p) return;
+  p.materials=selectedItems;
+  p.wages=wSelectedItems;
+  p.composites=cpSelectedItems;
+  p.updatedAt=Date.now();
+  projSaveStore();
+}
+
+// โหลดข้อมูลของโครงการ active เข้าตัวแปรที่ใช้แสดงผลทั้ง 3 หมวด แล้ว re-render
+function projLoadIntoApp(){
+  const p=projGetActive();
+  selectedItems = p?(p.materials||[]).slice():[];
+  wSelectedItems = p?(p.wages||[]).slice():[];
+  cpSelectedItems = p?(p.composites||[]).slice():[];
+  renderSelected();
+  wRenderSelected();
+  cpRenderSelected();
+}
+
+function projRefreshUI(){
+  const active=projGetActive();
+  const label=document.getElementById('proj-btn-label');
+  if(label) label.textContent=active?active.name:'ไม่ได้เลือกโครงการ';
+  projRenderMenu();
+}
+
+function projRenderMenu(){
+  const listEl=document.getElementById('proj-menu-list');
+  if(listEl){
+    const ids=Object.keys(projStore.projects).sort((a,b)=>(projStore.projects[b].updatedAt||0)-(projStore.projects[a].updatedAt||0));
+    if(!ids.length){
+      listEl.innerHTML='<div class="proj-menu-empty">ยังไม่มีโครงการที่บันทึกไว้</div>';
+    }else{
+      listEl.innerHTML=ids.map(id=>{
+        const p=projStore.projects[id];
+        const isActive=id===projStore.activeProjectId;
+        return `<div class="proj-menu-item ${isActive?'active':''}" onclick="projSwitch('${id}')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>${esc(p.name)}${isActive?' ✓':''}
+        </div>`;
+      }).join('');
+    }
+  }
+  const noneItem=document.getElementById('proj-menu-none');
+  if(noneItem) noneItem.classList.toggle('active', !projStore.activeProjectId);
+  const hasActive=!!projGetActive();
+  const renameEl=document.getElementById('proj-menu-rename');
+  const deleteEl=document.getElementById('proj-menu-delete');
+  const sep2=document.getElementById('proj-menu-sep2');
+  if(renameEl) renameEl.style.display=hasActive?'flex':'none';
+  if(deleteEl) deleteEl.style.display=hasActive?'flex':'none';
+  if(sep2) sep2.style.display=hasActive?'block':'none';
+}
+
+function toggleProjMenu(e){
+  if(e) e.stopPropagation();
+  const menu=document.getElementById('proj-menu');
+  if(!menu) return;
+  const willOpen=menu.style.display==='none'||!menu.style.display;
+  if(willOpen) projRenderMenu();
+  menu.style.display=willOpen?'block':'none';
+}
+document.addEventListener('click', function(e){
+  const widget=document.getElementById('proj-widget');
+  const menu=document.getElementById('proj-menu');
+  if(!widget||!menu) return;
+  if(!widget.contains(e.target)) menu.style.display='none';
+});
+
+function projPromptCreate(){
+  const name=prompt('ตั้งชื่อโครงการใหม่:','');
+  if(name===null) return;
+  const trimmed=name.trim();
+  if(!trimmed){alert('กรุณาตั้งชื่อโครงการ');return;}
+  const id='p'+Date.now()+Math.random().toString(36).slice(2,7);
+  const now=Date.now();
+  projStore.projects[id]={id,name:trimmed,createdAt:now,updatedAt:now,materials:[],wages:[],composites:[]};
+  projStore.activeProjectId=id;
+  if(!projSaveStore())return;
+  projLoadIntoApp();
+  projRefreshUI();
+  const menu=document.getElementById('proj-menu');
+  if(menu) menu.style.display='none';
+}
+
+function projPromptRename(){
+  const p=projGetActive();
+  if(!p) return;
+  const name=prompt('เปลี่ยนชื่อโครงการ:', p.name);
+  if(name===null) return;
+  const trimmed=name.trim();
+  if(!trimmed){alert('กรุณาตั้งชื่อโครงการ');return;}
+  p.name=trimmed;
+  p.updatedAt=Date.now();
+  if(!projSaveStore())return;
+  projRefreshUI();
+}
+
+function projPromptDelete(){
+  const p=projGetActive();
+  if(!p) return;
+  if(!confirm(`ลบโครงการ "${p.name}" ถาวร? ข้อมูลที่บันทึกไว้ในโครงการนี้จะหายไปทั้งหมด`))return;
+  delete projStore.projects[p.id];
+  projStore.activeProjectId=null;
+  if(!projSaveStore())return;
+  projLoadIntoApp();
+  projRefreshUI();
+  const menu=document.getElementById('proj-menu');
+  if(menu) menu.style.display='none';
+}
+
+function projSwitch(id){
+  projStore.activeProjectId=id||null;
+  if(!projSaveStore())return;
+  projLoadIntoApp();
+  projRefreshUI();
+  const menu=document.getElementById('proj-menu');
+  if(menu) menu.style.display='none';
+}
+
+// ---- ออกรายงานรวมทั้งโครงการ: Excel (3 ชีท) ----
+async function projExportAllExcel(){
+  const hasMat=selectedItems.length>0, hasWage=wSelectedItems.length>0, hasComp=cpSelectedItems.length>0;
+  if(!hasMat&&!hasWage&&!hasComp){alert('ยังไม่มีรายการที่บันทึกไว้ในโครงการนี้');return;}
+  try{
+    await loadXLSXLib();
+    const wb=XLSX.utils.book_new();
+
+    if(hasMat){
+      const header=['#','ชื่อวัสดุ','หมวด','หน่วย','ราคา (บาท)','พาณิชย์จังหวัด'];
+      const rows=selectedItems.map((it,i)=>[i+1,it.name,it.catName,it.unit,it.price!==null?it.price:null,it.province||'']);
+      const ws=XLSX.utils.aoa_to_sheet([header,...rows]);
+      ws['!cols']=[{wch:5},{wch:42},{wch:22},{wch:10},{wch:14},{wch:16}];
+      XLSX.utils.book_append_sheet(wb,ws,'ราคาวัสดุ');
+    }
+    if(hasWage){
+      const header=['#','รายการงาน','หมวดงาน','หน่วย','ค่าแรง (บาท)'];
+      const rows=wSelectedItems.map((it,i)=>{
+        const nm=wIsLeafH2(it)?(it.h2||it.h1):([it.h3||it.h2,it.h4].filter(x=>x&&x!=='-').join(' — ')||it.h1);
+        return [i+1,nm,it.sheetLabel,it.unit,it.price!==null?it.price:(it.rawPrice||'')];
+      });
+      const ws=XLSX.utils.aoa_to_sheet([header,...rows]);
+      ws['!cols']=[{wch:5},{wch:46},{wch:26},{wch:10},{wch:14}];
+      XLSX.utils.book_append_sheet(wb,ws,'ค่าแรง');
+    }
+    if(hasComp){
+      const aoa=[]; const formulaCells=[]; const merges=[];
+      cpSelectedItems.forEach((s,idx)=>{
+        const compUnit=s.comp.unit||'หน่วย';
+        aoa.push([`${idx+1}. ${s.comp.sub} ${s.comp.name}`,'','','','','']);
+        merges.push({s:{r:aoa.length-1,c:0},e:{r:aoa.length-1,c:5}});
+        aoa.push([`${COMP_GROUPS[s.comp.group]||''} — ราคาต่อ 1 ${compUnit}`,'','','','','']);
+        merges.push({s:{r:aoa.length-1,c:0},e:{r:aoa.length-1,c:5}});
+        aoa.push(['#','รายการวัสดุ','ปริมาณ','หน่วย','ราคา/หน่วย (บาท)','ราคา (บาท)']);
+        const startRow=aoa.length+1;
+        s.snapshot.forEach((it,i)=>{
+          const price=it.fixedPrice!==null?it.fixedPrice:(it.price||0);
+          const sub=it.qty*price;
+          aoa.push([i+1,it.itemName,it.qty,it.unit,price,sub]);
+        });
+        const endRow=aoa.length;
+        for(let rn=startRow;rn<=endRow;rn++) formulaCells.push({addr:`F${rn}`, formula:`C${rn}*E${rn}`});
+        aoa.push(['','','','','รวมราคาวัสดุมวลรวม (บาท/'+compUnit+')', s.total]);
+        formulaCells.push({addr:`F${aoa.length}`, formula:`SUM(F${startRow}:F${endRow})`});
+        merges.push({s:{r:aoa.length-1,c:0},e:{r:aoa.length-1,c:4}});
+        aoa.push(['','','','','','']);
+      });
+      const ws=XLSX.utils.aoa_to_sheet(aoa);
+      formulaCells.forEach(fc=>{
+        const cell=ws[fc.addr];
+        const val=cell?cell.v:0;
+        ws[fc.addr]={t:'n', f:fc.formula, v:val};
+      });
+      ws['!merges']=merges;
+      ws['!cols']=[{wch:5},{wch:40},{wch:12},{wch:10},{wch:18},{wch:16}];
+      XLSX.utils.book_append_sheet(wb,ws,'วัสดุมวลรวม');
+    }
+
+    const p=projGetActive();
+    XLSX.writeFile(wb,xlsxFileName(p?p.name:'ทั้งหมด'));
+  }catch(e){alert('ออกไฟล์ Excel ไม่สำเร็จ: '+e.message);}
+}
+
+// ---- ออกรายงานรวมทั้งโครงการ: PDF (รวม 3 หมวดในรายงานเดียว) ----
+function projExportAllPDF(){
+  const hasMat=selectedItems.length>0, hasWage=wSelectedItems.length>0, hasComp=cpSelectedItems.length>0;
+  if(!hasMat&&!hasWage&&!hasComp){alert('ยังไม่มีรายการที่บันทึกไว้ในโครงการนี้');return;}
+
+  const p=projGetActive();
+  const projName=p?p.name:'ทั้งหมด';
+  const dateStr=new Date().toLocaleDateString('th-TH',{year:'numeric',month:'long',day:'numeric'});
+
+  let html=`<div class="pdf-hd">
+    <div class="pdf-title">รายงานสรุปโครงการ: ${esc(projName)}</div>
+    <div class="pdf-meta">UD-Cost Hub &nbsp;|&nbsp; วันที่พิมพ์: ${esc(dateStr)}</div>
+  </div>`;
+
+  if(hasMat){
+    html+=`<div class="sel-title" style="margin:18px 0 8px">รายการราคาวัสดุ (${selectedItems.length} รายการ)</div>
+    <div class="sel-wrap"><table class="sel-tbl">
+      <thead><tr><th style="width:32px">#</th><th>ชื่อวัสดุ</th><th>หมวด</th><th>หน่วย</th><th class="r">ราคา (บาท)</th><th>พาณิชย์จังหวัด</th></tr></thead>
+      <tbody>${selectedItems.map((it,i)=>`
+        <tr>
+          <td style="color:#666;font-size:11px">${i+1}</td><td>${esc(it.name)}</td><td><span class="cat-badge">${esc(it.catName)}</span></td><td>${esc(it.unit)}</td>
+          <td class="r s-num">${it.price?fmt(it.price):'—'}</td><td style="color:#3b6fc9;font-size:12px">${esc(it.province||'—')}</td>
+        </tr>`).join('')}</tbody>
+    </table></div>`;
+  }
+
+  if(hasWage){
+    html+=`<div class="sel-title" style="margin:18px 0 8px">รายการค่าแรง (${wSelectedItems.length} รายการ)</div>
+    <div class="sel-wrap"><table class="sel-tbl">
+      <thead><tr><th style="width:32px">#</th><th>รายการงาน</th><th>หมวดงาน</th><th>หน่วย</th><th class="r">ค่าแรง (บาท)</th></tr></thead>
+      <tbody>${wSelectedItems.map((it,i)=>{
+        const nm=wIsLeafH2(it)?(it.h2||it.h1):([it.h3||it.h2,it.h4].filter(x=>x&&x!=='-').join(' — ')||it.h1);
+        return `<tr>
+          <td style="color:#666;font-size:11px">${i+1}</td><td>${esc(nm)}</td><td><span class="cat-badge">${esc(it.sheetLabel)}</span></td><td>${esc(it.unit)}</td>
+          <td class="r s-num wage">${it.price?fmt(it.price):esc(it.rawPrice||'—')}</td>
+        </tr>`;
+      }).join('')}</tbody>
+    </table></div>`;
+  }
+
+  if(hasComp){
+    html+=`<div class="sel-title" style="margin:18px 0 8px">รายการวัสดุมวลรวม (${cpSelectedItems.length} รายการ)</div>
+    <div class="cp-print-detail" style="display:block">${cpSelectedItems.map((s,idx)=>{
+      const compUnit=s.comp.unit||'หน่วย';
+      const itemRows=s.snapshot.map((it,i)=>{
+        const isFixed=it.fixedPrice!==null;
+        const price=isFixed?it.fixedPrice:(it.price||0);
+        const sub=it.qty*price;
+        const pd=price>0?(price<1?price.toFixed(5).replace(/\.?0+$/,''):price.toLocaleString('th-TH',{minimumFractionDigits:2,maximumFractionDigits:2})):'—';
+        const sd=price>0?sub.toLocaleString('th-TH',{minimumFractionDigits:2,maximumFractionDigits:2}):'—';
+        return `<tr><td>${i+1}</td><td>${esc(it.itemName)}</td>
+          <td class="r mono">${it.qty.toLocaleString('th-TH',{minimumFractionDigits:2,maximumFractionDigits:3})}</td>
+          <td>${esc(it.unit)}</td><td class="r mono">${pd}</td>
+          <td style="font-size:9px;color:#666">${isFixed?'(ตายตัว)':esc(it.province||'')}</td>
+          <td class="r mono">${sd}</td></tr>`;
+      }).join('');
+      return `<div class="cp-item-block">
+        <div class="cp-item-header">${idx+1}. ${esc(s.comp.sub)} ${esc(s.comp.name)}</div>
+        <div class="cp-item-sub">${esc(COMP_GROUPS[s.comp.group]||'')} | พื้นที่ 1 ${esc(compUnit)}</div>
+        <table class="cp-detail-tbl">
+          <thead><tr><th>#</th><th>รายการวัสดุ</th><th class="r">ปริมาณ</th><th>หน่วย</th>
+            <th class="r">ราคา/หน่วย (บาท)</th><th>แหล่งที่มา</th><th class="r">ราคา (บาท/${esc(compUnit)})</th></tr></thead>
+          <tbody>${itemRows}</tbody>
+          <tfoot><tr class="total-row">
+            <td colspan="6" style="text-align:right">รวมราคาวัสดุมวลรวม (ค่างานต้นทุน) พื้นที่ 1 ${esc(compUnit)}</td>
+            <td class="r mono">${s.total.toLocaleString('th-TH',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
+          </tr></tfoot>
+        </table>
+      </div>`;
+    }).join('')}</div>`;
+  }
+
+  const container=document.getElementById('proj-print-all');
+  if(container) container.innerHTML=html;
+  document.body.classList.add('proj-printing');
+  window.print();
+}
+window.addEventListener('afterprint', function(){
+  document.body.classList.remove('proj-printing');
+});
+
+// ============================================================
 // INIT
 // ============================================================
 // ซ่อน mat-warn เพราะหน้าแรกคือ AI Search
@@ -2212,6 +2581,11 @@ async function cpExportExcel(){
 loadData();
 loadWageData();
 loadCompData(); // โหลด comp ใน background ทันที เพื่อให้ AI Search ค้นหาได้
+
+// แสดงชื่อโครงการ (ถ้ามี) ทันที และรอ DOM ทั้งหมดพร้อมก่อนโหลดรายการที่บันทึกไว้กลับเข้าหน้าจอ
+// (หน้า "วัสดุมวลรวม" อยู่ถัดจาก <script> นี้ในเอกสาร จึงต้องรอให้ parse เสร็จก่อน)
+projRefreshUI();
+setTimeout(projLoadIntoApp, 0);
 </script>
 
 <!-- PAGE 5: วัสดุมวลรวม -->
