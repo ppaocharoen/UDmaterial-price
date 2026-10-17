@@ -138,6 +138,9 @@ select:disabled{opacity:.4;cursor:not-allowed;}
 /* price input modes */
 .price-mode-btn{display:inline-flex;align-items:center;gap:5px;font-size:12px;padding:5px 10px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--bg3);color:var(--text2);cursor:pointer;transition:all .15s;}
 .price-mode-btn.active-mat{background:var(--accent-dim);color:var(--accent2);border-color:rgba(79,142,247,.4);}
+.price-mode-btn.active-sub{background:rgba(167,139,250,.12);color:#a78bfa;border-color:rgba(167,139,250,.4);}
+.code-warn{display:inline-block;font-size:10px;color:var(--red);background:rgba(240,96,96,.1);border:1px solid rgba(240,96,96,.3);border-radius:3px;padding:1px 6px;margin-left:4px}
+.code-note{display:inline-block;font-size:10px;color:var(--amber);background:var(--amber-dim);border-radius:3px;padding:1px 6px;margin-left:4px}
 .price-mode-btn.active-manual{background:var(--green-dim);color:var(--green);border-color:var(--green-border);}
 .price-mode-btn svg{width:12px;height:12px;}
 
@@ -831,6 +834,7 @@ async function loadData(){
     }
     buildMatDropdowns();
     filterTable();
+    cpCheckCodes();
   }catch(e){
     const errEl=document.getElementById('tbl-body');
     const errDiv=document.createElement('tr');
@@ -1429,7 +1433,8 @@ async function loadCompData(){
       if(!code||code==='รหัส'||!cv(row.c[1]))return;
       const key=String(code).trim();
       matRefMap[key]={
-        name:cv(row.c[1]), unit:cv(row.c[2]), commodityCode:cv(row.c[3])
+        name:cv(row.c[1]), unit:cv(row.c[2]), commodityCode:cv(row.c[3]),
+        compRef:cv(row.c[4])  // คอลัมน์ E: ดึงราคาจากส่วนผสม เช่น 123 หรือ 12.3
       };
     });
 
@@ -1474,6 +1479,7 @@ async function loadCompData(){
 
     compLoaded=true;
     buildCompDropdowns();
+    cpCheckCodes();
   }catch(e){
     const ca=document.getElementById('cp-calc-area');
     const d=document.createElement('div');
@@ -1585,6 +1591,129 @@ function unitConvNote(fromUnit, toUnit){
   if(!fromUnit||!toUnit||fromUnit.trim()===toUnit.trim()) return '';
   return ` <span style="font-size:10px;color:var(--amber);background:var(--amber-dim);border-radius:3px;padding:1px 5px">แปลงจาก ${fromUnit}→${toUnit}</span>`;
 }
+
+// ============================================================
+// รหัสพาณิชย์ (รองรับหลายรหัส) + ผูกราคาจากส่วนผสมอื่น
+// ============================================================
+// mat_ref คอลัมน์ D ใส่ได้หลายรหัส คั่นด้วย , — ใช้รหัสแรกที่มีราคาในเดือนนั้น
+// mat_ref คอลัมน์ E ใส่เลขส่วนผสม (เช่น 123 หรือ 12.3) — ใช้ผลรวมของส่วนผสมนั้นเป็นราคาต่อหน่วย
+const UNIT_ALIAS={'ม.':'เมตร','ม':'เมตร','เมตร':'เมตร','กก':'กก.','ตรม.':'ตร.ม.','ลบม.':'ลบ.ม.'};
+function normUnit(u){u=String(u||'').trim();return UNIT_ALIAS[u]||u;}
+function splitCodes(s){
+  return String(s||'').split(/[,;\s]+/).map(x=>x.replace(/^="?|"?$/g,'').trim()).filter(x=>x.length>5);
+}
+function itemCodes(it){
+  const r=matRefMap[it.itemCode];
+  return splitCodes(r&&r.commodityCode?r.commodityCode:it.commodityCode);
+}
+function resolveMat(it){
+  const codes=itemCodes(it), missing=[];
+  let matItem=null;
+  for(const c of codes){
+    const m=allData.find(d=>d.code===c);
+    if(m&&m.price!==null){matItem=m;break;}
+    missing.push(c);
+  }
+  return {matItem,codes,missing};
+}
+function findComp(ref){
+  const v=String(ref||'').trim();
+  if(!v)return null;
+  return compList.find(c=>c.id===v)||compList.find(c=>c.sub===v)||null;
+}
+function resolveCompRef(it){
+  const r=matRefMap[it.itemCode];
+  return r?findComp(r.compRef):null;
+}
+// ราคาต่อหน่วยของส่วนผสม: ใช้ยอดที่ผู้ใช้คำนวณแล้วในรายการที่เลือก ก่อน
+// ถ้ายังไม่มี คำนวณอัตโนมัติ (ราคาตายตัว > พาณิชย์ > ส่วนผสมย่อย) — ได้เฉพาะเมื่อครบทุกรายการ
+function subCompPrice(comp, depth=0){
+  const sel=cpSelectedItems.find(s=>s.compId===comp.id);
+  if(sel) return {price:sel.total, source:'list', complete:true};
+  if(depth>4) return {price:null, source:'auto', complete:false};
+  let total=0, complete=true;
+  compItems.filter(d=>d.compId===comp.id).forEach(it=>{
+    if(it.qty===null){complete=false;return;}
+    let p=null;
+    if(it.fixedPrice!==null) p=it.fixedPrice;
+    else{
+      const {matItem}=resolveMat(it);
+      if(matItem) p=convertPrice(matItem.price,matItem.unit,it.unit);
+      else{
+        const sc=resolveCompRef(it);
+        if(sc&&sc.id!==comp.id&&normUnit(sc.unit)===normUnit(it.unit)){
+          const r=subCompPrice(sc,depth+1);
+          if(r.price!==null) p=r.price;
+        }
+      }
+    }
+    if(p===null){complete=false;return;}
+    total+=it.qty*p;
+  });
+  return {price:complete?total:null, source:'auto', complete};
+}
+
+// ตรวจรหัสพาณิชย์ใน mat_ref ที่ไม่มีราคาในเดือนปัจจุบัน แล้วแสดงแถบเตือน + รายการที่ชื่อใกล้เคียง
+function cpCheckCodes(){
+  const box=document.getElementById('cp-code-alert');
+  if(!box||!compLoaded||!allData.length)return;
+  const dead=[], fallback=[];
+  Object.entries(matRefMap).forEach(([key,r])=>{
+    const codes=splitCodes(r.commodityCode);
+    if(!codes.length)return;
+    const okIdx=codes.findIndex(c=>{const m=allData.find(d=>d.code===c);return m&&m.price!==null;});
+    if(okIdx<0) dead.push({key,r,codes});
+    else if(okIdx>0) fallback.push({key,r,codes,used:codes[okIdx]});
+  });
+  if(!dead.length&&!fallback.length){box.innerHTML='';return;}
+  const period=esc(allData[0].period||'');
+  const deadHtml=dead.map(d=>{
+    const used=new Set(d.codes);
+    const pool=allData.filter(x=>x.price!==null&&!used.has(x.code));
+    const fields=x=>[{text:x.name,weight:6},{text:x.catName,weight:1}];
+    const q1=d.r.name.replace(/\(.*?\)/g,' ').replace(/\s+/g,' ').trim();
+    let sug=smFilter(pool, q1, fields, 3);
+    if(!sug.length) sug=smFilter(pool, q1.split(' ')[0], fields, 3);
+    return `<li style="margin-bottom:8px"><b>รหัส ${esc(d.key)}</b> ${esc(d.r.name)}
+      <span style="font-family:'IBM Plex Mono',monospace;color:var(--text3);font-size:11px">(${d.codes.map(esc).join(', ')})</span>
+      ${sug.length?`<div style="font-size:11px;color:var(--text3);margin-top:3px">รหัสที่ชื่อใกล้เคียงซึ่งมีราคา:</div>
+      <ul style="margin:2px 0 0 16px;font-size:11px">${sug.map(x=>`<li><span style="font-family:'IBM Plex Mono',monospace">${esc(x.code)}</span> ${esc(x.name)} — ${fmt(x.price)} บาท/${esc(x.unit)} (${esc(x.province)})</li>`).join('')}</ul>`:''}
+    </li>`;
+  }).join('');
+  const fbHtml=fallback.map(f=>`<li>รหัส ${esc(f.key)} ${esc(f.r.name)} — รหัสแรกไม่มีราคา ใช้รหัสสำรอง <span style="font-family:'IBM Plex Mono',monospace">${esc(f.used)}</span></li>`).join('');
+  box.innerHTML=`<details ${dead.length?'open':''} style="margin-bottom:16px;padding:12px 14px;border:1px solid var(--amber-border);background:var(--amber-dim);border-radius:var(--radius-sm);font-size:12px;color:var(--text2)">
+    <summary style="cursor:pointer;color:var(--amber);font-weight:600">⚠ ตรวจรหัสพาณิชย์ใน mat_ref (${period}): ไม่มีราคา ${dead.length} รหัส${fallback.length?` · ใช้รหัสสำรอง ${fallback.length} รหัส`:''}</summary>
+    ${dead.length?`<div style="margin:8px 0 4px">รายการเหล่านี้จะไม่ได้ราคาพาณิชย์อัตโนมัติ — แก้ใน Sheet mat_ref คอลัมน์ D (ใส่หลายรหัสได้ คั่นด้วย , ระบบจะใช้รหัสแรกที่มีราคา)</div><ul style="margin:0 0 0 16px">${deadHtml}</ul>`:''}
+    ${fallback.length?`<ul style="margin:8px 0 0 16px">${fbHtml}</ul>`:''}
+  </details>`;
+}
+
+let cpReturnTo=null;
+function cpUseSub(rowIdx, compId){
+  const it=compItems.filter(d=>d.compId===compId)[rowIdx];
+  if(!it)return;
+  const sc=resolveCompRef(it);
+  if(!sc)return;
+  const r=subCompPrice(sc);
+  if(r.price!==null){
+    const inp=document.getElementById(`cp-price-${compId}-${rowIdx}`);
+    const provEl=document.getElementById(`cp-prov-${compId}-${rowIdx}`);
+    if(inp){inp.value=+r.price.toFixed(4);inp.classList.add('has-val');}
+    if(provEl) provEl.textContent='📍 ส่วนผสม '+sc.sub+(r.source==='auto'?' (คำนวณอัตโนมัติ)':'');
+    cpCalcTotal(compId);
+  } else {
+    // ยังไม่มีราคา → เปิดส่วนผสมนั้นให้คำนวณ แล้วกลับมาเมื่อกด "เพิ่มในรายการ"
+    cpReturnTo=compId;
+    _doRenderComp(sc.id);
+    const ca=document.getElementById('cp-calc-area');
+    const n=document.createElement('div');
+    n.style.cssText='padding:11px 15px;background:rgba(167,139,250,.12);border:1px solid rgba(167,139,250,.3);border-radius:var(--radius-sm);color:#a78bfa;font-size:13px;margin-bottom:14px';
+    const back=compList.find(c=>c.id===compId);
+    n.textContent=`ใส่ราคาวัสดุของ ${sc.sub} ให้ครบ แล้วกด "เพิ่มในรายการ" — ระบบจะพากลับไป ${back?back.sub:''} และใช้ยอดนี้เป็นราคา`;
+    ca.insertBefore(n,ca.firstChild);
+  }
+}
+
 function renderCalc(compId){
   currentCalcId=compId;
   const comp=compList.find(d=>d.id===compId);
@@ -1593,8 +1722,15 @@ function renderCalc(compId){
   const items=compItems.filter(d=>d.compId===compId);
 
   const rows=items.map((it,i)=>{
-    const hasCode=it.commodityCode&&it.commodityCode.length>5;
-    const matItem=hasCode?allData.find(d=>d.code===it.commodityCode):null;
+    const {matItem,codes,missing}=resolveMat(it);
+    const hasCode=codes.length>0;
+    const subComp=resolveCompRef(it);
+    const subUnitOK=!!subComp&&normUnit(subComp.unit)===normUnit(it.unit);
+    const subInfo=subUnitOK?subCompPrice(subComp):null;
+    const subPrice=subInfo?subInfo.price:null;
+    const codeWarn=hasCode&&!matItem
+      ?`<span class="code-warn" title="${esc(codes.join(', '))}">⚠ รหัสพาณิชย์ไม่มีราคาเดือนนี้</span>`
+      :(matItem&&missing.length?`<span class="code-note" title="${esc(missing.join(', '))}">ใช้รหัสสำรอง</span>`:'');
 
     // แปลงหน่วยราคาพาณิชย์ → หน่วยของวัสดุมวลรวม
     const matUnit=matItem?matItem.unit:'';
@@ -1605,8 +1741,14 @@ function renderCalc(compId){
     const convNote=converted?unitConvNote(matUnit,it.unit):'';
 
     // ราคาเริ่มต้น: ราคาตายตัว > ราคาพาณิชย์แปลงแล้ว > ว่าง
-    const initPrice=it.fixedPrice!==null?it.fixedPrice:autoPrice;
-    const initProv=it.fixedPrice!==null?'(ราคาตายตัว)':autoProv;
+    const useSub=it.fixedPrice===null&&autoPrice===null&&subPrice!==null;
+    const initPrice=it.fixedPrice!==null?it.fixedPrice:(autoPrice!==null?autoPrice:(useSub?+subPrice.toFixed(4):null));
+    const initProv=it.fixedPrice!==null?'(ราคาตายตัว)':(autoPrice!==null?autoProv:(useSub?'ส่วนผสม '+subComp.sub+(subInfo.source==='auto'?' (คำนวณอัตโนมัติ)':''):''));
+    const subBtn=!subComp?'':(subUnitOK
+      ?`<button class="price-mode-btn ${useSub?'active-sub':''}" onclick="cpUseSub(${i},'${esc(compId)}')" title="ใช้ราคาจากส่วนผสม ${esc(subComp.sub)}">
+          ส่วนผสม ${esc(subComp.sub)}${subPrice!==null?` (${fmt(subPrice)} บาท/${esc(it.unit)})`:' (คลิกเพื่อคำนวณ)'}
+        </button>`
+      :`<span class="code-warn">หน่วย ${esc(it.unit)} ไม่ตรงกับส่วนผสม ${esc(subComp.sub)} (${esc(subComp.unit)})</span>`);
     const isFixed=it.fixedPrice!==null;
     const sub=initPrice!==null?it.qty*initPrice:null;
 
@@ -1619,7 +1761,7 @@ function renderCalc(compId){
       <td style="color:var(--text3);font-size:12px">${i+1}</td>
       <td>
         <div style="font-size:13px">${esc(it.itemName)}</div>
-        ${it.itemCode?`<div style="font-size:11px;color:var(--text3)">รหัส ${esc(it.itemCode)}</div>`:''}
+        ${it.itemCode?`<div style="font-size:11px;color:var(--text3)">รหัส ${esc(it.itemCode)}${codeWarn}</div>`:''}
       </td>
       <td class="r" style="font-family:'IBM Plex Mono',monospace;font-size:12px">
         ${it.qty===null
@@ -1642,6 +1784,7 @@ function renderCalc(compId){
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
                 พาณิชย์${matPriceLabel}
               </button>${convNote}`:''}
+              ${subBtn}
               <button class="price-mode-btn active-manual" onclick="cpUseManual(${i},'${esc(compId)}')" title="กรอกราคาเอง">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                 กรอกเอง
@@ -1741,7 +1884,7 @@ function cpUseMat(rowIdx, compId){
   const items=compItems.filter(d=>d.compId===compId);
   const it=items[rowIdx];
   if(!it)return;
-  const matItem=it.commodityCode?allData.find(d=>d.code===it.commodityCode):null;
+  const {matItem}=resolveMat(it);
   if(matItem&&matItem.price!==null){
     // แปลงหน่วยก่อนใส่
     const converted=convertPrice(matItem.price, matItem.unit, it.unit);
@@ -1861,6 +2004,12 @@ function cpAddToSelected(compId){
   setTimeout(()=>{toast.style.opacity='0';},3000);
   setTimeout(()=>{if(ca.contains(toast))ca.removeChild(toast);},3700);
   setTimeout(()=>document.getElementById('cp-sel-sec').scrollIntoView({behavior:'smooth',block:'nearest'}),150);
+
+  // ถ้ามาจากการกด "ส่วนผสม x.x" ในอีกรายการ → กลับไปรายการนั้นพร้อมราคาใหม่
+  if(cpReturnTo&&cpReturnTo!==compId){
+    const back=cpReturnTo; cpReturnTo=null;
+    setTimeout(()=>_doRenderComp(back),600);
+  }
 }
 
 function cpRemoveSelected(compId){
@@ -1871,6 +2020,7 @@ function cpRemoveSelected(compId){
 function cpRenderSelected(){
   saveActiveProjectData();
   const sec=document.getElementById('cp-sel-sec');
+  if(!sec)return;
   if(!cpSelectedItems.length){sec.style.display='none';return;}
   sec.style.display='block';
   document.getElementById('cp-sel-count').textContent=`(${cpSelectedItems.length} รายการ)`;
@@ -2611,6 +2761,9 @@ setTimeout(projLoadIntoApp, 0);
     <input type="text" id="cp-search" placeholder="ค้นหาชื่อวัสดุมวลรวม เช่น คอนกรีต ผนังอิฐ ฉาบปูน..." oninput="cpOnSearch()" autocomplete="off">
   </div>
   <div id="cp-search-list"></div>
+
+  <!-- แถบเตือนรหัสพาณิชย์ที่ไม่มีราคา -->
+  <div id="cp-code-alert"></div>
 
   <!-- Calculator -->
   <div id="cp-calc-area"></div>
