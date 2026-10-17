@@ -639,27 +639,15 @@ table.main td.sm{font-size:11px;color:var(--text2);}
 </div>
 </div>
 
+<script src="lib/pricing-v1.js"></script>
 <script>
 // ============================================================
 // CONFIG
 // ============================================================
-const SHEET_ID = '1eU_2iNI4_Y6Hnuj5_-9BgjBQ9Ga7QAkRJ-CQk1Dve78';
-
-// ราคาวัสดุ
-const SH_DATA = 'totaldata', SH_CAT = 'หมวด';
-const PROVS = [
-  {name:'อุดรธานี',c:5},{name:'หนองคาย',c:6},{name:'เลย',c:7},
-  {name:'สกลนคร',c:8},{name:'หนองบัวลำภู',c:9},{name:'กาฬสินธุ์',c:10},{name:'ขอนแก่น',c:11}
-];
-
-// ค่าแรง — Sheet และชื่อหมวด
-const WAGE_SHEETS = [
-  {sheet:'work_STR', label:'งานโครงสร้างวิศวกรรม'},
-  {sheet:'work_ARC', label:'งานสถาปัตยกรรม'},
-  {sheet:'work_SN',  label:'งานระบบสุขาภิบาลและดับเพลิง'},
-  {sheet:'work_EE',  label:'งานระบบไฟฟ้าและสื่อสาร'},
-  {sheet:'work_AC',  label:'งานระบบปรับอากาศและระบายอากาศ'},
-];
+// ค่าคงที่และโค้ดคิดราคาอยู่ใน lib/pricing-v1.js (ใช้ร่วมกับ UD-Total-Station)
+const {SHEET_ID, SH_DATA, SH_CAT, PROVS, WAGE_SHEETS} = UDPrice.CONFIG;
+// ฐานข้อมูลราคากลาง — loader ด้านล่างใส่ข้อมูลให้หลังโหลดแต่ละชีต
+const PDB = new UDPrice.DB();
 
 // ============================================================
 // STATE
@@ -670,20 +658,8 @@ let wageData=[], wageCats=[], wSelectedItems=[];
 // ============================================================
 // UTILITY
 // ============================================================
-function gvizURL(sh){
-  return `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?sheet=${encodeURIComponent(sh)}&tqx=out:json`;
-}
-async function fetchSheet(sh){
-  const r=await fetch(gvizURL(sh));
-  const t=await r.text();
-  return JSON.parse(t.replace(/^[^{]+/,'').replace(/[^}]+$/,'')).table;
-}
-function cv(c){return(!c||c.v===null||c.v===undefined)?'':String(c.v).trim();}
-function nv(c){
-  if(!c||c.v===null||c.v===undefined)return null;
-  const n=parseFloat(String(c.v).replace(/,/g,''));
-  return isNaN(n)||n<=0?null:n;
-}
+function fetchSheet(sh){ return UDPrice.util.fetchSheet(SHEET_ID, sh); }
+const {cv, nv} = UDPrice.util;
 function fmt(n){
   if(n===null||n===undefined)return null;
   return n.toLocaleString('th-TH',{minimumFractionDigits:2,maximumFractionDigits:2});
@@ -698,50 +674,9 @@ function esc(s){
 // ============================================================
 // tokenize: แยกคำค้นหาเป็น array ของ token ขนาด >= 2 ตัวอักษร
 // (ยกเว้นตัวเลขล้วน เช่น "240" ให้ผ่านได้ที่ 2+ char)
-function smTokenize(q){
-  return q.trim().toLowerCase()
-    .split(/[\s,]+/)
-    .map(t=>t.trim())
-    .filter(t=>t.length>=2||(t.length>=2&&/^\d+$/.test(t)));
-}
-
-// smScore: คืน score > 0 ถ้า item match ทุก token, คืน 0 ถ้า miss แม้แต่ token เดียว
-// fields: array ของ { text:string, weight:number }
-// score = ผลรวม weight ของแต่ละ token (ใช้ weight สูงสุดของ field ที่ match)
-function smScore(tokens, fields){
-  if(!tokens.length) return 1; // ไม่มี token = match ทุกอย่าง
-  let total=0;
-  for(const tok of tokens){
-    let best=0;
-    for(const f of fields){
-      if(!f.text) continue;
-      const t=f.text.toLowerCase();
-      // prefix match ใน word boundary → weight x 1.5
-      const wordStart=t===tok||t.startsWith(tok)||t.includes(' '+tok)||t.includes('\t'+tok);
-      if(wordStart){ best=Math.max(best, f.weight*1.5); continue; }
-      if(t.includes(tok)) best=Math.max(best, f.weight);
-    }
-    if(best===0) return 0; // token ไม่ match เลย → ตัดทิ้ง
-    total+=best;
-  }
-  return total;
-}
-
-// smFilter: กรอง+เรียงลำดับตาม relevance, คืน array ไม่เกิน limit รายการ
-// items: array ข้อมูล
-// q: string คำค้นหาจาก user
-// getFields: function(item) → [{text, weight}, ...]
-function smFilter(items, q, getFields, limit=40){
-  const tokens=smTokenize(q);
-  if(!tokens.length) return [];
-  const scored=[];
-  for(const it of items){
-    const s=smScore(tokens, getFields(it));
-    if(s>0) scored.push({it, s});
-  }
-  scored.sort((a,b)=>b.s-a.s);
-  return scored.slice(0,limit).map(x=>x.it);
-}
+const smTokenize = UDPrice.search.tokenize;
+const smScore = UDPrice.search.score;
+const smFilter = UDPrice.search.filter;
 
 // highlight หลาย token พร้อมกัน (ใช้แทน single-token hl เดิม)
 function smHl(str, tokens, bgColor){
@@ -806,26 +741,9 @@ function switchSubWage(sub){
 // ============================================================
 async function loadData(){
   try{
-    const ct=await fetchSheet(SH_CAT);
-    cats=[];
-    if(ct&&ct.rows) ct.rows.forEach(row=>{
-      const id=cv(row.c[0]),nm=cv(row.c[1]);
-      if(id) cats.push({id,name:nm});
-    });
-
-    const dt=await fetchSheet(SH_DATA);
-    allData=[];
-    if(dt&&dt.rows) dt.rows.forEach(row=>{
-      const catId=cv(row.c[0]);
-      if(!catId)return;
-      allData.push({
-        catId, catName:cv(row.c[1]),
-        code:cv(row.c[2]), name:cv(row.c[3]), unit:cv(row.c[4]),
-        provinces:PROVS.map(p=>({name:p.name,val:nv(row.c[p.c])})),
-        price:nv(row.c[12]), province:cv(row.c[13]),
-        period:cv(row.c[14]), dlDate:cv(row.c[15]),
-      });
-    });
+    cats=UDPrice.parse.cats(await fetchSheet(SH_CAT));
+    allData=UDPrice.parse.materials(await fetchSheet(SH_DATA));
+    PDB.cats=cats; PDB.materials=allData;
 
     if(allData.length){
       document.getElementById('meta-period').textContent=allData[0].period||'';
@@ -1054,21 +972,9 @@ async function loadWageData(){
   try{
     wageData=[];
     for(const ws of WAGE_SHEETS){
-      const dt=await fetchSheet(ws.sheet);
-      if(dt&&dt.rows){
-        dt.rows.forEach(row=>{
-          const h1=cv(row.c[0]);
-          if(!h1)return;
-          wageData.push({
-            sheetLabel: ws.label,
-            h1, h2:cv(row.c[1]), h3:cv(row.c[2]), h4:cv(row.c[3]),
-            unit:cv(row.c[4]),
-            rawPrice:cv(row.c[5]),
-            price:nv(row.c[5]),
-          });
-        });
-      }
+      wageData.push(...UDPrice.parse.wages(await fetchSheet(ws.sheet), ws));
     }
+    PDB.wages=wageData;
     // สร้าง category จาก sheetLabel
     wageCats=WAGE_SHEETS.map(ws=>ws.label);
     buildWageDropdowns();
@@ -1393,89 +1299,20 @@ function wRefreshData(){
 // ============================================================
 // COMPOSITE — วัสดุมวลรวม
 // ============================================================
-const COMP_SHEET_ID = '1Kw4rcFvpscpIrdnIUUxWW8ZhQvT17uky0sdAqyfYWZg';
-
-const COMP_GROUPS = {
-  '1':'1. งานคอนกรีตส่วนผสมต่างๆ (ผสมเอง)','2':'2. งานคอนกรีตตามมาตรฐานกรมโยธาฯ (ผสมเอง)',
-  '3':'3. งานคอนกรีตเททับหน้าพื้นสำเร็จรูป','4':'4. งานคอนกรีตเสาเอ็น คานทับหลัง และเคาน์เตอร์ คสล.',
-  '5':'5. งานทำฝ้าเพดาน','6':'6. งานก่อผนัง',
-  '7':'7. งานฉาบปูน, งานทำผิวผนัง และงานบุผนัง','8':'8. งานทำผนังเบา',
-  '9':'9. งานปูพื้น','10':'10. งานทาสี',
-  '11':'11. งานท่อระบายน้ำ','12':'12. งานอื่นๆ',
-  
-};
-
-// ราคาตายตัว: item_code → ราคา (บาท/หน่วย)
-const FIXED_PRICES = {
-  '8': 0.0164,  // น้ำ บาท/ลิตร
-  '58': 300,   // ค่ายก บาท/เที่ยว
-  '59': 1, // ค่าวาง หน่วย/เมตร
-};
+const {COMP_SHEET_ID, COMP_GROUPS, FIXED_PRICES} = UDPrice.CONFIG;
 
 let compLoaded=false, compList=[], compItems=[], matRefMap={};
 let cpSelectedItems=[], currentCalcId=null;
 let modalTargetRow=null;
 
-async function fetchCompSheet(sh){
-  const url=`https://docs.google.com/spreadsheets/d/${COMP_SHEET_ID}/gviz/tq?sheet=${encodeURIComponent(sh)}&tqx=out:json`;
-  const r=await fetch(url);
-  const t=await r.text();
-  return JSON.parse(t.replace(/^[^{]+/,'').replace(/[^}]+$/,'')).table;
-}
+function fetchCompSheet(sh){ return UDPrice.util.fetchSheet(COMP_SHEET_ID, sh); }
 
 async function loadCompData(){
   try{
-    // mat_ref — รหัสเป็น 1-2 หลัก ไม่ต้อง pad แล้ว
-    const mt=await fetchCompSheet('mat_ref');
-    matRefMap={};
-    if(mt&&mt.rows) mt.rows.forEach(row=>{
-      const code=cv(row.c[0]);
-      if(!code||code==='รหัส'||!cv(row.c[1]))return;
-      const key=String(code).trim();
-      matRefMap[key]={
-        name:cv(row.c[1]), unit:cv(row.c[2]), commodityCode:cv(row.c[3]),
-        compRef:cv(row.c[4])  // คอลัมน์ E: ดึงราคาจากส่วนผสม เช่น 123 หรือ 12.3
-      };
-    });
-
-    // comp_list — comp_id เป็นตัวเลข เช่น 11, 31, 81
-    const cl=await fetchCompSheet('comp_list');
-    compList=[];
-    if(cl&&cl.rows) cl.rows.forEach(row=>{
-      const id=cv(row.c[0]);
-      if(!id||id==='comp_id')return;
-      compList.push({
-        id:String(id).trim(),
-        group:cv(row.c[1]),
-        sub:cv(row.c[2]),
-        name:cv(row.c[3]),
-        unit:cv(row.c[4])
-      });
-    });
-
-    // comp_items — item_code เป็น 1-2 หลัก เช่น 3, 8, 37
-    const ci=await fetchCompSheet('comp_items');
-    compItems=[];
-    if(ci&&ci.rows) ci.rows.forEach(row=>{
-      const cid=cv(row.c[0]);
-      if(!cid||cid==='comp_id')return;
-      const itemCode=String(cv(row.c[2])).trim();
-      const fixedPrice=itemCode&&FIXED_PRICES[itemCode]?FIXED_PRICES[itemCode]:null;
-      // strip ="..." wrapper ที่อาจติดมาจาก CSV import
-      const rawCode=cv(row.c[6]);
-      const commodityCode=rawCode.replace(/^="?|"?$/g,'').trim();
-      compItems.push({
-        compId:String(cid).trim(),
-        seq:cv(row.c[1]),
-        itemCode,
-        itemName:cv(row.c[3]),
-        qty:(()=>{const v=cv(row.c[4]).trim();return v===''||v===null?null:parseFloat(v)||0;})(),
-        unit:cv(row.c[5]),
-        commodityCode,
-        userInput:cv(row.c[7]),
-        fixedPrice,
-      });
-    });
+    matRefMap=UDPrice.parse.matRef(await fetchCompSheet('mat_ref'));
+    compList=UDPrice.parse.compList(await fetchCompSheet('comp_list'));
+    compItems=UDPrice.parse.compItems(await fetchCompSheet('comp_items'));
+    PDB.matRef=matRefMap; PDB.compList=compList; PDB.compItems=compItems;
 
     compLoaded=true;
     buildCompDropdowns();
@@ -1555,91 +1392,14 @@ function cpSelectFromList(id){
 }
 
 // ============================================================
-// UNIT CONVERSION
+// UNIT CONVERSION — อยู่ใน lib/pricing-v1.js
 // ============================================================
-// ============================================================
-// แปลงราคาจากหน่วยพาณิชย์ → หน่วยของวัสดุมวลรวม
-// ============================================================
-// ใช้ทั้งหน่วยและขนาดบรรจุในชื่อสินค้า เช่น "ขนาด 2.1 ลิตร" (กระป๋อง), "บรรจุ 50 กก./ถุง",
-// "ยาว 10 เมตร" (ท่อน), "น้ำหนัก 14.5 กก." — ถ้าแปลงไม่ได้จะคืน ok:false ไม่เดาราคา
-const UNIT_TABLE={
-  // มวล (ฐาน กก.)
-  'กก.':['mass',1],'กก':['mass',1],'กิโลกรัม':['mass',1],'kg':['mass',1],'ตัน':['mass',1000],'กรัม':['mass',0.001],
-  // ปริมาตร (ฐาน ลิตร)
-  'ลิตร':['vol',1],'l':['vol',1],'มล.':['vol',0.001],'ซีซี':['vol',0.001],
-  'gl.':['vol',3.785],'gl':['vol',3.785],'แกลลอน':['vol',3.785],'แกลอน':['vol',3.785],
-  'ลบ.ม.':['vol',1000],'ลบ.ซม.':['vol',0.001],'cc':['vol',0.001],'ลบ.ฟ.':['vol',28.3168],'ลบ.ฟุต':['vol',28.3168],
-  // ความยาว (ฐาน ม.)
-  'ม.':['len',1],'ม':['len',1],'เมตร':['len',1],'ซม.':['len',0.01],'มม.':['len',0.001],'ฟุต':['len',0.3048],
-  // พื้นที่ (ฐาน ตร.ม.)
-  'ตร.ม.':['area',1],'ตร.ซม.':['area',0.0001],'ตร.ฟุต':['area',0.092903],'ตร.ฟ.':['area',0.092903],
-  // นับจำนวน
-  'โหล':['count',12],
-};
-const COUNT_UNITS=['แผ่น','ก้อน','อัน','ตัว','ชิ้น','ท่อน','บาน','ชุด','ใบ','ดวง','หลอด','เส้น','ลูก','ดอก','หัว','ต้น'];
-function _num(x){return parseFloat(String(x).replace(/,/g,''));}
-// อ่านขนาดบรรจุจากชื่อสินค้า
-function pkgContents(name){
-  const n=String(name||'').replace(/\s+/g,' ');
-  const out={};
-  let m;
-  if((m=n.match(/([\d.,]+)\s*(?:ลิตร|ลิตร\.)/))) out.vol=_num(m[1]);
-  else if((m=n.match(/([\d.,]+)\s*(?:มล\.|ml|ซีซี)/i))) out.vol=_num(m[1])*0.001;
-  else if((m=n.match(/([\d.,]+)\s*แกลลอน/))) out.vol=_num(m[1])*3.785;
-  if((m=n.match(/([\d.,]+)\s*(?:กก\.?|กิโลกรัม)\s*(?:\/|ต่อ)?\s*(?:ถุง|กระป๋อง|ถัง|กล่อง|ลัง|ม้วน|ท่อน|แผ่น)?/))) out.mass=_num(m[1]);
-  else if((m=n.match(/([\d.,]+)\s*กรัม/))) out.mass=_num(m[1])*0.001;
-  if((m=n.match(/ยาว\s*([\d.,]+)\s*(?:เมตร|ม\.)/))) out.len=_num(m[1]);
-  else if((m=n.match(/ยาว\s*([\d.,]+)\s*ซม\./))) out.len=_num(m[1])*0.01;
-  for(const k in out) if(!(out[k]>0)) delete out[k];
-  return out;
-}
-function _unitOpts(unit, name){
-  const raw=String(unit||'').trim();
-  const u=raw.toLowerCase();
-  if(UNIT_TABLE[u]) return [{dim:UNIT_TABLE[u][0],f:UNIT_TABLE[u][1]}];
-  // หน่วยแบบมีจำนวน เช่น "144 แผ่น", "100 แผ่น"
-  let m=raw.match(/^([\d.,]+)\s*(\S+)$/);
-  if(m&&COUNT_UNITS.includes(m[2])) return [{dim:'count',f:_num(m[1])},{dim:'u:'+raw,f:1}];
-  // หน่วยบรรจุภัณฑ์/ชิ้น (กระป๋อง ถุง ถัง ม้วน ลัง ท่อน แผ่น ...) → ดูขนาดในชื่อ เช่น ยาว 6 เมตร, น้ำหนัก 14.5 กก.
-  const c=pkgContents(name);
-  const opts=[{dim:'u:'+raw,f:1}];
-  if(COUNT_UNITS.includes(raw)) opts.push({dim:'count',f:1});
-  for(const d in c) opts.push({dim:d,f:c[d]});
-  return opts;
-}
-// คืน {price, ok, how}
-function convertPriceX(price, fromUnit, toUnit, fromName, toName){
-  if(price===null||price===undefined) return {price:null,ok:false,how:''};
-  const f=String(fromUnit||'').trim(), t=String(toUnit||'').trim();
-  if(!f||!t||normUnit(f)===normUnit(t)) return {price,ok:true,how:''};
-  const A=_unitOpts(f,fromName), B=_unitOpts(t,toName);
-  // ใช้หน่วยตรงก่อน แล้วค่อยมิติ มวล/ปริมาตร/ความยาว/พื้นที่/จำนวน
-  const order=['u:','mass','vol','len','area','count'];
-  for(const key of order){
-    for(const a of A) for(const b of B){
-      if(a.dim!==b.dim) continue;
-      if(key==='u:'?!a.dim.startsWith('u:'):a.dim!==key) continue;
-      const v=price*b.f/a.f;
-      const fa=(!UNIT_TABLE[f.toLowerCase()]&&!a.dim.startsWith('u:')&&a.f!==1)?` (${fmtQty(a.f,a.dim)})`:'';
-      const tb=(!UNIT_TABLE[t.toLowerCase()]&&!b.dim.startsWith('u:')&&b.f!==1)?` (${fmtQty(b.f,b.dim)})`:'';
-      const how=`${f}${fa} → ${t}${tb}`;
-      return {price:v,ok:true,how};
-    }
-  }
-  return {price:null,ok:false,how:`แปลง ${f} → ${t} ไม่ได้`};
-}
-function fmtQty(v,dim){
-  const u={mass:'กก.',vol:'ลิตร',len:'ม.',area:'ตร.ม.',count:'ชิ้น'}[dim]||'';
-  return (+v.toFixed(4))+' '+u;
-}
-// ใช้กับโค้ดเดิม: คืนราคา หรือ null ถ้าแปลงไม่ได้
+const {UNIT_TABLE, COUNT_UNITS, pkgContents, fmtQty, normUnit, splitCodes} = UDPrice.units;
+const convertPriceX = UDPrice.units.convertPrice;   // คืน {price, ok, how}
 function convertPrice(price, fromUnit, toUnit, fromName, toName){
   return convertPriceX(price,fromUnit,toUnit,fromName,toName).price;
 }
-function itemToName(it){
-  const r=matRefMap[it.itemCode];
-  return (it.itemName||'')+' '+(r?r.name:'');
-}
+function itemToName(it){ return PDB.itemFullName(it); }
 function unitConvNote(how, ok){
   if(!how) return '';
   return ok
@@ -1648,94 +1408,39 @@ function unitConvNote(how, ok){
 }
 
 // ============================================================
-// รหัสพาณิชย์ (รองรับหลายรหัส) + ผูกราคาจากส่วนผสมอื่น
+// รหัสพาณิชย์ (รองรับหลายรหัส) + ผูกราคาจากส่วนผสมอื่น — ตรรกะอยู่ใน lib/pricing-v1.js
 // ============================================================
 // mat_ref คอลัมน์ D ใส่ได้หลายรหัส คั่นด้วย , — ใช้รหัสแรกที่มีราคาในเดือนนั้น
 // mat_ref คอลัมน์ E ใส่เลขส่วนผสม (เช่น 123 หรือ 12.3) — ใช้ผลรวมของส่วนผสมนั้นเป็นราคาต่อหน่วย
-const UNIT_ALIAS={'ม.':'เมตร','ม':'เมตร','เมตร':'เมตร','กก':'กก.','ตรม.':'ตร.ม.','ลบม.':'ลบ.ม.'};
-function normUnit(u){u=String(u||'').trim();return UNIT_ALIAS[u]||u;}
-function splitCodes(s){
-  return String(s||'').split(/[,;\s]+/).map(x=>x.replace(/^="?|"?$/g,'').trim()).filter(x=>x.length>5);
-}
-function itemCodes(it){
-  const r=matRefMap[it.itemCode];
-  return splitCodes(r&&r.commodityCode?r.commodityCode:it.commodityCode);
-}
-function resolveMat(it){
-  const codes=itemCodes(it), missing=[];
-  let matItem=null;
-  for(const c of codes){
-    const m=allData.find(d=>d.code===c);
-    if(m&&m.price!==null){matItem=m;break;}
-    missing.push(c);
-  }
-  return {matItem,codes,missing};
-}
-function findComp(ref){
-  const v=String(ref||'').trim();
-  if(!v)return null;
-  return compList.find(c=>c.id===v)||compList.find(c=>c.sub===v)||null;
-}
-function resolveCompRef(it){
-  const r=matRefMap[it.itemCode];
-  return r?findComp(r.compRef):null;
-}
-// ราคาต่อหน่วยของส่วนผสม: ใช้ยอดที่ผู้ใช้คำนวณแล้วในรายการที่เลือก ก่อน
-// ถ้ายังไม่มี คำนวณอัตโนมัติ (ราคาตายตัว > พาณิชย์ > ส่วนผสมย่อย) — ได้เฉพาะเมื่อครบทุกรายการ
-function subCompPrice(comp, depth=0){
-  const sel=cpSelectedItems.find(s=>s.compId===comp.id);
-  if(sel) return {price:sel.total, source:'list', complete:true};
-  if(depth>4) return {price:null, source:'auto', complete:false};
-  let total=0, complete=true;
-  compItems.filter(d=>d.compId===comp.id).forEach(it=>{
-    if(it.qty===null){complete=false;return;}
-    let p=null;
-    if(it.fixedPrice!==null) p=it.fixedPrice;
-    else{
-      const {matItem}=resolveMat(it);
-      if(matItem) p=convertPrice(matItem.price,matItem.unit,it.unit,matItem.name,itemToName(it));
-      else{
-        const sc=resolveCompRef(it);
-        if(sc&&sc.id!==comp.id&&normUnit(sc.unit)===normUnit(it.unit)){
-          const r=subCompPrice(sc,depth+1);
-          if(r.price!==null) p=r.price;
-        }
-      }
-    }
-    if(p===null){complete=false;return;}
-    total+=it.qty*p;
-  });
-  return {price:complete?total:null, source:'auto', complete};
+function itemCodes(it){ return PDB.itemCodes(it); }
+function resolveMat(it){ return PDB.resolveMat(it); }
+function findComp(ref){ return PDB.findComp(ref); }
+function resolveCompRef(it){ return PDB.resolveCompRef(it); }
+// ราคาต่อหน่วยของส่วนผสม: ใช้ยอดที่ผู้ใช้คำนวณแล้วในรายการที่เลือกก่อน
+// ถ้ายังไม่มี คำนวณอัตโนมัติ (ราคาตายตัว > พาณิชย์ > ส่วนผสมย่อย) — ได้เฉพาะเมื่อครบทุกรายการ ปัด 2 ตำแหน่ง
+function subCompPrice(comp){
+  const subPrices={};
+  cpSelectedItems.forEach(s=>{subPrices[s.compId]=s.total;});
+  const r=PDB.compPrice(comp,{subPrices});
+  return {price:r.price, source:r.source, complete:r.complete};
 }
 
 // ตรวจรหัสพาณิชย์ใน mat_ref ที่ไม่มีราคาในเดือนปัจจุบัน แล้วแสดงแถบเตือน + รายการที่ชื่อใกล้เคียง
 function cpCheckCodes(){
   const box=document.getElementById('cp-code-alert');
   if(!box||!compLoaded||!allData.length)return;
-  const dead=[], fallback=[];
-  Object.entries(matRefMap).forEach(([key,r])=>{
-    const codes=splitCodes(r.commodityCode);
-    if(!codes.length)return;
-    const okIdx=codes.findIndex(c=>{const m=allData.find(d=>d.code===c);return m&&m.price!==null;});
-    if(okIdx<0) dead.push({key,r,codes});
-    else if(okIdx>0) fallback.push({key,r,codes,used:codes[okIdx]});
-  });
+  const {dead, fallback}=PDB.checkCodes(3);
   if(!dead.length&&!fallback.length){box.innerHTML='';return;}
   const period=esc(allData[0].period||'');
   const deadHtml=dead.map(d=>{
-    const used=new Set(d.codes);
-    const pool=allData.filter(x=>x.price!==null&&!used.has(x.code));
-    const fields=x=>[{text:x.name,weight:6},{text:x.catName,weight:1}];
-    const q1=d.r.name.replace(/\(.*?\)/g,' ').replace(/\s+/g,' ').trim();
-    let sug=smFilter(pool, q1, fields, 3);
-    if(!sug.length) sug=smFilter(pool, q1.split(' ')[0], fields, 3);
-    return `<li style="margin-bottom:8px"><b>รหัส ${esc(d.key)}</b> ${esc(d.r.name)}
+    const sug=d.suggestions;
+    return `<li style="margin-bottom:8px"><b>รหัส ${esc(d.key)}</b> ${esc(d.ref.name)}
       <span style="font-family:'IBM Plex Mono',monospace;color:var(--text3);font-size:11px">(${d.codes.map(esc).join(', ')})</span>
       ${sug.length?`<div style="font-size:11px;color:var(--text3);margin-top:3px">รหัสที่ชื่อใกล้เคียงซึ่งมีราคา:</div>
       <ul style="margin:2px 0 0 16px;font-size:11px">${sug.map(x=>`<li><span style="font-family:'IBM Plex Mono',monospace">${esc(x.code)}</span> ${esc(x.name)} — ${fmt(x.price)} บาท/${esc(x.unit)} (${esc(x.province)})</li>`).join('')}</ul>`:''}
     </li>`;
   }).join('');
-  const fbHtml=fallback.map(f=>`<li>รหัส ${esc(f.key)} ${esc(f.r.name)} — รหัสแรกไม่มีราคา ใช้รหัสสำรอง <span style="font-family:'IBM Plex Mono',monospace">${esc(f.used)}</span></li>`).join('');
+  const fbHtml=fallback.map(f=>`<li>รหัส ${esc(f.key)} ${esc(f.ref.name)} — รหัสแรกไม่มีราคา ใช้รหัสสำรอง <span style="font-family:'IBM Plex Mono',monospace">${esc(f.used)}</span></li>`).join('');
   box.innerHTML=`<details ${dead.length?'open':''} style="margin-bottom:16px;padding:12px 14px;border:1px solid var(--amber-border);background:var(--amber-dim);border-radius:var(--radius-sm);font-size:12px;color:var(--text2)">
     <summary style="cursor:pointer;color:var(--amber);font-weight:600">⚠ ตรวจรหัสพาณิชย์ใน mat_ref (${period}): ไม่มีราคา ${dead.length} รหัส${fallback.length?` · ใช้รหัสสำรอง ${fallback.length} รหัส`:''}</summary>
     ${dead.length?`<div style="margin:8px 0 4px">รายการเหล่านี้จะไม่ได้ราคาพาณิชย์อัตโนมัติ — แก้ใน Sheet mat_ref คอลัมน์ D (ใส่หลายรหัสได้ คั่นด้วย , ระบบจะใช้รหัสแรกที่มีราคา)</div><ul style="margin:0 0 0 16px">${deadHtml}</ul>`:''}
