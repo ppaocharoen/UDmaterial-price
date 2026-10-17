@@ -1557,39 +1557,94 @@ function cpSelectFromList(id){
 // ============================================================
 // UNIT CONVERSION
 // ============================================================
+// ============================================================
 // แปลงราคาจากหน่วยพาณิชย์ → หน่วยของวัสดุมวลรวม
-function convertPrice(price, fromUnit, toUnit){
-  if(!price||!fromUnit||!toUnit) return price;
-  const f=fromUnit.trim().toLowerCase();
-  const t=toUnit.trim().toLowerCase();
-  if(f===t) return price;
-
-  // ตัน ↔ กก.
-  if(f==='ตัน'&&(t==='กก.'||t==='กก')) return price/1000;
-  if((f==='กก.'||f==='กก')&&t==='ตัน') return price*1000;
-
-  // ลบ.ม. ↔ ลิตร
-  if(f==='ลบ.ม.'&&t==='ลิตร') return price/1000;
-  if(f==='ลิตร'&&t==='ลบ.ม.') return price*1000;
-
-  // ลบ.ม. ↔ ลบ.ซม.
-  if(f==='ลบ.ม.'&&(t==='ลบ.ซม.'||t==='cc')) return price/1000000;
-  if((f==='ลบ.ซม.'||f==='cc')&&t==='ลบ.ม.') return price*1000000;
-
-  // ตร.ม. ↔ ตร.ซม.
-  if(f==='ตร.ม.'&&t==='ตร.ซม.') return price/10000;
-  if(f==='ตร.ซม.'&&t==='ตร.ม.') return price*10000;
-
-  // ม. ↔ ซม.
-  if(f==='ม.'&&t==='ซม.') return price/100;
-  if(f==='ซม.'&&t==='ม.') return price*100;
-
-  return price; // ถ้าไม่รู้จักคู่หน่วย ส่งราคาเดิมกลับ
+// ============================================================
+// ใช้ทั้งหน่วยและขนาดบรรจุในชื่อสินค้า เช่น "ขนาด 2.1 ลิตร" (กระป๋อง), "บรรจุ 50 กก./ถุง",
+// "ยาว 10 เมตร" (ท่อน), "น้ำหนัก 14.5 กก." — ถ้าแปลงไม่ได้จะคืน ok:false ไม่เดาราคา
+const UNIT_TABLE={
+  // มวล (ฐาน กก.)
+  'กก.':['mass',1],'กก':['mass',1],'กิโลกรัม':['mass',1],'kg':['mass',1],'ตัน':['mass',1000],'กรัม':['mass',0.001],
+  // ปริมาตร (ฐาน ลิตร)
+  'ลิตร':['vol',1],'l':['vol',1],'มล.':['vol',0.001],'ซีซี':['vol',0.001],
+  'gl.':['vol',3.785],'gl':['vol',3.785],'แกลลอน':['vol',3.785],'แกลอน':['vol',3.785],
+  'ลบ.ม.':['vol',1000],'ลบ.ซม.':['vol',0.001],'cc':['vol',0.001],'ลบ.ฟ.':['vol',28.3168],'ลบ.ฟุต':['vol',28.3168],
+  // ความยาว (ฐาน ม.)
+  'ม.':['len',1],'ม':['len',1],'เมตร':['len',1],'ซม.':['len',0.01],'มม.':['len',0.001],'ฟุต':['len',0.3048],
+  // พื้นที่ (ฐาน ตร.ม.)
+  'ตร.ม.':['area',1],'ตร.ซม.':['area',0.0001],'ตร.ฟุต':['area',0.092903],'ตร.ฟ.':['area',0.092903],
+  // นับจำนวน
+  'โหล':['count',12],
+};
+const COUNT_UNITS=['แผ่น','ก้อน','อัน','ตัว','ชิ้น','ท่อน','บาน','ชุด','ใบ','ดวง','หลอด','เส้น','ลูก','ดอก','หัว','ต้น'];
+function _num(x){return parseFloat(String(x).replace(/,/g,''));}
+// อ่านขนาดบรรจุจากชื่อสินค้า
+function pkgContents(name){
+  const n=String(name||'').replace(/\s+/g,' ');
+  const out={};
+  let m;
+  if((m=n.match(/([\d.,]+)\s*(?:ลิตร|ลิตร\.)/))) out.vol=_num(m[1]);
+  else if((m=n.match(/([\d.,]+)\s*(?:มล\.|ml|ซีซี)/i))) out.vol=_num(m[1])*0.001;
+  else if((m=n.match(/([\d.,]+)\s*แกลลอน/))) out.vol=_num(m[1])*3.785;
+  if((m=n.match(/([\d.,]+)\s*(?:กก\.?|กิโลกรัม)\s*(?:\/|ต่อ)?\s*(?:ถุง|กระป๋อง|ถัง|กล่อง|ลัง|ม้วน|ท่อน|แผ่น)?/))) out.mass=_num(m[1]);
+  else if((m=n.match(/([\d.,]+)\s*กรัม/))) out.mass=_num(m[1])*0.001;
+  if((m=n.match(/ยาว\s*([\d.,]+)\s*(?:เมตร|ม\.)/))) out.len=_num(m[1]);
+  else if((m=n.match(/ยาว\s*([\d.,]+)\s*ซม\./))) out.len=_num(m[1])*0.01;
+  for(const k in out) if(!(out[k]>0)) delete out[k];
+  return out;
 }
-
-function unitConvNote(fromUnit, toUnit){
-  if(!fromUnit||!toUnit||fromUnit.trim()===toUnit.trim()) return '';
-  return ` <span style="font-size:10px;color:var(--amber);background:var(--amber-dim);border-radius:3px;padding:1px 5px">แปลงจาก ${fromUnit}→${toUnit}</span>`;
+function _unitOpts(unit, name){
+  const raw=String(unit||'').trim();
+  const u=raw.toLowerCase();
+  if(UNIT_TABLE[u]) return [{dim:UNIT_TABLE[u][0],f:UNIT_TABLE[u][1]}];
+  // หน่วยแบบมีจำนวน เช่น "144 แผ่น", "100 แผ่น"
+  let m=raw.match(/^([\d.,]+)\s*(\S+)$/);
+  if(m&&COUNT_UNITS.includes(m[2])) return [{dim:'count',f:_num(m[1])},{dim:'u:'+raw,f:1}];
+  // หน่วยบรรจุภัณฑ์/ชิ้น (กระป๋อง ถุง ถัง ม้วน ลัง ท่อน แผ่น ...) → ดูขนาดในชื่อ เช่น ยาว 6 เมตร, น้ำหนัก 14.5 กก.
+  const c=pkgContents(name);
+  const opts=[{dim:'u:'+raw,f:1}];
+  if(COUNT_UNITS.includes(raw)) opts.push({dim:'count',f:1});
+  for(const d in c) opts.push({dim:d,f:c[d]});
+  return opts;
+}
+// คืน {price, ok, how}
+function convertPriceX(price, fromUnit, toUnit, fromName, toName){
+  if(price===null||price===undefined) return {price:null,ok:false,how:''};
+  const f=String(fromUnit||'').trim(), t=String(toUnit||'').trim();
+  if(!f||!t||normUnit(f)===normUnit(t)) return {price,ok:true,how:''};
+  const A=_unitOpts(f,fromName), B=_unitOpts(t,toName);
+  // ใช้หน่วยตรงก่อน แล้วค่อยมิติ มวล/ปริมาตร/ความยาว/พื้นที่/จำนวน
+  const order=['u:','mass','vol','len','area','count'];
+  for(const key of order){
+    for(const a of A) for(const b of B){
+      if(a.dim!==b.dim) continue;
+      if(key==='u:'?!a.dim.startsWith('u:'):a.dim!==key) continue;
+      const v=price*b.f/a.f;
+      const fa=(!UNIT_TABLE[f.toLowerCase()]&&!a.dim.startsWith('u:')&&a.f!==1)?` (${fmtQty(a.f,a.dim)})`:'';
+      const tb=(!UNIT_TABLE[t.toLowerCase()]&&!b.dim.startsWith('u:')&&b.f!==1)?` (${fmtQty(b.f,b.dim)})`:'';
+      const how=`${f}${fa} → ${t}${tb}`;
+      return {price:v,ok:true,how};
+    }
+  }
+  return {price:null,ok:false,how:`แปลง ${f} → ${t} ไม่ได้`};
+}
+function fmtQty(v,dim){
+  const u={mass:'กก.',vol:'ลิตร',len:'ม.',area:'ตร.ม.',count:'ชิ้น'}[dim]||'';
+  return (+v.toFixed(4))+' '+u;
+}
+// ใช้กับโค้ดเดิม: คืนราคา หรือ null ถ้าแปลงไม่ได้
+function convertPrice(price, fromUnit, toUnit, fromName, toName){
+  return convertPriceX(price,fromUnit,toUnit,fromName,toName).price;
+}
+function itemToName(it){
+  const r=matRefMap[it.itemCode];
+  return (it.itemName||'')+' '+(r?r.name:'');
+}
+function unitConvNote(how, ok){
+  if(!how) return '';
+  return ok
+    ?` <span style="font-size:10px;color:var(--amber);background:var(--amber-dim);border-radius:3px;padding:1px 5px">แปลงจาก ${esc(how)}</span>`
+    :` <span class="code-warn">⚠ ${esc(how)} — กรอกเอง</span>`;
 }
 
 // ============================================================
@@ -1638,7 +1693,7 @@ function subCompPrice(comp, depth=0){
     if(it.fixedPrice!==null) p=it.fixedPrice;
     else{
       const {matItem}=resolveMat(it);
-      if(matItem) p=convertPrice(matItem.price,matItem.unit,it.unit);
+      if(matItem) p=convertPrice(matItem.price,matItem.unit,it.unit,matItem.name,itemToName(it));
       else{
         const sc=resolveCompRef(it);
         if(sc&&sc.id!==comp.id&&normUnit(sc.unit)===normUnit(it.unit)){
@@ -1735,10 +1790,10 @@ function renderCalc(compId){
     // แปลงหน่วยราคาพาณิชย์ → หน่วยของวัสดุมวลรวม
     const matUnit=matItem?matItem.unit:'';
     const rawPrice=matItem?matItem.price:null;
-    const autoPrice=rawPrice!==null?convertPrice(rawPrice,matUnit,it.unit):null;
+    const conv=matItem?convertPriceX(rawPrice,matUnit,it.unit,matItem.name,itemToName(it)):{price:null,ok:true,how:''};
+    const autoPrice=conv.price;
     const autoProv=matItem?matItem.province:'';
-    const converted=matItem&&matUnit&&it.unit&&matUnit.trim()!==it.unit.trim();
-    const convNote=converted?unitConvNote(matUnit,it.unit):'';
+    const convNote=matItem?unitConvNote(conv.how,conv.ok):'';
 
     // ราคาเริ่มต้น: ราคาตายตัว > ราคาพาณิชย์แปลงแล้ว > ว่าง
     const useSub=it.fixedPrice===null&&autoPrice===null&&subPrice!==null;
@@ -1887,11 +1942,12 @@ function cpUseMat(rowIdx, compId){
   const {matItem}=resolveMat(it);
   if(matItem&&matItem.price!==null){
     // แปลงหน่วยก่อนใส่
-    const converted=convertPrice(matItem.price, matItem.unit, it.unit);
+    const cx=convertPriceX(matItem.price, matItem.unit, it.unit, matItem.name, itemToName(it));
+    if(!cx.ok){alert(`หน่วยพาณิชย์ (${matItem.unit}) แปลงเป็น ${it.unit} ไม่ได้ — กรุณากรอกราคาเอง`);return;}
     const inp=document.getElementById(`cp-price-${compId}-${rowIdx}`);
     const provEl=document.getElementById(`cp-prov-${compId}-${rowIdx}`);
-    if(inp){inp.value=converted;inp.classList.add('has-val');}
-    if(provEl) provEl.textContent='📍 '+matItem.province+(matItem.unit!==it.unit?` (แปลงจาก ${matItem.unit})`:'' );
+    if(inp){inp.value=+cx.price.toFixed(5);inp.classList.add('has-val');}
+    if(provEl) provEl.textContent='📍 '+matItem.province+(cx.how?` (แปลงจาก ${cx.how})`:'' );
     cpCalcTotal(compId);
   } else {
     openMatModal(rowIdx, compId, it.itemName, it.unit);
@@ -1956,8 +2012,11 @@ function modalSelectItem(code){
   if(!matItem)return;
   const inp=document.getElementById(`cp-price-${compId}-${rowIdx}`);
   const provEl=document.getElementById(`cp-prov-${compId}-${rowIdx}`);
-  if(inp){inp.value=matItem.price||'';inp.classList.toggle('has-val',!!matItem.price);}
-  if(provEl)provEl.textContent=matItem.price?'📍 '+matItem.province:'';
+  const it=compItems.filter(d=>d.compId===compId)[rowIdx];
+  const cx=it?convertPriceX(matItem.price,matItem.unit,it.unit,matItem.name,itemToName(it)):{price:matItem.price,ok:true,how:''};
+  if(!cx.ok){alert(`หน่วยพาณิชย์ (${matItem.unit}) แปลงเป็น ${it.unit} ไม่ได้ — เลือกรายการอื่นหรือกรอกราคาเอง`);return;}
+  if(inp){inp.value=cx.price?+cx.price.toFixed(5):'';inp.classList.toggle('has-val',!!cx.price);}
+  if(provEl)provEl.textContent=cx.price?'📍 '+matItem.province+(cx.how?` (แปลงจาก ${cx.how})`:''):'';
   cpCalcTotal(compId);
   document.getElementById('mat-modal').style.display='none';
   modalTargetRow=null;
