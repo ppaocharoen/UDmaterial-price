@@ -323,7 +323,7 @@ table.main td.sm{font-size:11px;color:var(--text2);}
 .sv-msg{font-size:12px;margin-left:4px;}
 .sv-msg.err{color:var(--red);}
 #sv-toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--bg3);border:1px solid var(--border2);color:var(--text);padding:8px 16px;border-radius:99px;font-size:13px;z-index:300;display:none;}
-@media print{#page-survey,#sv-toast{display:none!important;}}
+@media print{#page-survey,#sv-toast,#sv-modal,#sv-imgmodal,#cp-sv-modal{display:none!important;}}
 /* PRINT */
 @media print{
   @page{size:A4;margin:12mm 10mm;}
@@ -2652,6 +2652,8 @@ setTimeout(projLoadIntoApp, 0);
     <button class="btn btn-amber" type="button" id="sv-new">+ เพิ่มรายการสืบ</button>
     <button class="btn btn-ghost" type="button" id="sv-libcfg">⚙ ตั้งค่าคลังกลาง</button>
     <button class="btn btn-ghost" type="button" id="sv-refresh">↻ โหลดคลังใหม่</button>
+    <button class="btn btn-green" type="button" id="sv-pdf">พิมพ์รายงาน PDF</button>
+    <button class="btn btn-green" type="button" id="sv-xls">ส่งออก Excel</button>
     <button class="btn btn-ghost" type="button" id="sv-exp">ส่งออก .json</button>
     <button class="btn btn-ghost" type="button" id="sv-imp">นำเข้า .json</button>
     <input type="file" id="sv-impfile" accept=".json,application/json" style="display:none">
@@ -2854,6 +2856,8 @@ function svBind(){
   svEl('sv-chips').addEventListener('click',e=>{const k=e.target.dataset.chip;if(k){sv.filter=k;svRender();}});
   svEl('sv-q').addEventListener('input',e=>{sv.q=e.target.value;svRender();});
   svEl('sv-refresh').onclick=()=>svLoad(true);
+  svEl('sv-pdf').onclick=svPrint;
+  svEl('sv-xls').onclick=svExportExcel;
   svEl('sv-imgmodal').onclick=()=>{svEl('sv-imgmodal').style.display='none';};
   /* เพิ่มรายการ */
   svEl('sv-new').onclick=()=>{svEl('sv-addbox').classList.toggle('on');svEl('sv-an').focus();};
@@ -2974,6 +2978,90 @@ function cpSvList(){
     if(Survey.normUnit(x.unit)!==Survey.normUnit(it.unit)){alert('หน่วยไม่ตรงกัน ('+x.unit+' ≠ '+it.unit+') — ระบบยังแปลงหน่วยราคาสืบให้ไม่ได้ กรุณาสืบใหม่ในหน่วย '+it.unit);return;}
     cpSvApply(x,t.rowIdx,t.compId);cpSvClose({target:{id:'cp-sv-modal'}});
   };
+}
+
+/* ===== รายงานราคาสืบ (PDF / Excel) — ออกเฉพาะรายการที่แสดงอยู่ตามตัวกรอง และมีราคาแล้ว ===== */
+function svReportItems(){return svVisible().filter(it=>Survey.summary(it).price!==null);}
+function svFmt(n){return n===null||n===undefined||n===''?'':(+n).toLocaleString('th-TH',{minimumFractionDigits:2,maximumFractionDigits:2});}
+function svThaiDate(d){const t=d?new Date(d):new Date();if(isNaN(t))return esc(d||'');return t.toLocaleDateString('th-TH',{year:'numeric',month:'long',day:'numeric'});}
+async function svImgData(it,id){
+  if(sv.imgs[id])return sv.imgs[id];
+  const v=it.imgs&&it.imgs[id];
+  const d=v?await Survey.libImg(v).catch(()=>null):await Survey.imgGet(id);
+  if(d)sv.imgs[id]=d;return d;
+}
+async function svPrint(){
+  const list=svReportItems();
+  if(!list.length){svToast('ยังไม่มีรายการที่มีราคาสืบให้ออกรายงาน');return;}
+  svToast('กำลังเตรียมรายงาน...');
+  let figs=[];
+  const blocks=[];
+  for(const [idx,it] of list.entries()){
+    const s=Survey.summary(it);
+    const rows=await Promise.all(s.list.map(async (x,j)=>{
+      const q=x.q,refs=[];
+      for(const id of (q.imgs||[])){const d=await svImgData(it,id);if(d&&Survey.safeImg(d)){figs.push({d,cap:`${it.name} — ${q.shop||Survey.CHANNEL[q.channel]||''}`});refs.push('ภาพที่ '+figs.length);}}
+      return `<tr${q.id===s.best.id?' style="font-weight:700;background:#f4faf6"':''}><td>${j+1}</td><td>${esc(q.shop||'')}<div style="font-size:9px;color:#666">${esc(Survey.CHANNEL[q.channel]||'')}${q.contact?' · '+esc(q.contact):''}</div></td>
+        <td>${esc(q.date||'')}</td><td class="r">${svFmt(q.price)}</td><td>${esc(q.qunit||'')}</td><td class="r">${esc(q.factor||1)}</td><td>${q.vat?'รวม VAT':'ไม่รวม VAT'}</td>
+        <td class="r">${svFmt(x.up)}</td><td>${esc(q.note||'')}${refs.length?' ('+refs.join(', ')+')':''}</td></tr>`;
+    }));
+    blocks.push(`<div class="cp-item-block"><div class="cp-item-header">${idx+1}. ${esc(it.name)} <span style="font-weight:400">[หน่วย ${esc(it.unit)}]</span></div>
+      <div class="cp-item-sub">${esc(Survey.srcText(it))}${s.n<Survey.MIN_Q?' · สืบได้ '+s.n+' เจ้า (ไม่ครบ '+Survey.MIN_Q+')'+(it.reason?' เหตุผล: '+esc(it.reason):''):''}</div>
+      <table class="cp-detail-tbl"><thead><tr><th>#</th><th>ร้าน / ช่องทาง</th><th>วันที่</th><th class="r">ราคาเสนอ</th><th>หน่วยร้าน</th><th class="r">ตัวคูณ</th><th>VAT</th><th class="r">บาท/${esc(it.unit)} ไม่รวม VAT</th><th>หมายเหตุ</th></tr></thead>
+      <tbody>${rows.join('')}</tbody>
+      <tfoot><tr class="total-row"><td colspan="7" style="text-align:right">ราคาที่ใช้ (ต่ำสุด)</td><td class="r mono">${svFmt(s.price)}</td><td></td></tr></tfoot></table></div>`);
+  }
+  const appendix=figs.length?`<div style="page-break-before:always"><div class="pdf-title" style="margin-bottom:8px">ภาคผนวก — ภาพหลักฐานการสืบราคา</div>
+    <div style="display:flex;flex-wrap:wrap;gap:10px">${figs.map((f,i)=>`<div style="width:48%;page-break-inside:avoid"><img src="${f.d}" style="width:100%;border:1px solid #ccc"><div style="font-size:9px">ภาพที่ ${i+1}: ${esc(f.cap)}</div></div>`).join('')}</div></div>`:'';
+  const filt={all:'ทั้งหมด',ok:'ครบ 3 เจ้า',few:'ไม่ครบ 3 เจ้า'}[sv.filter]||'';
+  const html=`<div style="width:100%;max-width:188mm;box-sizing:border-box"><div class="pdf-hd"><div class="pdf-title">บัญชีราคาสืบวัสดุ</div>
+    <div class="pdf-meta">UD-Cost Hub | ${list.length} รายการ${filt?' ('+filt+')':''} | วันที่พิมพ์: ${svThaiDate()}</div></div>
+    ${blocks.join('')}
+    <div class="pdf-ft" style="font-size:9px;color:#555;margin-top:8px">* ราคาต่อหน่วย = (ราคาที่ร้านเสนอ ÷ 1.07 กรณีรวม VAT) ÷ ตัวคูณแปลงหน่วย · ราคาที่ใช้ = ต่ำสุดของทุกเจ้า</div>
+    ${appendix}</div>`;
+  const container=document.getElementById('proj-print-all');
+  if(!container){svToast('ไม่พบพื้นที่พิมพ์');return;}
+  container.innerHTML=html;
+  document.body.classList.add('proj-printing');
+  window.print();
+}
+async function svExportExcel(){
+  const list=svReportItems();
+  if(!list.length){svToast('ยังไม่มีรายการที่มีราคาสืบให้ส่งออก');return;}
+  try{
+    await loadXLSXLib();
+    const aoa=[],fcells=[],sumRows=[];
+    const D="รายละเอียดการสืบ";
+    list.forEach((it,idx)=>{
+      const s=Survey.summary(it);
+      aoa.push([`${idx+1}. ${it.name} [หน่วย ${it.unit}]`,'','','','','','','','']);
+      aoa.push(['#','ร้าน / บริษัท','ช่องทาง','เบอร์ / ลิงก์','วันที่','ราคาที่เสนอ','หน่วยร้าน','ตัวคูณ (1 หน่วยร้าน = ? '+it.unit+')','VAT','บาท/'+it.unit+' ไม่รวม VAT','หมายเหตุ']);
+      const first=aoa.length+1;
+      s.list.forEach((x,j)=>{
+        const q=x.q,r=aoa.length+1;
+        aoa.push([j+1,q.shop||'',Survey.CHANNEL[q.channel]||'',q.contact||'',q.date||'',+q.price,q.qunit||'',+(q.factor||1),q.vat?'รวม VAT':'ไม่รวม VAT','',q.note||'']);
+        fcells.push({a:'J'+r,f:`ROUND(IF(I${r}="รวม VAT",F${r}/1.07,F${r})/H${r},2)`,v:x.up});
+      });
+      const last=aoa.length;
+      const tr=aoa.length+1;
+      aoa.push(['','','','','','','','','ราคาที่ใช้ (ต่ำสุด)','', s.n<Survey.MIN_Q?`สืบได้ ${s.n} เจ้า (ไม่ครบ ${Survey.MIN_Q})${it.reason?' — '+it.reason:''}`:'']);
+      fcells.push({a:'J'+tr,f:`MIN(J${first}:J${last})`,v:s.price});
+      aoa.push([]);
+      sumRows.push({it,s,tr,upd:it.updated?String(it.updated).slice(0,10):''});
+    });
+    const ws=XLSX.utils.aoa_to_sheet(aoa);
+    fcells.forEach(c=>{ws[c.a]={t:'n',f:c.f,v:c.v,z:'#,##0.00'};});
+    ws['!cols']=[{wch:5},{wch:28},{wch:12},{wch:26},{wch:12},{wch:14},{wch:12},{wch:22},{wch:14},{wch:20},{wch:30}];
+    const sum=[['#','รายการวัสดุ','หน่วย','จำนวนเจ้า','ราคาที่ใช้ (บาท/หน่วย ไม่รวม VAT)','สถานะ','วันที่สืบล่าสุด']];
+    sumRows.forEach((o,i)=>sum.push([i+1,o.it.name,o.it.unit,o.s.n,'',SV_ST[o.s.status],o.upd]));
+    const ws2=XLSX.utils.aoa_to_sheet(sum);
+    sumRows.forEach((o,i)=>{ws2['E'+(i+2)]={t:'n',f:`'${D}'!J${o.tr}`,v:o.s.price,z:'#,##0.00'};});
+    ws2['!cols']=[{wch:5},{wch:52},{wch:10},{wch:11},{wch:30},{wch:16},{wch:16}];
+    const wb=XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb,ws2,'สรุปราคาสืบ');
+    XLSX.utils.book_append_sheet(wb,ws,D);
+    XLSX.writeFile(wb,xlsxFileName('ราคาสืบ'));
+  }catch(e){svToast('ออกไฟล์ Excel ไม่สำเร็จ: '+e.message);}
 }
 svBind();
 </script>
