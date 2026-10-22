@@ -141,6 +141,7 @@ select:disabled{opacity:.4;cursor:not-allowed;}
 .price-mode-btn.active-sub{background:rgba(167,139,250,.12);color:#a78bfa;border-color:rgba(167,139,250,.4);}
 .code-warn{display:inline-block;font-size:10px;color:var(--red);background:rgba(240,96,96,.1);border:1px solid rgba(240,96,96,.3);border-radius:3px;padding:1px 6px;margin-left:4px}
 .code-note{display:inline-block;font-size:10px;color:var(--amber);background:var(--amber-dim);border-radius:3px;padding:1px 6px;margin-left:4px}
+.price-mode-btn.active-sv{background:var(--amber-dim);color:var(--amber);border-color:var(--amber-border);}
 .price-mode-btn.active-manual{background:var(--green-dim);color:var(--green);border-color:var(--green-border);}
 .price-mode-btn svg{width:12px;height:12px;}
 
@@ -1585,6 +1586,7 @@ function renderCalc(compId){
                 พาณิชย์${matPriceLabel}
               </button>${convNote}`:''}
               ${subBtn}
+              <button class="price-mode-btn" id="cp-sv-${esc(compId)}-${i}" onclick="cpUseSurvey(${i},'${esc(compId)}')" title="ใช้ราคาสืบจากคลังกลาง (ร่วมกับ UD-Total-Station)">ราคาสืบ<span data-svlbl="1"></span></button>
               <button class="price-mode-btn active-manual" onclick="cpUseManual(${i},'${esc(compId)}')" title="กรอกราคาเอง">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                 กรอกเอง
@@ -1648,6 +1650,7 @@ function renderCalc(compId){
     </div>`;
 
   cpCalcTotal(compId);
+  cpSvLabels();
 }
 
 function cpCalcTotal(compId){
@@ -2628,6 +2631,18 @@ setTimeout(projLoadIntoApp, 0);
   </div>
 </div>
 
+<!-- MODAL: เลือกราคาสืบจากคลัง (วัสดุมวลรวม) -->
+<div class="modal-overlay" id="cp-sv-modal" style="display:none" onclick="cpSvClose(event)">
+  <div class="modal-box">
+    <div class="modal-hd"><div class="modal-title">เลือกราคาสืบจากคลังกลาง</div><span class="modal-close" onclick="cpSvClose(event)">×</span></div>
+    <div class="modal-search">
+      <input type="text" id="cp-sv-inp" placeholder="ค้นหาในคลังราคาสืบ..." oninput="cpSvList()" autocomplete="off" style="margin-bottom:0">
+      <div style="font-size:11px;color:var(--text3);margin-top:6px">กำลังเลือกราคาสำหรับ: <strong id="cp-sv-label" style="color:var(--amber)"></strong></div>
+    </div>
+    <div class="modal-list" id="cp-sv-list"></div>
+  </div>
+</div>
+
 <!-- PAGE 6: ราคาสืบ (ใช้คลังกลางร่วมกับ UD-Total-Station) -->
 <div class="page" id="page-survey">
 <div class="comp-wrap">
@@ -2693,7 +2708,7 @@ function svNorm(x){
 }
 async function svLoad(force){
   svStatus('กำลังโหลดคลัง...');
-  try{const all=await Survey.libAll(force);sv.items=(all||[]).map(svNorm);sv.loaded=true;svLibStatus();}
+  try{const all=await Survey.libAll(force);sv.items=(all||[]).map(svNorm);sv.loaded=true;svLibStatus();if(typeof cpSvLabels==='function'&&document.querySelector('[id^="cp-sv-"]'))setTimeout(cpSvLabels,0);}
   catch(e){svStatus('โหลดคลังไม่ได้: '+e.message,true);}
   svRender();
 }
@@ -2860,7 +2875,8 @@ function svBind(){
     if(!name||!unit){svToast('ต้องใส่ชื่อและหน่วย');return;}
     const key=Survey.libKey(name,unit);
     let it=sv.items.find(x=>x.key===key);
-    if(!it){it=svNorm({key,name,unit});sv.items.push(it);svAddQuote(it);}
+    if(!it){it=svNorm({key,name,unit,ref:sv.pendRef||''});sv.items.push(it);svAddQuote(it);}
+    sv.pendRef='';
     sv.open=key;sv.filter='all';sv.q='';svEl('sv-q').value='';
     svEl('sv-an').value='';svEl('sv-au').value='';svEl('sv-ahint').innerHTML='';svEl('sv-addbox').classList.remove('on');
     svRender();svToast('กรอกราคาแล้วจะบันทึกเข้าคลังให้อัตโนมัติ');
@@ -2896,6 +2912,67 @@ function svBind(){
       let n=0;for(const x of d.items){if(!x||!x.name||!x.unit)continue;const k=Survey.libKey(x.name,x.unit);const cur=sv.items.find(i=>i.key===k);if(!cur||(x.updated||'')>(cur.updated||'')){await Survey.libPut(k,Object.assign({},x,{key:k}));n++;}}
       svToast('นำเข้า '+n+' รายการ');svLoad(true);
     }catch(er){svToast('นำเข้าไม่ได้: '+er.message);}
+  };
+}
+
+/* ===== เชื่อมราคาสืบ ↔ วัสดุมวลรวม ===== */
+function cpSvItem(compId,i){return compItems.filter(d=>d.compId===compId)[i]||null;}
+function cpSvRef(it){return it&&it.itemCode?'c:'+it.itemCode:'';}
+function cpSvFind(it){
+  const pool=sv.items.filter(x=>Survey.summary(x).price!==null);
+  return Survey.libFind(pool,{name:it.itemName,unit:it.unit,ref:cpSvRef(it)});
+}
+function cpSvLabels(){
+  if(!sv.loaded){svLoad().then(cpSvLabels);return;}
+  document.querySelectorAll('[id^="cp-sv-"]').forEach(b=>{
+    const m=b.id.match(/^cp-sv-(.+)-(\d+)$/);if(!m)return;
+    const it=cpSvItem(m[1],+m[2]);if(!it)return;
+    const f=cpSvFind(it),lb=b.querySelector('[data-svlbl]');
+    if(f.hit){const s=Survey.summary(f.hit);lb.textContent=' ('+(s.price<1?s.price.toFixed(5).replace(/\.?0+$/,''):s.price.toLocaleString('th-TH',{minimumFractionDigits:2,maximumFractionDigits:2}))+' บาท/'+it.unit+')';b.classList.add('active-sv');}
+    else{lb.textContent=f.maybe.length?' (อาจมีในคลัง)':' (เลือก/สืบ)';b.classList.remove('active-sv');}
+  });
+}
+function cpSvApply(x,rowIdx,compId){
+  const it=cpSvItem(compId,rowIdx);if(!it)return;
+  const s=Survey.summary(x);if(s.price===null)return;
+  const inp=document.getElementById('cp-price-'+compId+'-'+rowIdx),prov=document.getElementById('cp-prov-'+compId+'-'+rowIdx);
+  if(inp){inp.value=+s.price.toFixed(5);inp.classList.add('has-val');}
+  if(prov)prov.textContent='🔍 '+Survey.srcText(x)+(s.n<Survey.MIN_Q?' (ไม่ครบ '+Survey.MIN_Q+' เจ้า)':'');
+  cpCalcTotal(compId);
+}
+let cpSvTarget=null;
+async function cpUseSurvey(rowIdx,compId){
+  const it=cpSvItem(compId,rowIdx);if(!it)return;
+  if(!sv.loaded)await svLoad();
+  const f=cpSvFind(it);
+  if(f.hit){cpSvApply(f.hit,rowIdx,compId);return;}
+  cpSvTarget={rowIdx,compId};
+  document.getElementById('cp-sv-label').textContent=it.itemName+' ['+it.unit+']';
+  const inp=document.getElementById('cp-sv-inp');inp.value=it.itemName;
+  document.getElementById('cp-sv-modal').style.display='flex';
+  cpSvList();
+}
+function cpSvClose(e){if(!e||e.target.id==='cp-sv-modal'||e.target.classList.contains('modal-close'))document.getElementById('cp-sv-modal').style.display='none';}
+function cpSvList(){
+  const t=cpSvTarget,it=t&&cpSvItem(t.compId,t.rowIdx);if(!it)return;
+  const q=document.getElementById('cp-sv-inp').value.trim();
+  const pool=sv.items.filter(x=>Survey.summary(x).price!==null);
+  const res=q?Survey.libSearch(pool,q,it.unit):pool.filter(x=>Survey.normUnit(x.unit)===Survey.normUnit(it.unit)).slice(0,12);
+  document.getElementById('cp-sv-list').innerHTML=res.map((x,i)=>{
+    const s=Survey.summary(x),same=Survey.normUnit(x.unit)===Survey.normUnit(it.unit);
+    return `<div class="modal-row" data-i="${i}"><div><div class="modal-row-name">${esc(x.name)}</div><div class="modal-row-meta">หน่วย ${esc(x.unit)}${same?'':' ⚠ หน่วยไม่ตรง'} · ${s.n} เจ้า</div></div><div class="modal-row-price">${s.price.toLocaleString('th-TH',{minimumFractionDigits:2})}</div></div>`;
+  }).join('')+`<div class="modal-row" data-new="1"><div class="modal-row-name" style="color:var(--amber)">+ ยังไม่มีในคลัง — ไปสืบราคาใหม่ในแท็บ "ราคาสืบ"</div></div>`;
+  document.getElementById('cp-sv-list').onclick=ev=>{
+    const row=ev.target.closest('.modal-row');if(!row)return;
+    if(row.dataset.new){
+      cpSvClose({target:{id:'cp-sv-modal'}});
+      sv.pendRef=cpSvRef(it);switchPage('survey');
+      svEl('sv-addbox').classList.add('on');svEl('sv-an').value=it.itemName;svEl('sv-au').value=it.unit;svEl('sv-an').focus();
+      return;
+    }
+    const x=res[+row.dataset.i];if(!x)return;
+    if(Survey.normUnit(x.unit)!==Survey.normUnit(it.unit)){alert('หน่วยไม่ตรงกัน ('+x.unit+' ≠ '+it.unit+') — ระบบยังแปลงหน่วยราคาสืบให้ไม่ได้ กรุณาสืบใหม่ในหน่วย '+it.unit);return;}
+    cpSvApply(x,t.rowIdx,t.compId);cpSvClose({target:{id:'cp-sv-modal'}});
   };
 }
 svBind();
