@@ -384,6 +384,8 @@ table.main td.sm{font-size:11px;color:var(--text2);}
 .ai-badge-mat{background:var(--accent-dim);color:var(--accent2);border:1px solid rgba(79,142,247,.3);}
 .ai-badge-wage{background:var(--amber-dim);color:var(--amber);border:1px solid var(--amber-border);}
 .ai-badge-comp{background:var(--purple-dim,rgba(167,139,250,.12));color:#a78bfa;border:1px solid rgba(167,139,250,.3);}
+.ai-badge-sv{background:var(--amber-dim);color:var(--amber);border:1px solid var(--amber-border);}
+.ai-row-price.sv{color:var(--amber);}
 .ai-count{font-size:12px;color:var(--text3);}
 .ai-row{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px 16px;cursor:pointer;border-bottom:1px solid var(--border);transition:background .1s;}
 .ai-row:last-child{border-bottom:none;}
@@ -1929,7 +1931,7 @@ function aiSearch(){
     el.innerHTML=`<div class="ai-welcome">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="48" height="48"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
       <div class="ai-welcome-title">พิมพ์คำค้นหาเพื่อเริ่มต้น</div>
-      <div class="ai-welcome-sub">ระบบจะค้นหาพร้อมกันใน ราคาวัสดุ, ค่าแรง และวัสดุมวลรวม<br>คลิกที่ Tag ด้านบนเพื่อใช้ตัวอย่างคำค้นหา</div>
+      <div class="ai-welcome-sub">ระบบจะค้นหาพร้อมกันใน ราคาวัสดุ, ค่าแรง, วัสดุมวลรวม และราคาสืบ<br>คลิกที่ Tag ด้านบนเพื่อใช้ตัวอย่างคำค้นหา</div>
     </div>`;
     return;
   }
@@ -1971,7 +1973,18 @@ function aiRender(q){
     ], 10);
   }
 
-  const totalFound=matRes.length+wageRes.length+compRes.length;
+  // ---- ราคาสืบ (คลังกลาง) ----
+  let svRes=[];
+  if(typeof sv!=='undefined'){
+    if(sv.loaded){
+      svRes=smFilter(sv.items.filter(x=>Survey.summary(x).price!==null), q, d=>[{text:d.name,weight:8}], 8);
+    } else if(!aiRender._svLoading){
+      aiRender._svLoading=true;
+      svLoad().finally(()=>{aiRender._svLoading=false;const inp=document.getElementById('ai-input');if(inp&&inp.value.trim().length>=2)aiRender(inp.value.trim());});
+    }
+  }
+
+  const totalFound=matRes.length+wageRes.length+compRes.length+svRes.length;
   if(!totalFound){
     el.innerHTML=`<div class="ai-empty">ไม่พบรายการที่ตรงกับ "<strong>${esc(q)}</strong>" ในทุกหมวดหมู่</div>`;
     return;
@@ -2060,11 +2073,41 @@ function aiRender(q){
       </div>`});
   }
 
+  if(svRes.length){
+    const rows=svRes.map(it=>{
+      const sm=Survey.summary(it),age=Survey.ageDays(it.updated);
+      return `<div class="ai-row" onclick="aiGoSurvey(this.dataset.k)" data-k="${esc(it.key)}">
+        <div style="flex:1;min-width:0">
+          <div class="ai-row-name">${smHl(it.name, tokens, 'rgba(245,166,35,.2)')}</div>
+          <div class="ai-row-meta">ราคาสืบ ${sm.n} เจ้า${sm.n<Survey.MIN_Q?' (ไม่ครบ '+Survey.MIN_Q+')':''}${age!==null?' · สืบเมื่อ '+age+' วันก่อน':''}${age>90?' ⚠ เกิน 90 วัน':''}</div>
+        </div>
+        <div>
+          <div class="ai-row-price sv">${fmt(sm.price)}</div>
+          <div class="ai-row-unit">${esc(it.unit)} · ไม่รวม VAT</div>
+        </div>
+        <span class="ai-goto">→ ราคาสืบ</span>
+      </div>`;}).join('');
+    sections.push({order:4,html:`
+      <div class="ai-section">
+        <div class="ai-sec-hd">
+          <div class="ai-sec-title"><span class="ai-badge ai-badge-sv">ราคาสืบ</span></div>
+          <span class="ai-count">พบ ${svRes.length} รายการ</span>
+        </div>${rows}
+      </div>`});
+  }
+
   sections.sort((a,b)=>a.order-b.order);
   el.innerHTML=`<div class="ai-results">${sections.map(s=>s.html).join('')}</div>`;
 }
 
 // ---- Navigation functions ----
+function aiGoSurvey(key){
+  switchPage('survey');
+  sv.filter='all';sv.q='';svEl('sv-q').value='';sv.open=key;svRender();
+  const c=document.querySelector('.sv-card[data-k="'+CSS.escape(key)+'"]');
+  const it=sv.items.find(x=>x.key===key);
+  if(c){if(it)svHint(c,it);c.scrollIntoView({block:'center',behavior:'smooth'});}
+}
 function aiGoMat(code){
   switchPage('search');
   // รอให้ page switch เสร็จ แล้ว trigger showMatResult
@@ -2532,7 +2575,7 @@ window.addEventListener('afterprint', function(){
   if(el) el.innerHTML=`<div class="ai-welcome">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="48" height="48"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
     <div class="ai-welcome-title">พิมพ์คำค้นหาเพื่อเริ่มต้น</div>
-    <div class="ai-welcome-sub">ระบบจะค้นหาพร้อมกันใน ราคาวัสดุ, ค่าแรง และวัสดุมวลรวม<br>คลิกที่ Tag ด้านบนเพื่อใช้ตัวอย่างคำค้นหา</div>
+    <div class="ai-welcome-sub">ระบบจะค้นหาพร้อมกันใน ราคาวัสดุ, ค่าแรง, วัสดุมวลรวม และราคาสืบ<br>คลิกที่ Tag ด้านบนเพื่อใช้ตัวอย่างคำค้นหา</div>
   </div>`;
 })();
 loadData();
