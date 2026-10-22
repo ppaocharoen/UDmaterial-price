@@ -288,6 +288,41 @@ table.main td.sm{font-size:11px;color:var(--text2);}
   .tbl-ctrls .fg{min-width:120px;}
 }
 
+/* ===== ราคาสืบ ===== */
+.nav-tab.active-sv{color:#f5a623;border-bottom-color:#f5a623;}
+.sv-bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px;}
+.sv-chips{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0 14px;}
+.sv-chip{border:1px solid var(--border);background:var(--bg2);color:var(--text2);border-radius:99px;padding:5px 12px;font-size:12px;cursor:pointer;font-family:'Sarabun',sans-serif;}
+.sv-chip.on{background:var(--amber-dim);border-color:var(--amber-border);color:var(--amber);font-weight:700;}
+.sv-stat{font-size:12px;color:var(--text3);}
+.sv-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:8px;overflow:hidden;}
+.sv-head{display:flex;gap:10px;align-items:center;justify-content:space-between;padding:11px 14px;cursor:pointer;}
+.sv-head:hover{background:var(--bg3);}
+.sv-name{font-size:14px;font-weight:600;line-height:1.35;}
+.sv-meta{font-size:11px;color:var(--text3);margin-top:2px;}
+.sv-price{font-family:'IBM Plex Mono',monospace;font-size:14px;font-weight:700;color:var(--green);text-align:right;white-space:nowrap;}
+.sv-pill{display:inline-block;font-size:10px;font-weight:700;border-radius:99px;padding:2px 8px;margin-left:6px;}
+.sv-pill.ok{background:var(--green-dim);color:var(--green);border:1px solid var(--green-border);}
+.sv-pill.few{background:var(--amber-dim);color:var(--amber);border:1px solid var(--amber-border);}
+.sv-pill.none{background:var(--bg3);color:var(--text3);border:1px solid var(--border);}
+.sv-body{padding:4px 14px 14px;border-top:1px solid var(--border);}
+.sv-q{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px;margin-top:10px;}
+.sv-q.best{border-color:var(--green-border);}
+.sv-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;}
+.sv-grid label,.sv-add label{font-size:11px;color:var(--text3);display:flex;flex-direction:column;gap:3px;}
+.sv-in{width:100%;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-family:'Sarabun',sans-serif;font-size:13px;padding:6px 9px;outline:none;box-sizing:border-box;}
+.sv-in:focus{border-color:var(--amber);}
+.sv-calc{font-size:12px;color:var(--text2);margin-top:8px;font-family:'IBM Plex Mono',monospace;}
+.sv-imgs{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;align-items:center;}
+.sv-imgs img{height:54px;border-radius:4px;border:1px solid var(--border);cursor:pointer;}
+.sv-lib{font-size:12px;color:var(--text2);margin-top:10px;line-height:1.7;}
+.sv-lib a{color:var(--accent2);cursor:pointer;text-decoration:underline;}
+.sv-add{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:12px;margin-bottom:12px;display:none;}
+.sv-add.on{display:block;}
+.sv-msg{font-size:12px;margin-left:4px;}
+.sv-msg.err{color:var(--red);}
+#sv-toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--bg3);border:1px solid var(--border2);color:var(--text);padding:8px 16px;border-radius:99px;font-size:13px;z-index:300;display:none;}
+@media print{#page-survey,#sv-toast{display:none!important;}}
 /* PRINT */
 @media print{
   @page{size:A4;margin:12mm 10mm;}
@@ -395,6 +430,9 @@ table.main td.sm{font-size:11px;color:var(--text2);}
     </div>
     <div class="nav-tab" onclick="switchPage('composite')" id="tab-composite">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v18m0 0h10a2 2 0 002-2V9M9 21H5a2 2 0 01-2-2V9m0 0h18"/></svg>วัสดุมวลรวม
+    </div>
+    <div class="nav-tab" onclick="switchPage('survey')" id="tab-survey">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>ราคาสืบ
     </div>
   </div>
   <div class="proj-widget" id="proj-widget">
@@ -691,15 +729,16 @@ function smHl(str, tokens, bgColor){
 
 
 function switchPage(p){
-  ['ai','search','wage','composite'].forEach(x=>{
+  ['ai','search','wage','composite','survey'].forEach(x=>{
     const pg=document.getElementById('page-'+x);
     if(pg) pg.classList.toggle('active',x===p);
     const tab=document.getElementById('tab-'+x);
     if(!tab)return;
-    tab.classList.remove('active','active-wage','active-comp');
+    tab.classList.remove('active','active-wage','active-comp','active-sv');
     if(x===p){
       if(p==='wage') tab.classList.add('active-wage');
       else if(p==='composite') tab.classList.add('active-comp');
+      else if(p==='survey') tab.classList.add('active-sv');
       else tab.classList.add('active');
     }
   });
@@ -707,9 +746,10 @@ function switchPage(p){
   const isComp=p==='composite';
   const mw=document.getElementById('mat-warn');
   const ww=document.getElementById('wage-warn');
-  if(mw) mw.style.display=(!isWage&&!isComp&&p!=='ai')?'flex':'none';
+  if(mw) mw.style.display=(!isWage&&!isComp&&p!=='ai'&&p!=='survey')?'flex':'none';
   if(ww) ww.style.display=isWage?'flex':'none';
   if(isComp&&!compLoaded) loadCompData();
+  if(p==='survey'&&typeof sv!=='undefined'&&!sv.loaded) svLoad();
 }
 
 function switchSubMat(sub){
@@ -2587,6 +2627,279 @@ setTimeout(projLoadIntoApp, 0);
     <div class="modal-list" id="modal-list"></div>
   </div>
 </div>
+
+<!-- PAGE 6: ราคาสืบ (ใช้คลังกลางร่วมกับ UD-Total-Station) -->
+<div class="page" id="page-survey">
+<div class="comp-wrap">
+  <div class="page-title">ราคาสืบ</div>
+  <div class="page-sub">สืบราคาวัสดุที่ไม่มีในราคาพาณิชย์ (ปกติ 3 เจ้า เลือกต่ำสุด) — เก็บในคลังกลางเดียวกับ UD-Total-Station สืบที่ไหนก็เห็นทั้งสองเว็บ</div>
+  <div class="sv-bar">
+    <button class="btn btn-amber" type="button" id="sv-new">+ เพิ่มรายการสืบ</button>
+    <button class="btn btn-ghost" type="button" id="sv-libcfg">⚙ ตั้งค่าคลังกลาง</button>
+    <button class="btn btn-ghost" type="button" id="sv-refresh">↻ โหลดคลังใหม่</button>
+    <button class="btn btn-ghost" type="button" id="sv-exp">ส่งออก .json</button>
+    <button class="btn btn-ghost" type="button" id="sv-imp">นำเข้า .json</button>
+    <input type="file" id="sv-impfile" accept=".json,application/json" style="display:none">
+  </div>
+  <div class="sv-stat" id="sv-libstat"></div>
+  <div class="sv-add" id="sv-addbox">
+    <div class="sv-grid" style="grid-template-columns:2fr 1fr auto;align-items:end">
+      <label>ชื่อวัสดุ / สเปก<input class="sv-in" id="sv-an" autocomplete="off" placeholder="เช่น โครงทีบาร์ ตัวเมน 24x32 มม. ยาว 3.60 ม."></label>
+      <label>หน่วย<input class="sv-in" id="sv-au" autocomplete="off" placeholder="เช่น เส้น"></label>
+      <button class="btn btn-amber" type="button" id="sv-aok">เพิ่ม</button>
+    </div>
+    <div class="sv-lib" id="sv-ahint"></div>
+  </div>
+  <input type="text" id="sv-q" placeholder="ค้นหารายการในคลังราคาสืบ..." autocomplete="off" style="margin-bottom:0">
+  <div class="sv-chips" id="sv-chips"></div>
+  <div id="sv-list"></div>
+</div>
+</div>
+
+<!-- MODAL: ตั้งค่าคลังกลาง -->
+<div class="modal-overlay" id="sv-modal" style="display:none">
+  <div class="modal-box">
+    <div class="modal-hd"><div class="modal-title">คลังราคาสืบกลาง</div><span class="modal-close" id="sv-mclose">×</span></div>
+    <div style="padding:14px 18px;display:flex;flex-direction:column;gap:10px;overflow:auto">
+      <div style="font-size:12px;color:var(--text3)">ใช้ค่าเดียวกับ UD-Total-Station (เว็บอยู่โดเมนเดียวกัน ถ้าตั้งไว้แล้วจะขึ้นให้เอง) · ไม่ตั้ง = เก็บในเครื่องนี้เท่านั้น</div>
+      <label style="font-size:11px;color:var(--text3)">Web app URL (Apps Script)<input class="sv-in" id="sv-url" placeholder="https://script.google.com/macros/s/.../exec"></label>
+      <label style="font-size:11px;color:var(--text3)">รหัสทีม<input class="sv-in" id="sv-team" type="password" autocomplete="off"></label>
+      <label style="font-size:12px;color:var(--text2)"><input type="checkbox" id="sv-rem"> จำรหัสบนเครื่องนี้ (ไม่ติ๊ก = ลืมเมื่อปิดแท็บ; คอมกลางอย่าติ๊ก)</label>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-amber" type="button" id="sv-msave">บันทึกและทดสอบ</button>
+        <button class="btn btn-ghost" type="button" id="sv-moff">ลบรหัสจากเครื่องนี้</button>
+        <button class="btn btn-ghost" type="button" id="sv-mpush">ส่งคลังในเครื่องขึ้นคลังกลาง</button>
+      </div>
+      <div class="sv-msg" id="sv-mmsg"></div>
+    </div>
+  </div>
+</div>
+<div id="sv-toast"></div>
+<div class="modal-overlay" id="sv-imgmodal" style="display:none"><img id="sv-bigimg" alt="" style="max-width:96vw;max-height:92vh;border-radius:6px"></div>
+<script src="lib/survey-v1.js"></script>
+<script>
+/* ===== ราคาสืบ — ใช้คลังกลางเดียวกับ UD-Total-Station (รูปแบบข้อมูลเดียวกัน, คีย์ = Survey.libKey(ชื่อ, หน่วย)) ===== */
+const sv={items:[],open:null,filter:'all',q:'',loaded:false,imgs:{}};
+const SV_ST={ok:'ครบ 3 เจ้า',few:'ไม่ครบ 3 เจ้า',none:'ยังไม่สืบ'};
+const svEl=id=>document.getElementById(id);
+function svToast(t){const e=svEl('sv-toast');e.textContent=t;e.style.display='block';clearTimeout(svToast._t);svToast._t=setTimeout(()=>{e.style.display='none';},2600);}
+function svStatus(t,err){const e=svEl('sv-libstat');e.style.color=err?'var(--red)':'';e.textContent=t;}
+function svLibStatus(extra){
+  const c=Survey.cfg();
+  svStatus((Survey.remote()?'คลังกลาง: เชื่อมต่อ'+(c.team?'':' (ยังไม่ได้ใส่รหัสทีม — กดตั้งค่า)'):'คลังในเครื่องนี้ (ยังไม่ได้เชื่อมคลังกลาง — กดตั้งค่า)')+' · '+sv.items.length+' รายการ'+(extra?' · '+extra:''),false);
+}
+function svNorm(x){
+  return {key:x.key||Survey.libKey(x.name,x.unit),name:x.name||'',unit:x.unit||'',target:'manual',quotes:JSON.parse(JSON.stringify(x.quotes||[])),reason:x.reason||'',updated:x.updated||'',project:x.project||'',ref:x.ref||'',aliases:x.aliases||[],imgs:Object.assign({},x.imgs||{})};
+}
+async function svLoad(force){
+  svStatus('กำลังโหลดคลัง...');
+  try{const all=await Survey.libAll(force);sv.items=(all||[]).map(svNorm);sv.loaded=true;svLibStatus();}
+  catch(e){svStatus('โหลดคลังไม่ได้: '+e.message,true);}
+  svRender();
+}
+function svVisible(){
+  const q=Survey.normName(sv.q);
+  return sv.items.filter(it=>{
+    if(sv.filter!=='all'&&Survey.summary(it).status!==sv.filter)return false;
+    return !q||Survey.normName(it.name).includes(q);
+  }).sort((a,b)=>(b.updated||'').localeCompare(a.updated||''));
+}
+function svRender(){
+  const cnt={all:sv.items.length,ok:0,few:0,none:0};
+  sv.items.forEach(it=>cnt[Survey.summary(it).status]++);
+  svEl('sv-chips').innerHTML=[['all','ทั้งหมด'],['few','ไม่ครบ 3 เจ้า'],['ok','ครบ 3 เจ้า'],['none','ยังไม่สืบ']].map(([k,l])=>
+    `<button type="button" class="sv-chip${sv.filter===k?' on':''}" data-chip="${k}">${l} (${cnt[k]})</button>`).join('');
+  const list=svVisible();
+  svEl('sv-list').innerHTML=list.length?list.map(svCard).join(''):'<div style="padding:30px;text-align:center;color:var(--text3);font-size:13px">ไม่มีรายการ — กด "+ เพิ่มรายการสืบ" เพื่อเริ่มสืบ หรือรอโหลดคลัง</div>';
+  if(sv.open){const it=sv.items.find(x=>x.key===sv.open);if(it)svHydrateImgs(it);}
+}
+function svCard(it){
+  const s=Survey.summary(it),open=sv.open===it.key,age=Survey.ageDays(it.updated);
+  return `<div class="sv-card" data-k="${esc(it.key)}">
+    <div class="sv-head" data-toggle="1"><div><div class="sv-name">${esc(it.name)}<span class="sv-pill ${s.status}">${SV_ST[s.status]}</span></div>
+    <div class="sv-meta">หน่วย ${esc(it.unit)} · ${s.n} เจ้า${age!==null?' · สืบเมื่อ '+age+' วันก่อน':''}${age>90?' ⚠ เกิน 90 วัน':''}${it.project?' · '+esc(it.project):''}</div></div>
+    <div class="sv-price">${s.price!==null?s.price.toLocaleString('th-TH',{minimumFractionDigits:2,maximumFractionDigits:2}):'—'}<div class="sv-meta" style="font-family:Sarabun">บาท/${esc(it.unit)} ไม่รวม VAT</div></div></div>
+    ${open?svEditor(it,s):''}</div>`;
+}
+function svEditor(it,s){
+  const bestId=s.best&&s.best.id;
+  const qs=(it.quotes||[]).map((q,i)=>{
+    const up=Survey.unitPrice(q);
+    return `<div class="sv-q${q.id===bestId?' best':''}" data-q="${esc(q.id)}">
+    <div style="display:flex;justify-content:space-between;font-size:12px;font-weight:700;margin-bottom:6px"><span>เจ้าที่ ${i+1}${q.id===bestId?' <span class="sv-pill ok">ต่ำสุด ใช้ราคานี้</span>':''}</span><a style="color:var(--red);cursor:pointer" data-qdel="1">ลบ</a></div>
+    <div class="sv-grid">
+      <label>ช่องทาง<select class="sv-in" data-f="channel">${Object.entries(Survey.CHANNEL).map(([k,v])=>`<option value="${k}"${q.channel===k?' selected':''}>${v}</option>`).join('')}</select></label>
+      <label>ร้าน / บริษัท<input class="sv-in" data-f="shop" value="${esc(q.shop||'')}"></label>
+      <label>เบอร์ / ลิงก์ / ไลน์<input class="sv-in" data-f="contact" value="${esc(q.contact||'')}"></label>
+      <label>วันที่สืบ<input class="sv-in" type="date" data-f="date" value="${esc(q.date||'')}"></label>
+      <label>ราคาที่ร้านเสนอ<input class="sv-in" type="number" step="any" min="0" data-f="price" value="${esc(q.price===undefined?'':q.price)}"></label>
+      <label>หน่วยที่ร้านขาย<input class="sv-in" data-f="qunit" value="${esc(q.qunit||'')}"></label>
+      <label>1 หน่วยร้าน = ? ${esc(it.unit)}<input class="sv-in" type="number" step="any" min="0" data-f="factor" value="${esc(q.factor===undefined?1:q.factor)}"></label>
+      <label style="justify-content:flex-end;flex-direction:row;align-items:center;gap:6px;font-size:12px"><input type="checkbox" data-f="vat"${q.vat?' checked':''}> ราคารวม VAT 7%</label>
+    </div>
+    <label style="font-size:11px;color:var(--text3);display:flex;flex-direction:column;gap:3px;margin-top:8px">หมายเหตุ<input class="sv-in" data-f="note" value="${esc(q.note||'')}"></label>
+    <div class="sv-calc" data-calc="1">${svCalc(q)}</div>
+    <div class="sv-imgs">${(q.imgs||[]).map(id=>`<span data-imgwrap="${esc(id)}"><img data-img="${esc(id)}" alt="หลักฐาน"><a style="color:var(--red);cursor:pointer;font-size:11px" data-imgdel="${esc(id)}"> ×</a></span>`).join('')}
+      <label class="btn btn-ghost" style="padding:5px 10px;font-size:12px;cursor:pointer">+ แนบภาพ<input type="file" accept="image/*" multiple data-imgadd="1" style="display:none"></label></div>
+  </div>`;}).join('');
+  return `<div class="sv-body">
+    <div class="sv-lib" data-libhint="1"></div>
+    ${qs}
+    <div style="margin-top:10px"><button class="btn btn-ghost" type="button" data-qadd="1">+ เพิ่มเจ้า</button>
+    <button class="btn btn-red" type="button" data-itdel="1" style="margin-left:6px">ลบรายการ</button></div>
+    ${(it.quotes||[]).length<Survey.MIN_Q?`<label style="font-size:11px;color:var(--text3);display:flex;flex-direction:column;gap:3px;margin-top:10px">เหตุผล (กรณีสืบไม่ครบ ${Survey.MIN_Q} เจ้า)<input class="sv-in" data-reason="1" value="${esc(it.reason||'')}"></label>`:''}
+  </div>`;
+}
+function svCalc(q){
+  const up=Survey.unitPrice(q);if(up===null)return 'กรอกราคาและตัวคูณเพื่อคำนวณ';
+  const f=+(q.factor||1);
+  return `= ${(+q.price).toLocaleString('th-TH')}${q.vat?' ÷ 1.07':''} ÷ ${f} → ${up.toLocaleString('th-TH',{minimumFractionDigits:2})} บ./หน่วย`;
+}
+async function svHydrateImgs(it){
+  const imgs=document.querySelectorAll('.sv-card[data-k="'+CSS.escape(it.key)+'"] img[data-img]');
+  for(const im of imgs){
+    const id=im.dataset.img;let d=sv.imgs[id]||null;
+    if(!d){const v=it.imgs&&it.imgs[id];d=v?await Survey.libImg(v).catch(()=>null):await Survey.imgGet(id);if(d)sv.imgs[id]=d;}
+    if(d&&Survey.safeImg(d))im.src=d;
+  }
+}
+/* บันทึกเข้าคลัง (หน่วงเวลา 800 ms — เหมือน Total Station; บันทึกเมื่อมีเจ้าที่กรอกราคาแล้วเท่านั้น) */
+function svSave(it){
+  it.updated=new Date().toISOString();
+  clearTimeout(svSave._t[it.key]);
+  svSave._t[it.key]=setTimeout(()=>{
+    if(!(it.quotes||[]).some(q=>+q.price>0))return;
+    const imgs=Object.assign({},it.imgs);
+    (it.quotes||[]).forEach(q=>(q.imgs||[]).forEach(id=>{if(!imgs[id]&&sv.imgs[id])imgs[id]=sv.imgs[id];}));
+    Survey.libPut(it.key,{key:it.key,name:it.name,unit:it.unit,quotes:it.quotes,reason:it.reason,imgs,updated:it.updated,project:'Cost Hub',ref:it.ref||''})
+      .then(()=>svLibStatus(Survey.remote()?'บันทึกเข้าคลังกลางแล้ว':'บันทึกในเครื่องแล้ว'))
+      .catch(er=>svStatus('บันทึกเข้าคลังกลางไม่ได้: '+er.message+' (เก็บในเครื่องไว้ก่อน)',true));
+  },800);
+}
+svSave._t={};
+function svAddQuote(it){
+  it.quotes.push({id:Survey.uid('q'),channel:'web',shop:'',contact:'',date:new Date().toISOString().slice(0,10),price:'',qunit:it.unit,factor:1,vat:true,note:'',imgs:[]});
+}
+async function svHint(card,it){
+  const el=card.querySelector('[data-libhint]');if(!el)return;
+  const all=await Survey.libAll().catch(()=>[]);const f=Survey.libFind(all.filter(x=>x.key!==it.key),it);
+  const ent=[];if(f.hit)ent.push({x:f.hit,sure:true,tag:f.how});f.maybe.forEach(o=>ent.push({x:o.x,sure:false,tag:'อาจตรงกับ'}));
+  if(!ent.length){el.innerHTML='';return;}
+  el.innerHTML='รายการใกล้เคียงในคลัง: '+ent.map((e,i)=>`${e.sure?'':'<b>อาจตรงกับ</b> '}<a data-use="${i}">${esc(e.x.name)} [${esc(e.x.unit)}] · ${(e.x.quotes||[]).length} เจ้า</a>`).join(' · ');
+  el.querySelectorAll('[data-use]').forEach(a=>a.onclick=()=>{
+    const e=ent[+a.dataset.use];
+    if(!confirm('เปิดรายการ "'+e.x.name+'" ในคลัง?'))return;
+    if(!sv.items.some(x=>x.key===e.x.key))sv.items.push(svNorm(e.x));
+    sv.open=e.x.key;svRender();
+  });
+}
+function svFieldChange(el){
+  const card=el.closest('.sv-card');if(!card)return;
+  const it=sv.items.find(x=>x.key===card.dataset.k);if(!it)return;
+  if(el.dataset.reason){it.reason=el.value;svSave(it);return;}
+  const qel=el.closest('[data-q]'),q=qel&&it.quotes.find(x=>x.id===qel.dataset.q);
+  if(!q||!el.dataset.f)return;
+  const f=el.dataset.f;
+  q[f]=f==='vat'?el.checked:(f==='price'||f==='factor')?(el.value===''?'':+el.value):el.value;
+  qel.querySelector('[data-calc]').textContent=svCalc(q);
+  svSave(it);
+  if(f==='price'||f==='factor'||f==='vat'){const open=document.activeElement;const key=it.key;/* ปรับสถานะ/ราคาในหัวการ์ดโดยไม่ทำให้ช่องกรอกหาย */
+    const s=Survey.summary(it),head=card.querySelector('.sv-head');
+    head.querySelector('.sv-price').firstChild.nodeValue=s.price!==null?s.price.toLocaleString('th-TH',{minimumFractionDigits:2,maximumFractionDigits:2}):'—';
+    const pill=head.querySelector('.sv-pill');pill.className='sv-pill '+s.status;pill.textContent=SV_ST[s.status];
+    const mt=head.querySelector('.sv-meta');mt.textContent=mt.textContent.replace(/· \d+ เจ้า/,'· '+s.n+' เจ้า');
+    card.querySelectorAll('[data-q]').forEach(n=>n.classList.toggle('best',!!s.best&&n.dataset.q===s.best.id));
+  }
+}
+function svBind(){
+  svEl('sv-list').addEventListener('click',async e=>{
+    const card=e.target.closest('.sv-card');if(!card)return;
+    const it=sv.items.find(x=>x.key===card.dataset.k);if(!it)return;
+    const t=e.target;
+    if(t.closest('[data-qdel]')){if(confirm('ลบเจ้านี้?')){const id=t.closest('[data-q]').dataset.q;it.quotes=it.quotes.filter(q=>q.id!==id);svSave(it);svRender();}return;}
+    if(t.dataset.qadd){svAddQuote(it);svRender();return;}
+    if(t.dataset.itdel){if(confirm('ลบ "'+it.name+'" ออกจากรายการนี้?\n(คลังกลางไม่ถูกลบ — ลบเฉพาะสำเนาในเครื่องนี้)')){await Survey.libDel(it.key);sv.items=sv.items.filter(x=>x!==it);sv.open=null;svRender();svLibStatus();}return;}
+    if(t.dataset.imgdel){const q=it.quotes.find(x=>x.id===t.closest('[data-q]').dataset.q);if(q){q.imgs=q.imgs.filter(i=>i!==t.dataset.imgdel);svSave(it);svRender();}return;}
+    if(t.dataset.img){const d=sv.imgs[t.dataset.img];if(d&&Survey.safeImg(d)){svEl('sv-bigimg').src=d;svEl('sv-imgmodal').style.display='flex';}return;}
+    if(t.closest('[data-toggle]')){
+      sv.open=sv.open===it.key?null:it.key;svRender();
+      if(sv.open){const c=document.querySelector('.sv-card[data-k="'+CSS.escape(it.key)+'"]');if(c){svHint(c,it);c.scrollIntoView({block:'nearest',behavior:'smooth'});}}
+    }
+  });
+  svEl('sv-list').addEventListener('change',async e=>{
+    const t=e.target;
+    if(t.dataset.imgadd){
+      const card=t.closest('.sv-card'),it=sv.items.find(x=>x.key===card.dataset.k),q=it&&it.quotes.find(x=>x.id===t.closest('[data-q]').dataset.q);if(!q)return;
+      for(const f of t.files){try{const d=await Survey.compress(f);const id=Survey.uid('i');sv.imgs[id]=d;await Survey.imgPut(id,d);q.imgs=(q.imgs||[]).concat(id);}catch(er){svToast('แนบภาพไม่ได้: '+f.name);}}
+      svSave(it);svRender();return;
+    }
+    svFieldChange(t);
+  });
+  svEl('sv-list').addEventListener('input',e=>{if(e.target.dataset.f||e.target.dataset.reason)svFieldChange(e.target);});
+  svEl('sv-chips').addEventListener('click',e=>{const k=e.target.dataset.chip;if(k){sv.filter=k;svRender();}});
+  svEl('sv-q').addEventListener('input',e=>{sv.q=e.target.value;svRender();});
+  svEl('sv-refresh').onclick=()=>svLoad(true);
+  svEl('sv-imgmodal').onclick=()=>{svEl('sv-imgmodal').style.display='none';};
+  /* เพิ่มรายการ */
+  svEl('sv-new').onclick=()=>{svEl('sv-addbox').classList.toggle('on');svEl('sv-an').focus();};
+  const hintNew=async()=>{
+    const name=svEl('sv-an').value.trim(),unit=svEl('sv-au').value.trim(),box=svEl('sv-ahint');
+    if(name.length<3){box.innerHTML='';return;}
+    const all=await Survey.libAll().catch(()=>[]);const f=Survey.libFind(all,{name,unit});
+    const ent=f.hit?[{x:f.hit,t:'ตรงกับในคลัง ('+f.how+')'}]:f.maybe.map(o=>({x:o.x,t:'อาจตรงกับ'}));
+    box.innerHTML=ent.length?ent.map((e,i)=>`${esc(e.t)}: <a data-open="${esc(e.x.key)}">${esc(e.x.name)} [${esc(e.x.unit)}] · ${(e.x.quotes||[]).length} เจ้า</a>`).join('<br>'):'';
+    box.querySelectorAll('[data-open]').forEach(a=>a.onclick=()=>{
+      const x=all.find(i=>i.key===a.dataset.open);if(!x)return;
+      if(!sv.items.some(i=>i.key===x.key))sv.items.push(svNorm(x));
+      sv.open=x.key;sv.filter='all';sv.q='';svEl('sv-q').value='';svEl('sv-addbox').classList.remove('on');svRender();
+    });
+  };
+  svEl('sv-an').addEventListener('input',hintNew);svEl('sv-au').addEventListener('input',hintNew);
+  svEl('sv-aok').onclick=()=>{
+    const name=svEl('sv-an').value.trim(),unit=svEl('sv-au').value.trim();
+    if(!name||!unit){svToast('ต้องใส่ชื่อและหน่วย');return;}
+    const key=Survey.libKey(name,unit);
+    let it=sv.items.find(x=>x.key===key);
+    if(!it){it=svNorm({key,name,unit});sv.items.push(it);svAddQuote(it);}
+    sv.open=key;sv.filter='all';sv.q='';svEl('sv-q').value='';
+    svEl('sv-an').value='';svEl('sv-au').value='';svEl('sv-ahint').innerHTML='';svEl('sv-addbox').classList.remove('on');
+    svRender();svToast('กรอกราคาแล้วจะบันทึกเข้าคลังให้อัตโนมัติ');
+  };
+  /* ตั้งค่าคลังกลาง */
+  const modal=svEl('sv-modal');
+  svEl('sv-libcfg').onclick=()=>{const c=Survey.cfg();svEl('sv-url').value=c.url||'';svEl('sv-team').value=c.team||'';svEl('sv-rem').checked=!!c.remember;svEl('sv-mmsg').textContent='';svEl('sv-mmsg').className='sv-msg';modal.style.display='flex';};
+  svEl('sv-mclose').onclick=()=>{modal.style.display='none';};
+  modal.addEventListener('click',e=>{if(e.target===modal)modal.style.display='none';});
+  const msg=(t,err)=>{const m=svEl('sv-mmsg');m.textContent=t;m.className='sv-msg'+(err?' err':'');};
+  svEl('sv-msave').onclick=async()=>{
+    const n={url:svEl('sv-url').value.trim(),team:svEl('sv-team').value,remember:svEl('sv-rem').checked};
+    if(!/^https:\/\/script\.google\.com\/macros\/s\/[\w-]+\/exec$/.test(n.url)){msg('URL ต้องเป็น Web app ของ Apps Script (https://script.google.com/macros/s/…/exec)',true);return;}
+    try{const r=await Survey.ping(n);if(!r.ok)throw new Error(r.error);Survey.setCfg(n);msg('เชื่อมต่อแล้ว: '+(r.name||'ok'));svLoad(true);}
+    catch(er){msg('เชื่อมต่อไม่ได้: '+er.message,true);}
+  };
+  svEl('sv-moff').onclick=()=>{Survey.setCfg({url:Survey.cfg().url});svLibStatus();modal.style.display='none';svToast('ลบรหัสทีมออกจากเครื่องนี้แล้ว');};
+  svEl('sv-mpush').onclick=async()=>{
+    const loc=await Survey.localAll();let ok=0,bad=0;
+    for(const x of loc){try{await Survey.libPut(x.key,x);ok++;}catch(er){bad++;msg(er.message,true);}}
+    if(!bad)msg('ส่งขึ้นคลังกลาง '+ok+' รายการ');
+  };
+  /* ส่งออก / นำเข้า .json (รูปแบบเดียวกับ Total Station) */
+  svEl('sv-exp').onclick=()=>{
+    const out={format:'ud-survey-lib',items:sv.items.map(x=>({key:x.key,name:x.name,unit:x.unit,quotes:x.quotes,reason:x.reason,updated:x.updated,project:x.project,ref:x.ref,aliases:x.aliases}))};
+    const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(out)],{type:'application/json'}));a.download='ud-survey-lib.json';a.click();URL.revokeObjectURL(a.href);
+  };
+  svEl('sv-imp').onclick=()=>svEl('sv-impfile').click();
+  svEl('sv-impfile').onchange=async e=>{
+    const f=e.target.files[0];e.target.value='';if(!f)return;
+    try{
+      const d=JSON.parse(await f.text());if(d.format!=='ud-survey-lib'||!Array.isArray(d.items))throw new Error('ไม่ใช่ไฟล์คลังราคาสืบ');
+      let n=0;for(const x of d.items){if(!x||!x.name||!x.unit)continue;const k=Survey.libKey(x.name,x.unit);const cur=sv.items.find(i=>i.key===k);if(!cur||(x.updated||'')>(cur.updated||'')){await Survey.libPut(k,Object.assign({},x,{key:k}));n++;}}
+      svToast('นำเข้า '+n+' รายการ');svLoad(true);
+    }catch(er){svToast('นำเข้าไม่ได้: '+er.message);}
+  };
+}
+svBind();
+</script>
 
 <div class="credit-bar">
   <strong style="color:var(--accent2)">UD-Cost Hub</strong> &nbsp;·&nbsp; ระบบข้อมูลราคางานก่อสร้าง เทศบาลนครอุดรธานี &nbsp;·&nbsp; พัฒนาโดย <strong>ส่วนควบคุมการก่อสร้าง สำนักช่าง เทศบาลนครอุดรธานี</strong>
