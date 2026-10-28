@@ -350,6 +350,33 @@ table.main td.sm{font-size:11px;color:var(--text2);}
 .ps-det>div{padding:0 14px 12px;}
 .ps-empty{font-size:12px;color:var(--text3);padding:10px 0;}
 @media print{#page-projsum{display:none!important;}}
+/* ===== BOQ ===== */
+.nav-tab.active-boq{color:#34d399;border-bottom-color:#34d399;}
+.bq-wrap{max-width:1180px;margin:0 auto;padding:28px 20px 60px;}
+.bq-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:14px;margin-bottom:14px;}
+.bq-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px;}
+.bq-grid label{font-size:11px;color:var(--text3);display:flex;flex-direction:column;gap:3px;}
+.bq-in{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-family:'Sarabun',sans-serif;font-size:13px;padding:6px 9px;outline:none;box-sizing:border-box;}
+.bq-in:focus{border-color:#34d399;}
+.bq-in.n{text-align:right;font-family:'IBM Plex Mono',monospace;}
+.bq-tw{overflow-x:auto;border:1px solid var(--border);border-radius:var(--radius);}
+.bq-tbl{width:100%;border-collapse:collapse;font-size:12px;min-width:980px;}
+.bq-tbl th{background:var(--bg3);color:var(--text3);font-size:11px;padding:6px 8px;text-align:left;position:sticky;top:0;}
+.bq-tbl th.r,.bq-tbl td.r{text-align:right;font-family:'IBM Plex Mono',monospace;}
+.bq-tbl td{padding:5px 8px;border-top:1px solid var(--border);vertical-align:top;}
+.bq-tbl tr.g td{background:var(--bg3);font-weight:700;font-size:13px;}
+.bq-tbl tr.g.l0 td{background:rgba(52,211,153,.10);color:#34d399;}
+.bq-src{font-size:10px;color:var(--text3);margin-top:3px;line-height:1.5;}
+.bq-warn{color:var(--amber);}
+.bq-lnk{color:var(--accent2);cursor:pointer;font-size:11px;text-decoration:underline;white-space:nowrap;}
+.bq-pri{display:flex;flex-direction:column;align-items:flex-end;gap:2px;}
+.bq-sum{width:100%;border-collapse:collapse;font-size:13px;}
+.bq-sum td{padding:6px 8px;border-top:1px solid var(--border);}
+.bq-sum td.r{text-align:right;font-family:'IBM Plex Mono',monospace;}
+.bq-sum tr.t td{font-weight:700;background:var(--bg3);}
+.bq-big{font-size:17px;font-weight:700;color:#34d399;}
+.bq-tabs{display:flex;flex-wrap:wrap;gap:6px;padding:10px 18px 0;}
+@media print{#page-boq,#bq-modal{display:none!important;}}
 /* PRINT */
 @media print{
   @page{size:A4;margin:12mm 10mm;}
@@ -462,6 +489,9 @@ table.main td.sm{font-size:11px;color:var(--text2);}
     </div>
     <div class="nav-tab" onclick="switchPage('survey')" id="tab-survey">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>ราคาสืบ
+    </div>
+    <div class="nav-tab" onclick="switchPage('boq')" id="tab-boq">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h8M8 9h2"/></svg>BOQ
     </div>
   </div>
   <div class="proj-widget" id="proj-widget">
@@ -764,16 +794,17 @@ function smHl(str, tokens, bgColor){
 
 
 function switchPage(p){
-  ['ai','search','wage','composite','survey','projsum'].forEach(x=>{
+  ['ai','search','wage','composite','survey','projsum','boq'].forEach(x=>{
     const pg=document.getElementById('page-'+x);
     if(pg) pg.classList.toggle('active',x===p);
     const tab=document.getElementById('tab-'+x);
     if(!tab)return;
-    tab.classList.remove('active','active-wage','active-comp','active-sv');
+    tab.classList.remove('active','active-wage','active-comp','active-sv','active-boq');
     if(x===p){
       if(p==='wage') tab.classList.add('active-wage');
       else if(p==='composite') tab.classList.add('active-comp');
       else if(p==='survey') tab.classList.add('active-sv');
+      else if(p==='boq') tab.classList.add('active-boq');
       else tab.classList.add('active');
     }
   });
@@ -781,10 +812,11 @@ function switchPage(p){
   const isComp=p==='composite';
   const mw=document.getElementById('mat-warn');
   const ww=document.getElementById('wage-warn');
-  if(mw) mw.style.display=(!isWage&&!isComp&&p!=='ai'&&p!=='survey'&&p!=='projsum')?'flex':'none';
+  if(mw) mw.style.display=(!isWage&&!isComp&&p!=='ai'&&p!=='survey'&&p!=='projsum'&&p!=='boq')?'flex':'none';
   if(ww) ww.style.display=isWage?'flex':'none';
   if(isComp&&!compLoaded) loadCompData();
   if(p==='survey'&&typeof sv!=='undefined'&&!sv.loaded) svLoad();
+  if(p==='boq'&&typeof boqOpen==='function') boqOpen();
 }
 
 function switchSubMat(sub){
@@ -2356,6 +2388,7 @@ function projRefreshUI(){
   const active=projGetActive();
   if(typeof sv!=='undefined'&&sv.loaded&&typeof svRender==='function')svRender();
   if(typeof psIsOpen==='function'&&psIsOpen())projSumRender();
+  if(typeof boqIsOpen==='function'&&boqIsOpen())boqRender();
   const label=document.getElementById('proj-btn-label');
   if(label) label.textContent=active?active.name:'ไม่ได้เลือกโครงการ';
   projRenderMenu();
@@ -3334,7 +3367,7 @@ function projSumRender(){
   document.getElementById('ps-sub').textContent='สร้างเมื่อ '+d(p.createdAt)+' · แก้ไขล่าสุด '+d(p.updatedAt)+' · เก็บในเบราว์เซอร์เครื่องนี้ — กด Backup เพื่อเก็บเป็นไฟล์';
   const f2=n=>svFmt(n);
   const stat=(l,n)=>`<div class="ps-stat">${l}<b>${n}</b></div>`;
-  let h=`<div class="ps-stats">${stat('วัสดุ',mats.length)}${stat('ค่าแรง',wages.length)}${stat('วัสดุมวลรวม',comps.length)}${stat('ราคาสืบ',svs.length)}</div>`;
+  let h=`<div class="ps-stats">${stat('วัสดุ',mats.length)}${stat('ค่าแรง',wages.length)}${stat('วัสดุมวลรวม',comps.length)}${stat('ราคาสืบ',svs.length)}${stat('BOQ (แถว)',(p.boq&&p.boq.rows||[]).length)}</div>`;
   const tbl=(head,rows)=>rows.length?`<table class="ps-tbl"><thead><tr>${head.map(x=>`<th${x[1]?' class="r"':''}>${x[0]}</th>`).join('')}</tr></thead><tbody>${rows.join('')}</tbody></table>`:'<div class="ps-empty">ยังไม่มีรายการ</div>';
   h+=`<div class="ps-sec">ราคาวัสดุ (${mats.length})</div>`+tbl([['#'],['ชื่อวัสดุ'],['หน่วย'],['ราคา (บาท)',1],['พาณิชย์จังหวัด']],
     mats.map((it,i)=>`<tr><td>${i+1}</td><td>${esc(it.name)}<div style="font-size:11px;color:var(--text3)">${esc(it.catName||'')}</div></td><td>${esc(it.unit)}</td><td class="r">${it.price!==null&&it.price!==undefined?f2(it.price):'—'}</td><td>${esc(it.province||'')}</td></tr>`));
@@ -3356,7 +3389,7 @@ function psSvRemove(key){if(!confirm('นำราคาสืบนี้ออ
 /* ---- Backup / นำเข้าโครงการ (.json) ---- */
 function projExportJson(){
   const p=projGetActive();if(!p){alert('ยังไม่ได้เลือกโครงการ');return;}
-  const out={format:'ud-costhub-project',version:1,exportedAt:new Date().toISOString(),project:{name:p.name,createdAt:p.createdAt,updatedAt:p.updatedAt,materials:p.materials||[],wages:p.wages||[],composites:p.composites||[],surveys:p.surveys||[]}};
+  const out={format:'ud-costhub-project',version:1,exportedAt:new Date().toISOString(),project:{name:p.name,createdAt:p.createdAt,updatedAt:p.updatedAt,materials:p.materials||[],wages:p.wages||[],composites:p.composites||[],surveys:p.surveys||[],boq:p.boq||null}};
   const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(out)],{type:'application/json'}));
   const d=new Date();a.download='UD-CostHub_โครงการ_'+p.name.replace(/[\\/:*?"<>|]+/g,'_')+'_'+(d.getFullYear()+543)+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')+'.json';
   a.click();URL.revokeObjectURL(a.href);
@@ -3375,7 +3408,7 @@ document.getElementById('proj-import-file').addEventListener('change',async e=>{
     const n=arr(pr.materials).length+arr(pr.wages).length+comps.length+arr(pr.surveys).length;
     if(!confirm('นำเข้าโครงการ "'+name+'" ('+n+' รายการ) เป็นโครงการใหม่ และสลับไปใช้โครงการนี้?'))return;
     const id='p'+Date.now()+Math.random().toString(36).slice(2,7),now=Date.now();
-    projStore.projects[id]={id,name,createdAt:+pr.createdAt||now,updatedAt:now,materials:arr(pr.materials),wages:arr(pr.wages),composites:comps,surveys:arr(pr.surveys).filter(x=>x.name&&x.unit&&Array.isArray(x.quotes))};
+    projStore.projects[id]={id,name,createdAt:+pr.createdAt||now,updatedAt:now,materials:arr(pr.materials),wages:arr(pr.wages),composites:comps,surveys:arr(pr.surveys).filter(x=>x.name&&x.unit&&Array.isArray(x.quotes)),boq:(pr.boq&&typeof pr.boq==='object'&&Array.isArray(pr.boq.rows)&&Array.isArray(pr.boq.groups))?pr.boq:undefined};
     projStore.activeProjectId=id;
     if(!projSaveStore())return;
     projLoadIntoApp();projRefreshUI();
@@ -3383,6 +3416,286 @@ document.getElementById('proj-import-file').addEventListener('change',async e=>{
   }catch(er){alert('นำเข้าไม่ได้: '+er.message);}
 });
 svBind();
+</script>
+
+<!-- PAGE 8: BOQ (ปร.1–ปร.4 + Factor F) -->
+<div class="page" id="page-boq">
+<div class="bq-wrap">
+  <div class="page-title">BOQ — แบบแสดงรายการปริมาณงานและราคา</div>
+  <div class="page-sub">ใส่ปริมาณงานแล้วผูกราคากับฐานราคา (พาณิชย์ / วัสดุมวลรวม / ราคาสืบ / ค่าแรง) — คิดค่างานต้นทุน Factor F และสรุปค่าก่อสร้างตาม ปร.1 ถึง ปร.4</div>
+  <div id="bq-body"></div>
+</div>
+</div>
+<div class="modal-overlay" id="bq-modal" style="display:none">
+  <div class="modal-box">
+    <div class="modal-hd"><div class="modal-title" id="bq-mtitle">ผูกราคา</div><span class="modal-close" id="bq-mclose">×</span></div>
+    <div class="bq-tabs" id="bq-mtabs"></div>
+    <div class="modal-search"><input type="text" id="bq-msearch" placeholder="ค้นหา..." autocomplete="off" style="margin-bottom:0">
+      <div style="font-size:11px;color:var(--text3);margin-top:6px" id="bq-mlabel"></div></div>
+    <div class="modal-list" id="bq-mlist"></div>
+  </div>
+</div>
+
+<script src="lib/boqcalc-v1.js"></script>
+<script src="lib/factorf-v1.js"></script>
+<script>
+/* ===== BOQ ต่อโครงการ — ใช้ตัวคิดราคา/Factor F ชุดเดียวกับ UD-Total-Station (lib/boqcalc-v1.js, lib/factorf-v1.js)
+   กติกาปัดเศษ: ปริมาณ และราคาต่อหน่วย ปัด 2 ตำแหน่ง · จำนวนเงิน = ปริมาณ × ราคาต่อหน่วย ปัด 2 ตำแหน่ง
+   (ตัวเลขที่พิมพ์ในกระดาษคูณกันตรงกัน) ===== */
+const bq={modal:null,tab:'mat',timer:null};
+const bqEl=id=>document.getElementById(id);
+const boqIsOpen=()=>{const e=bqEl('page-boq');return !!e&&e.classList.contains('active');};
+const bqF2=n=>(n===null||n===undefined||n==='')?'—':(+n).toLocaleString('th-TH',{minimumFractionDigits:2,maximumFractionDigits:2});
+function boqGet(){
+  const p=projGetActive();if(!p)return null;
+  if(!p.boq)p.boq={info:{name:p.name,location:'',agency:'',date:new Date().toISOString().slice(0,10),estimator:'',mode:'estimate'},factor:{advance:0,retention:0,loanPct:0},groups:[],rows:[]};
+  const b=p.boq;b.info=b.info||{};b.factor=b.factor||{advance:0,retention:0,loanPct:0};b.groups=b.groups||[];b.rows=b.rows||[];
+  return b;
+}
+function boqSave(){const p=projGetActive();if(!p)return;p.updatedAt=Date.now();projSaveStore();}
+function boqSaveSoon(){clearTimeout(bq.timer);bq.timer=setTimeout(boqSave,400);}
+const boqCodeCmp=(a,b)=>{const x=String(a).split('.').map(Number),y=String(b).split('.').map(Number);for(let i=0;i<Math.max(x.length,y.length);i++){const d=(x[i]||0)-(y[i]||0);if(d)return d;}return 0;};
+const boqGroupsSorted=b=>b.groups.slice().sort((p,q)=>boqCodeCmp(p.code,q.code));
+const boqNewKey=()=>'r'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+/* แถวของโครงการ → รูปแบบที่ BoqCalc.priceRows รับ */
+function boqCalcInput(b){
+  const rows=[],overrides={},survey={};
+  b.rows.forEach(r=>{
+    const m=r.mat||{kind:''},l=r.lab||{kind:''};
+    const ref={kind:(m.kind==='mat'||m.kind==='comp')?m.kind:'user'};
+    if(ref.kind!=='user')ref.code=m.code;
+    if(l.kind==='wage')ref.wage_code=l.code;
+    const g=b.groups.find(x=>x.code===r.group_code);
+    rows.push({key:r.key,name:r.name,unit:r.unit,qty:r.qty,group_code:r.group_code,group:g?g.name:'',price_ref:ref});
+    const o={};
+    if(m.kind==='manual'&&m.price!==''&&m.price!==undefined)o.mat=+m.price;
+    if(m.kind==='none')o.no_mat=true;
+    if(l.kind==='manual'&&l.price!==''&&l.price!==undefined)o.lab=+l.price;
+    if(Object.keys(o).length)overrides[r.key]=o;
+    if(m.kind==='survey'&&typeof sv!=='undefined'){const it=sv.items.find(x=>x.key===m.key);if(it){const s=Survey.summary(it);if(s.price!==null)survey[r.key]={price:s.price,src:Survey.srcText(it)};}}
+  });
+  return {rows,overrides,survey};
+}
+function boqCompute(b){
+  const ci=boqCalcInput(b);
+  const pr=BoqCalc.priceRows(PDB,window.UDPrice,ci.rows,{overrides:ci.overrides,survey:ci.survey});
+  const r2=BoqCalc.r2,byKey={};pr.forEach(r=>{byKey[r.key]=r;});
+  const secCodes=[...new Set(b.rows.map(r=>String(r.group_code).split('.')[0]))].sort(boqCodeCmp);
+  const fc=b.factor||{};
+  const secs=secCodes.map(c=>({c,n:(b.groups.find(g=>g.code===c)||{}).name||('หมวด '+c),
+    cost:r2(pr.filter(r=>String(r.group_code).split('.')[0]===c).reduce((a,r)=>a+(r.total||0),0))}));
+  const cost=r2(secs.reduce((a,s)=>a+s.cost,0));
+  const ff=cost>0?FactorF.compute(cost,{advance:+fc.advance||0,retention:+fc.retention||0,loanShare:(+fc.loanPct||0)/100}):{F:null,detail:[]};
+  secs.forEach(s=>{s.build=ff.F?r2(s.cost*ff.F):null;});
+  const build=ff.F?r2(secs.reduce((a,s)=>a+s.build,0)):null;
+  const est=(b.info.mode||'estimate')==='estimate';
+  const pr4=build===null?null:(est?Math.floor(build/1000)*1000:build);
+  return {pr,byKey,secs,cost,ff,build,pr4,est,noPrice:pr.filter(r=>(r.warns||[]).some(w=>/ยังไม่มีราคา/.test(w))).length};
+}
+/* ---------- แสดงผล ---------- */
+function boqOpen(){
+  if(typeof compLoaded!=='undefined'&&!compLoaded&&typeof loadCompData==='function')loadCompData().then(()=>{if(boqIsOpen())boqRender();});
+  if(typeof sv!=='undefined'&&!sv.loaded)svLoad().then(()=>{if(boqIsOpen())boqRender();});
+  boqRender();
+}
+function boqRender(){
+  const body=bqEl('bq-body'),b=boqGet();
+  if(!b){body.innerHTML=`<div class="bq-card" style="text-align:center;padding:30px;color:var(--text3)">BOQ เก็บไว้ในโครงการ — เลือกโครงการจากเมนูด้านบน หรือสร้างโครงการใหม่ก่อน<div style="margin-top:12px"><button class="btn btn-green" type="button" onclick="projPromptCreate()">+ สร้างโครงการใหม่</button></div></div>`;return;}
+  const i=b.info,fc=b.factor;
+  const inp=(k,l,t)=>`<label>${l}<input class="bq-in" ${t?'type="'+t+'"':''} data-bi="${k}" value="${esc(i[k]||'')}"></label>`;
+  let h=`<div class="bq-card"><div class="bq-grid">
+      ${inp('name','โครงการงานก่อสร้าง')}${inp('location','สถานที่ก่อสร้าง')}${inp('agency','หน่วยงานเจ้าของโครงการ')}${inp('date','ประมาณราคาเมื่อวันที่','date')}${inp('estimator','ผู้ประมาณราคา (ชื่อที่พิมพ์ท้ายแบบ)')}
+      <label>ประเภทงาน<select class="bq-in" data-bi="mode"><option value="estimate"${i.mode!=='central'?' selected':''}>ประมาณราคา (ปร.4 ปัดลงหลักพัน)</option><option value="central"${i.mode==='central'?' selected':''}>กำหนดราคากลาง</option></select></label>
+      <label>เงินล่วงหน้าจ่าย (%)<select class="bq-in" data-bf="advance">${[0,5,10,15].map(v=>`<option value="${v}"${+fc.advance===v?' selected':''}>${v}</option>`).join('')}</select></label>
+      <label>เงินประกันผลงานหัก (%)<select class="bq-in" data-bf="retention">${[0,5,10].map(v=>`<option value="${v}"${+fc.retention===v?' selected':''}>${v}</option>`).join('')}</select></label>
+      <label>สัดส่วนเงินกู้ (%) <span style="font-size:10px">(0 = ไม่ใช้เงินกู้)</span><input class="bq-in n" type="number" min="0" max="100" step="any" data-bf="loanPct" value="${esc(fc.loanPct||0)}"></label>
+    </div></div>
+    <div class="sv-bar"><button class="btn btn-green" type="button" onclick="boqAddGroup()">+ เพิ่มหมวด</button>
+      <span style="font-size:12px;color:var(--text3)">เลขหมวด: หมวดหลักเป็นเลขเดียว (1, 2, 3) หมวดย่อยใช้ 1.1, 1.2 …</span></div>`;
+  const T=boqCompute(b);
+  const groups=boqGroupsSorted(b);
+  if(!groups.length){h+=`<div class="bq-card" style="color:var(--text3);text-align:center;padding:24px">ยังไม่มีหมวดงาน — กด "+ เพิ่มหมวด" เริ่มจากหมวดหลัก เช่น 1 โครงสร้างวิศวกรรม แล้วเพิ่มหมวดย่อย 1.1 และรายการในหมวดย่อย</div>`;}
+  else{
+    h+=`<div class="bq-tw"><table class="bq-tbl"><thead><tr><th style="width:34px">#</th><th style="min-width:230px">รายการ</th><th class="r" style="width:90px">จำนวน</th><th style="width:70px">หน่วย</th><th class="r">ค่าวัสดุ/หน่วย</th><th class="r">ค่าวัสดุ</th><th class="r">ค่าแรง/หน่วย</th><th class="r">ค่าแรง</th><th class="r">รวม</th><th style="width:30px"></th></tr></thead><tbody>`;
+    let n=0;
+    groups.forEach(g=>{
+      const depth=String(g.code).split('.').length-1;
+      h+=`<tr class="g l${depth>0?1:0}"><td colspan="8" style="padding-left:${8+depth*14}px">${esc(g.code)} ${esc(g.name)}</td><td class="r" data-gt="${esc(g.code)}"></td><td></td></tr>`;
+      b.rows.filter(r=>r.group_code===g.code).forEach(r=>{
+        n++;h+=boqRowHtml(r,n,T.byKey[r.key]);
+      });
+      h+=`<tr><td></td><td colspan="9" style="border-top:0;padding-bottom:8px"><span class="bq-lnk" data-act="addrow" data-g="${esc(g.code)}">+ เพิ่มรายการในหมวด ${esc(g.code)}</span> &nbsp; <span class="bq-lnk" data-act="addsub" data-g="${esc(g.code)}">+ หมวดย่อย</span> &nbsp; <span class="bq-lnk" data-act="rengrp" data-g="${esc(g.code)}">เปลี่ยนชื่อหมวด</span> &nbsp; <span class="bq-lnk" style="color:var(--red)" data-act="delgrp" data-g="${esc(g.code)}">ลบหมวด</span></td></tr>`;
+    });
+    h+=`</tbody></table></div>`;
+  }
+  h+=`<div class="bq-card" style="margin-top:14px" id="bq-sumbox"></div>`;
+  body.innerHTML=h;
+  boqUpdateNumbers();
+}
+function boqRowHtml(r,n,p){
+  const m=r.mat||{kind:''},l=r.lab||{kind:''};
+  const ml=m.kind==='mat'?'พาณิชย์':m.kind==='comp'?'มวลรวม':m.kind==='survey'?'ราคาสืบ':m.kind==='manual'?'กรอกเอง':m.kind==='none'?'ไม่มีค่าวัสดุ':'ผูกวัสดุ';
+  const ll=l.kind==='wage'?'ว.480':l.kind==='manual'?'กรอกเอง':l.kind==='none'?'ไม่มีค่าแรง':'ผูกค่าแรง';
+  return `<tr data-k="${esc(r.key)}"><td style="color:var(--text3)">${n}</td>
+    <td><input class="bq-in" data-f="name" value="${esc(r.name)}" placeholder="ชื่อรายการ"><div class="bq-src" data-c="src"></div></td>
+    <td><input class="bq-in n" type="number" step="any" min="0" data-f="qty" value="${esc(r.qty===undefined?'':r.qty)}"></td>
+    <td><input class="bq-in" data-f="unit" value="${esc(r.unit||'')}"></td>
+    <td class="r"><div class="bq-pri"><span data-c="matu"></span><span class="bq-lnk" data-act="pickmat">${ml}</span></div></td><td class="r" data-c="mata"></td>
+    <td class="r"><div class="bq-pri"><span data-c="labu"></span><span class="bq-lnk" data-act="picklab">${ll}</span></div></td><td class="r" data-c="laba"></td>
+    <td class="r" data-c="tot" style="font-weight:700"></td><td><span class="bq-lnk" style="color:var(--red)" data-act="delrow" title="ลบรายการ">✕</span></td></tr>`;
+}
+/* เติมตัวเลข/ที่มา/สรุป โดยไม่สร้างตารางใหม่ (ช่องกรอกไม่เสียโฟกัส) */
+function boqUpdateNumbers(){
+  const b=boqGet();if(!b)return;
+  const T=boqCompute(b);
+  document.querySelectorAll('#bq-body tr[data-k]').forEach(tr=>{
+    const r=b.rows.find(x=>x.key===tr.dataset.k),p=T.byKey[tr.dataset.k];if(!r||!p)return;
+    const set=(c,t)=>{const e=tr.querySelector('[data-c="'+c+'"]');if(e)e.textContent=t;};
+    set('matu',bqF2(p.mat_unit));set('mata',bqF2(p.mat_amt));set('labu',bqF2(p.lab_unit));set('laba',bqF2(p.lab_amt));set('tot',bqF2(p.total));
+    const src=tr.querySelector('[data-c="src"]');
+    if(src){
+      const bits=[];
+      if(p.mat_src)bits.push('วัสดุ: '+p.mat_src);
+      if(p.lab_src)bits.push('ค่าแรง: '+p.lab_src);
+      src.innerHTML=esc(bits.join(' · '))+((p.warns||[]).length?'<div class="bq-warn">⚠ '+esc(p.warns.join(' · '))+'</div>':'')+(r.mat&&r.mat.label?'<div>ผูก: '+esc(r.mat.label)+'</div>':'');
+    }
+  });
+  document.querySelectorAll('#bq-body [data-gt]').forEach(td=>{
+    const c=td.dataset.gt;const sum=BoqCalc.r2(T.pr.filter(r=>r.group_code===c||String(r.group_code).startsWith(c+'.')).reduce((a,r)=>a+(r.total||0),0));
+    td.textContent=sum?bqF2(sum):'';
+  });
+  boqUpdateSummary(T);
+}
+function boqUpdateSummary(T){
+  const box=bqEl('bq-sumbox');if(!box)return;
+  const b=boqGet();
+  const rows=T.secs.map(s=>`<tr><td>${esc(s.c)} ${esc(s.n)}</td><td class="r">${bqF2(s.cost)}</td><td class="r">${s.build===null?'—':bqF2(s.build)}</td></tr>`).join('');
+  box.innerHTML=`<div style="font-size:15px;font-weight:700;margin-bottom:8px">สรุป (ปร.1 → ปร.1(ก) → ปร.4)</div>
+    <table class="bq-sum"><thead><tr><td style="color:var(--text3);font-size:11px">หมวด</td><td class="r" style="color:var(--text3);font-size:11px">ค่างานต้นทุน (ปร.1)</td><td class="r" style="color:var(--text3);font-size:11px">× Factor F = ค่าก่อสร้าง (ปร.1 ก)</td></tr></thead><tbody>${rows||'<tr><td colspan="3" style="color:var(--text3)">ยังไม่มีรายการ</td></tr>'}
+    <tr class="t"><td>รวมค่างานต้นทุน</td><td class="r">${bqF2(T.cost)}</td><td class="r">${T.build===null?'—':bqF2(T.build)}</td></tr></tbody></table>
+    <div style="margin-top:10px;font-size:12px;color:var(--text2)">Factor F = <b>${T.ff.F===null?'—':T.ff.F.toFixed(4)}</b> ${T.ff.detail&&T.ff.detail.length?'<span style="color:var(--text3)">('+esc(T.ff.detail.join(' · '))+')</span>':''}</div>
+    <div style="margin-top:12px">${T.est?'ประมาณราคาค่าก่อสร้าง (ปร.4) คิดเพียง':'ราคากลางค่าก่อสร้าง (ปร.4)'}: <span class="bq-big">${T.pr4===null?'—':bqF2(T.pr4)}</span> บาท
+      ${T.pr4===null?'':'<div style="font-size:12px;color:var(--text3);margin-top:3px">('+esc(BoqCalc.bahtText(T.pr4))+')</div>'}</div>
+    ${T.noPrice?`<div class="bq-warn" style="margin-top:8px;font-size:12px">⚠ ยังมี ${T.noPrice} รายการที่ไม่มีราคา — ผูกราคาหรือกรอกเอง</div>`:''}
+    <div style="margin-top:8px;font-size:11px;color:var(--text3)">ปร.2 (ครุภัณฑ์) ปร.3 (ค่าใช้จ่ายพิเศษ) และการส่งออก Excel/PDF ตามแบบฟอร์มจะเพิ่มในขั้นถัดไป</div>`;
+}
+/* ---------- แก้ไขโครงสร้าง ---------- */
+function boqAddGroup(parent){
+  const b=boqGet();if(!b)return;
+  let code=prompt(parent?'เลขหมวดย่อย (เช่น '+parent+'.1)':'เลขหมวดหลัก (เช่น 1, 2, 3)',parent?parent+'.'+(b.groups.filter(g=>String(g.code).startsWith(parent+'.')&&String(g.code).split('.').length===String(parent).split('.').length+1).length+1):String(b.groups.filter(g=>!String(g.code).includes('.')).length+1));
+  if(code===null)return;code=code.trim();
+  if(!/^\d+(\.\d+)*$/.test(code)){alert('เลขหมวดต้องเป็นตัวเลขคั่นด้วยจุด เช่น 1 หรือ 1.1');return;}
+  if(b.groups.some(g=>g.code===code)){alert('มีหมวด '+code+' อยู่แล้ว');return;}
+  const name=prompt('ชื่อหมวด '+code+':','');if(!name||!name.trim())return;
+  b.groups.push({code,name:name.trim()});boqSave();boqRender();
+}
+function boqAddRow(code){
+  const b=boqGet();if(!b)return;
+  b.rows.push({key:boqNewKey(),group_code:code,name:'',unit:'',qty:'',mat:{kind:''},lab:{kind:''}});
+  boqSave();boqRender();
+  const trs=document.querySelectorAll('#bq-body tr[data-k]');const last=[...trs].filter(t=>b.rows.find(r=>r.key===t.dataset.k&&r.group_code===code)).pop();
+  if(last){const i=last.querySelector('[data-f="name"]');if(i)i.focus();}
+}
+function boqBind(){
+  const body=bqEl('bq-body');
+  body.addEventListener('input',e=>{
+    const b=boqGet();if(!b)return;const t=e.target;
+    if(t.dataset.bi){b.info[t.dataset.bi]=t.value;boqSaveSoon();if(t.dataset.bi==='mode')boqUpdateNumbers();return;}
+    if(t.dataset.bf){b.factor[t.dataset.bf]=t.value===''?0:+t.value;boqSaveSoon();boqUpdateNumbers();return;}
+    const tr=t.closest('tr[data-k]');if(!tr||!t.dataset.f)return;
+    const r=b.rows.find(x=>x.key===tr.dataset.k);if(!r)return;
+    r[t.dataset.f]=t.dataset.f==='qty'?(t.value===''?'':+t.value):t.value;
+    boqSaveSoon();boqUpdateNumbers();
+  });
+  body.addEventListener('change',e=>{   /* ปริมาณปัด 2 ตำแหน่งตอนกรอกเสร็จ — ตัวเลขที่เห็น = ตัวเลขที่ใช้คูณ */
+    const t=e.target;if(t.dataset.f!=='qty'||t.value==='')return;
+    const b=boqGet(),tr=t.closest('tr[data-k]'),r=b&&tr&&b.rows.find(x=>x.key===tr.dataset.k);if(!r)return;
+    r.qty=BoqCalc.r2(+t.value);t.value=r.qty;boqSave();boqUpdateNumbers();
+  });
+  body.addEventListener('click',e=>{
+    const a=e.target.closest('[data-act]');if(!a)return;
+    const b=boqGet();if(!b)return;
+    const g=a.dataset.g,tr=a.closest('tr[data-k]'),r=tr&&b.rows.find(x=>x.key===tr.dataset.k);
+    switch(a.dataset.act){
+      case 'addrow':boqAddRow(g);break;
+      case 'addsub':boqAddGroup(g);break;
+      case 'rengrp':{const gr=b.groups.find(x=>x.code===g);const n=gr&&prompt('ชื่อหมวด '+g+':',gr.name);if(n&&n.trim()){gr.name=n.trim();boqSave();boqRender();}break;}
+      case 'delgrp':{
+        const sub=b.groups.filter(x=>x.code===g||String(x.code).startsWith(g+'.')).map(x=>x.code);
+        const cnt=b.rows.filter(x=>sub.includes(x.group_code)).length;
+        if(!confirm('ลบหมวด '+g+(sub.length>1?' และหมวดย่อย':'')+(cnt?' พร้อมรายการ '+cnt+' แถว':'')+'?'))break;
+        b.groups=b.groups.filter(x=>!sub.includes(x.code));b.rows=b.rows.filter(x=>!sub.includes(x.group_code));boqSave();boqRender();break;}
+      case 'delrow':if(r&&confirm('ลบรายการนี้?')){b.rows=b.rows.filter(x=>x!==r);boqSave();boqRender();}break;
+      case 'pickmat':if(r)boqOpenModal(r.key,'mat');break;
+      case 'picklab':if(r)boqOpenModal(r.key,'lab');break;
+    }
+  });
+  /* หน้าต่างผูกราคา */
+  bqEl('bq-mclose').onclick=boqCloseModal;
+  bqEl('bq-modal').addEventListener('click',e=>{if(e.target.id==='bq-modal')boqCloseModal();});
+  bqEl('bq-msearch').addEventListener('input',boqModalList);
+  bqEl('bq-mtabs').addEventListener('click',e=>{const t=e.target.dataset.tab;if(t){bq.tab=t;boqModalList();}});
+}
+function boqCloseModal(){bqEl('bq-modal').style.display='none';bq.modal=null;}
+function boqOpenModal(key,kind){
+  const b=boqGet(),r=b.rows.find(x=>x.key===key);if(!r)return;
+  bq.modal={key,kind};bq.tab=kind==='mat'?'mat':'wage';
+  bqEl('bq-mtitle').textContent=kind==='mat'?'ผูกราคาค่าวัสดุ':'ผูกราคาค่าแรง';
+  bqEl('bq-mlabel').innerHTML='รายการ: <strong style="color:#34d399">'+esc(r.name||'(ยังไม่ตั้งชื่อ)')+'</strong> · หน่วย '+esc(r.unit||'—')+' (ระบบแปลงหน่วยราคาให้เมื่อทำได้)';
+  bqEl('bq-msearch').value=r.name||'';
+  bqEl('bq-modal').style.display='flex';
+  boqModalList();bqEl('bq-msearch').focus();bqEl('bq-msearch').select();
+}
+function boqPick(r,kind,val){
+  if(kind==='mat')r.mat=val;else r.lab=val;
+  boqSave();boqCloseModal();boqRender();boqUpdateNumbers();
+}
+function boqModalList(){
+  const md=bq.modal;if(!md)return;
+  const b=boqGet(),r=b.rows.find(x=>x.key===md.key);if(!r)return;
+  const q=bqEl('bq-msearch').value.trim(),list=bqEl('bq-mlist'),tabs=bqEl('bq-mtabs');
+  const tabDefs=md.kind==='mat'?[['mat','พาณิชย์'],['comp','วัสดุมวลรวม'],['survey','ราคาสืบ'],['manual','กรอกเอง'],['none','ไม่มีค่าวัสดุ']]:[['wage','ค่าแรง ว.480'],['manual','กรอกเอง'],['none','ไม่มีค่าแรง']];
+  tabs.innerHTML=tabDefs.map(([k,l])=>`<button type="button" class="sv-chip${bq.tab===k?' on':''}" data-tab="${k}">${l}</button>`).join('');
+  bqEl('bq-msearch').style.display=(bq.tab==='manual'||bq.tab==='none')?'none':'';
+  const row=(name,meta,price,i)=>`<div class="modal-row" data-i="${i}"><div style="min-width:0"><div class="modal-row-name">${esc(name)}</div><div class="modal-row-meta">${esc(meta)}</div></div><div class="modal-row-price">${price}</div></div>`;
+  let items=[],html='';
+  const cur=md.kind==='mat'?r.mat:r.lab;
+  if(bq.tab==='mat'){
+    items=(q?smFilter(allData,q,d=>[{text:d.code,weight:10},{text:d.name,weight:6},{text:d.catName,weight:2}],40):allData.slice(0,40));
+    html=items.map((d,i)=>row(d.name,d.code+' · '+(d.catName||'')+' · '+(d.province||''),d.price?bqF2(d.price)+' / '+esc(d.unit):'—',i)).join('');
+    list._pick=i=>boqPick(r,'mat',{kind:'mat',code:items[i].code,label:items[i].name});
+  }else if(bq.tab==='comp'){
+    if(typeof compLoaded!=='undefined'&&!compLoaded){html='<div class="sv-hint" style="padding:14px">กำลังโหลดข้อมูลวัสดุมวลรวม...</div>';items=[];}
+    else{items=q?smFilter(compList,q,d=>[{text:d.name,weight:8},{text:d.sub,weight:5},{text:COMP_GROUPS[d.group]||'',weight:2}],40):compList.slice(0,40);
+      html=items.map((c,i)=>{const pr=PDB.compPrice(c.id,{});return row(c.sub+' '+c.name,COMP_GROUPS[c.group]||'',pr&&pr.price!==null?bqF2(pr.price)+' / '+esc(c.unit):'คิดไม่ครบ ('+esc(c.unit)+')',i);}).join('');}
+    list._pick=i=>boqPick(r,'mat',{kind:'comp',code:items[i].sub,label:items[i].sub+' '+items[i].name});
+  }else if(bq.tab==='survey'){
+    const pool=(typeof sv!=='undefined'?sv.items:[]).filter(x=>Survey.summary(x).price!==null);
+    items=q?smFilter(pool,q,d=>[{text:d.name,weight:8}],40):pool.slice(0,40);
+    html=items.length?items.map((x,i)=>{const s=Survey.summary(x);return row(x.name,s.n+' เจ้า'+(s.n<Survey.MIN_Q?' (ไม่ครบ '+Survey.MIN_Q+')':'')+' · ไม่รวม VAT',bqF2(s.price)+' / '+esc(x.unit),i);}).join(''):'<div class="sv-hint" style="padding:14px">ยังไม่มีราคาสืบที่ตรงกัน — สืบเพิ่มได้ที่แท็บ "ราคาสืบ"</div>';
+    list._pick=i=>boqPick(r,'mat',{kind:'survey',key:items[i].key,label:items[i].name});
+  }else if(bq.tab==='wage'){
+    const nm=d=>wIsLeafH2(d)?(d.h2||d.h1):([d.h3||d.h2,d.h4].filter(x=>x&&x!=='-').join(' — ')||d.h1);
+    const pool=wageData.filter(d=>d.code);
+    items=q?smFilter(pool,q,d=>[{text:[d.h3,d.h4].filter(x=>x&&x!=='-').join(' '),weight:8},{text:d.h2&&d.h2!=='-'?d.h2:'',weight:5},{text:d.h1,weight:3},{text:d.code,weight:6}],40):pool.slice(0,40);
+    html=items.map((d,i)=>row(nm(d),d.code+' · '+(d.sheetLabel||''),d.price?bqF2(d.price)+' / '+esc(d.unit):esc(d.rawPrice||'—'),i)).join('');
+    list._pick=i=>boqPick(r,'lab',{kind:'wage',code:items[i].code,label:nm(items[i])});
+  }else if(bq.tab==='manual'){
+    const v=cur&&cur.kind==='manual'?cur.price:'';
+    html=`<div style="padding:16px;display:flex;gap:8px;align-items:center"><input class="bq-in n" id="bq-manual" type="number" step="any" min="0" placeholder="ราคาต่อหน่วย (บาท/${esc(r.unit||'หน่วย')})" value="${esc(v)}" style="max-width:240px"><button class="btn btn-green" type="button" id="bq-manual-ok">ใช้ราคานี้</button></div>`;
+    list._pick=null;
+  }else{
+    html=`<div style="padding:16px"><button class="btn btn-ghost" type="button" id="bq-none-ok">${md.kind==='mat'?'ยืนยัน: รายการนี้ไม่มีค่าวัสดุ (ค่าแรงอย่างเดียว)':'ยืนยัน: รายการนี้ไม่มีค่าแรง'}</button></div>`;
+    list._pick=null;
+  }
+  list.innerHTML=html||'<div class="sv-hint" style="padding:14px">ไม่พบรายการ</div>';
+  list.onclick=e=>{
+    const rw=e.target.closest('.modal-row');if(rw&&list._pick){list._pick(+rw.dataset.i);return;}
+    if(e.target.id==='bq-manual-ok'){const v=bqEl('bq-manual').value;if(v===''){return;}boqPick(r,md.kind,{kind:'manual',price:+v,label:'กรอกเอง'});}
+    if(e.target.id==='bq-none-ok')boqPick(r,md.kind,{kind:'none'});
+  };
+}
+boqBind();
 </script>
 
 <div class="credit-bar">
