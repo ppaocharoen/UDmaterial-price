@@ -3519,6 +3519,8 @@ function boqRender(){
     </div></div>
     <div class="sv-bar"><button class="btn btn-green" type="button" onclick="boqAddGroup()">+ เพิ่มหมวด</button>
       <button class="btn btn-ghost" type="button" onclick="boqImpOpen()">📥 นำเข้าจาก Excel</button>
+      <button class="btn btn-ghost" type="button" onclick="boqLinkExport()" title="ไฟล์ความจำการผูกราคาตามชื่อรายการ — ส่งให้เพื่อนร่วมงานนำเข้าได้">💾 ส่งออกความจำการผูก</button>
+      <button class="btn btn-ghost" type="button" onclick="boqLinkImportPick()">📂 นำเข้าความจำการผูก</button>
       <span style="font-size:12px;color:var(--text3)">เลขหมวด: หมวดหลักเป็นเลขเดียว (1, 2, 3) หมวดย่อยใช้ 1.1, 1.2 …</span></div>`;
   const T=boqCompute(b);
   const groups=boqGroupsSorted(b);
@@ -3667,6 +3669,42 @@ function boqLinkRemember(name,kind,val){
     const ks=Object.keys(m[bucket]);if(ks.length>1500)delete m[bucket][ks[0]];
     localStorage.setItem(BQ_LINK_KEY,JSON.stringify(m));
   }catch(e){}
+}
+function boqLinkExport(){
+  const m=boqLinkMem(),n=Object.keys(m.mat||{}).length+Object.keys(m.lab||{}).length;
+  if(!n){alert('ยังไม่มีความจำการผูก — เมื่อคุณเลือกผูกวัสดุ/ค่าแรงให้รายการ ระบบจะจำไว้ให้เอง');return;}
+  const out={format:'ud-costhub-boqlink',version:1,exportedAt:new Date().toISOString(),mat:m.mat||{},lab:m.lab||{}};
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(out)],{type:'application/json'}));
+  const d=new Date();a.download='UD-CostHub_ความจำการผูกBOQ_'+(d.getFullYear()+543)+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')+'.json';
+  a.click();URL.revokeObjectURL(a.href);
+}
+function boqLinkImportPick(){
+  const inp=document.createElement('input');inp.type='file';inp.accept='.json,application/json';
+  inp.onchange=async()=>{
+    const f=inp.files[0];if(!f)return;
+    try{
+      if(f.size>5*1024*1024)throw new Error('ไฟล์ใหญ่เกินไป');
+      const d=JSON.parse(await f.text());
+      if(!d||d.format!=='ud-costhub-boqlink')throw new Error('ไม่ใช่ไฟล์ความจำการผูก BOQ ของ UD-Cost Hub');
+      const str=v=>typeof v==='string'?v.slice(0,300):'';
+      const clean=(o,kinds)=>{const out={};Object.keys(o&&typeof o==='object'?o:{}).slice(0,5000).forEach(k=>{
+        const v=o[k];if(!v||typeof v!=='object'||!kinds.includes(v.kind))return;
+        const c={kind:v.kind};
+        if(v.kind==='survey')c.key=str(v.key);else if(v.kind!=='none')c.code=str(v.code);
+        if(v.kind!=='none'&&!(c.key||c.code))return;
+        c.label=str(v.label);out[str(k).toLowerCase()]=c;});return out;};
+      const add={mat:clean(d.mat,['mat','comp','survey','none']),lab:clean(d.lab,['wage','none'])};
+      const nA=Object.keys(add.mat).length+Object.keys(add.lab).length;
+      if(!nA)throw new Error('ไม่พบรายการที่ใช้ได้ในไฟล์');
+      const cur=boqLinkMem();
+      const newer=(a,b)=>Object.keys(b).filter(k=>!(a&&a[k])).length;
+      const added=newer(cur.mat,add.mat)+newer(cur.lab,add.lab);
+      cur.mat=Object.assign({},cur.mat,add.mat);cur.lab=Object.assign({},cur.lab,add.lab);
+      localStorage.setItem(BQ_LINK_KEY,JSON.stringify(cur));
+      alert('นำเข้าความจำการผูก '+nA+' รายการ (เพิ่มใหม่ '+added+', อีก '+(nA-added)+' รายการทับของเดิมที่ชื่อเดียวกัน)');
+    }catch(e){alert('นำเข้าไม่สำเร็จ: '+e.message);}
+  };
+  inp.click();
 }
 function boqPick(r,kind,val){
   boqLinkRemember(r.name,kind,val);
