@@ -323,6 +323,17 @@ table.main td.sm{font-size:11px;color:var(--text2);}
 .sv-msg{font-size:12px;margin-left:4px;}
 .sv-msg.err{color:var(--red);}
 #sv-toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--bg3);border:1px solid var(--border2);color:var(--text);padding:8px 16px;border-radius:99px;font-size:13px;z-index:300;display:none;}
+#sv-banner{border-radius:var(--radius);padding:10px 14px;font-size:13px;margin:8px 0 6px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;border:1px solid var(--border);}
+#sv-banner.central{background:var(--green-dim);border-color:var(--green-border);color:var(--green);}
+#sv-banner.local{background:var(--amber-dim);border-color:var(--amber-border);color:var(--amber);}
+#sv-banner.offline{background:rgba(240,96,96,.12);border-color:rgba(240,96,96,.35);color:var(--red);}
+#sv-banner .btn{padding:5px 12px;font-size:12px;}
+.sv-where{display:inline-block;font-size:10px;font-weight:700;border-radius:99px;padding:2px 8px;margin-left:6px;border:1px solid var(--border);}
+.sv-where.central{background:var(--green-dim);color:var(--green);border-color:var(--green-border);}
+.sv-where.local{background:var(--amber-dim);color:var(--amber);border-color:var(--amber-border);}
+.sv-where.fail{background:rgba(240,96,96,.12);color:var(--red);border-color:rgba(240,96,96,.35);}
+.sv-q.paste-target{border-color:var(--amber);box-shadow:0 0 0 1px var(--amber-border);}
+.sv-hint{font-size:11px;color:var(--text3);margin-top:6px;}
 @media print{#page-survey,#sv-toast,#sv-modal,#sv-imgmodal,#cp-sv-modal{display:none!important;}}
 /* ===== สรุปโครงการ ===== */
 .ps-wrap{max-width:960px;margin:0 auto;padding:28px 20px 60px;}
@@ -2756,6 +2767,7 @@ setTimeout(projLoadIntoApp, 0);
     <button class="btn btn-ghost" type="button" id="sv-imp">นำเข้า .json</button>
     <input type="file" id="sv-impfile" accept=".json,application/json" style="display:none">
   </div>
+  <div id="sv-banner" class="local">กำลังตรวจสอบการเชื่อมต่อคลังกลาง...</div>
   <div class="sv-stat" id="sv-libstat"></div>
   <div class="sv-add" id="sv-addbox">
     <div class="sv-grid" style="grid-template-columns:2fr 1fr auto;align-items:end">
@@ -2794,23 +2806,90 @@ setTimeout(projLoadIntoApp, 0);
 <script src="lib/survey-v1.js"></script>
 <script>
 /* ===== ราคาสืบ — ใช้คลังกลางเดียวกับ UD-Total-Station (รูปแบบข้อมูลเดียวกัน, คีย์ = Survey.libKey(ชื่อ, หน่วย)) ===== */
-const sv={items:[],open:null,filter:'all',q:'',loaded:false,imgs:{}};
+const sv={items:[],open:null,filter:'all',q:'',loaded:false,imgs:{},mode:'local',modeErr:'',focusQ:null};
 const SV_ST={ok:'ครบ 3 เจ้า',few:'ไม่ครบ 3 เจ้า',none:'ยังไม่สืบ'};
 const svEl=id=>document.getElementById(id);
-function svToast(t){const e=svEl('sv-toast');e.textContent=t;e.style.display='block';clearTimeout(svToast._t);svToast._t=setTimeout(()=>{e.style.display='none';},2600);}
+function svToast(t,ms){const e=svEl('sv-toast');e.textContent=t;e.style.display='block';clearTimeout(svToast._t);svToast._t=setTimeout(()=>{e.style.display='none';},ms||2600);}
 function svStatus(t,err){const e=svEl('sv-libstat');e.style.color=err?'var(--red)':'';e.textContent=t;}
 function svLibStatus(extra){
-  const c=Survey.cfg();
-  svStatus((Survey.remote()?'คลังกลาง: เชื่อมต่อ'+(c.team?'':' (ยังไม่ได้ใส่รหัสทีม — กดตั้งค่า)'):'คลังในเครื่องนี้ (ยังไม่ได้เชื่อมคลังกลาง — กดตั้งค่า)')+' · '+sv.items.length+' รายการ'+(extra?' · '+extra:''),false);
+  svBanner();
+  svStatus(sv.items.length+' รายการ'+(extra?' · '+extra:''),false);
 }
 function svNorm(x){
-  return {key:x.key||Survey.libKey(x.name,x.unit),name:x.name||'',unit:x.unit||'',target:'manual',quotes:JSON.parse(JSON.stringify(x.quotes||[])),reason:x.reason||'',updated:x.updated||'',project:x.project||'',ref:x.ref||'',aliases:x.aliases||[],imgs:Object.assign({},x.imgs||{})};
+  return {key:x.key||Survey.libKey(x.name,x.unit),name:x.name||'',unit:x.unit||'',target:'manual',quotes:JSON.parse(JSON.stringify(x.quotes||[])),reason:x.reason||'',updated:x.updated||'',project:x.project||'',ref:x.ref||'',aliases:x.aliases||[],imgs:Object.assign({},x.imgs||{}),_where:x._where||(sv.mode==='central'?'central':'local')};
 }
 async function svLoad(force){
   svStatus('กำลังโหลดคลัง...');
-  try{const all=await Survey.libAll(force);sv.items=(all||[]).map(svNorm);sv.loaded=true;svLibStatus();if(typeof cpSvLabels==='function'&&document.querySelector('[id^="cp-sv-"]'))setTimeout(cpSvLabels,0);}
-  catch(e){svStatus('โหลดคลังไม่ได้: '+e.message,true);}
+  let mode='local';sv.modeErr='';
+  if(Survey.remote()){
+    if(!Survey.cfg().team)mode='noteam';
+    else{
+      try{const r=await Survey.ping();mode=(r&&r.ok)?'central':'offline';if(!(r&&r.ok))sv.modeErr=(r&&r.error)||'';}
+      catch(e){mode='offline';sv.modeErr=e.message;}
+    }
+  }
+  sv.mode=mode;
+  try{
+    const loc=(await Survey.localAll())||[];
+    if(mode==='central'){
+      const cen=(await Survey.libAll(force))||[],byKey={};
+      cen.forEach(x=>{byKey[x.key]=Object.assign(svNorm(x),{_where:'central'});});
+      loc.forEach(x=>{const k=x.key||Survey.libKey(x.name,x.unit),c=byKey[k];
+        if(!c)byKey[k]=Object.assign(svNorm(x),{_where:'local'});                       /* มีแต่ในเครื่อง — ยังไม่ขึ้นคลังกลาง */
+        else if((x.updated||'')>(c.updated||''))byKey[k]=Object.assign(svNorm(x),{_where:'local'});});   /* ในเครื่องใหม่กว่าคลังกลาง */
+      sv.items=Object.values(byKey);
+    }else sv.items=loc.map(x=>Object.assign(svNorm(x),{_where:'local'}));
+    sv.loaded=true;svLibStatus();
+    if(typeof cpSvLabels==='function'&&document.querySelector('[id^="cp-sv-"]'))setTimeout(cpSvLabels,0);
+  }catch(e){svStatus('โหลดคลังไม่ได้: '+e.message,true);}
   svRender();
+}
+const svHasPrice=it=>(it.quotes||[]).some(q=>+q.price>0);
+function svPending(){return sv.items.filter(it=>sv.mode==='central'&&svHasPrice(it)&&it._where!=='central');}
+function svWhereHtml(it){
+  if(!svHasPrice(it))return '';
+  if(it._where==='central')return '<span class="sv-where central" title="รายการนี้อยู่ในคลังกลางแล้ว คนอื่นเห็นได้">☁ คลังกลาง</span>';
+  if(it._where==='fail')return '<span class="sv-where fail" title="บันทึกในเครื่องแล้ว แต่ส่งขึ้นคลังกลางไม่สำเร็จ">⚠ ส่งขึ้นคลังกลางไม่สำเร็จ</span>';
+  return sv.mode==='central'
+    ?'<span class="sv-where local" title="มีอยู่เฉพาะในเบราว์เซอร์เครื่องนี้ คนอื่นยังไม่เห็น">💾 เฉพาะเครื่องนี้ · ยังไม่ขึ้นคลังกลาง</span>'
+    :'<span class="sv-where local" title="บันทึกในเบราว์เซอร์เครื่องนี้ ไม่ได้เข้าคลังกลาง">💾 ในเครื่องนี้</span>';
+}
+function svBanner(){
+  const b=svEl('sv-banner'),n=svPending().length,m=sv.mode||'local';
+  const cfgBtn='<button class="btn btn-ghost" type="button" data-bact="cfg">ตั้งค่าคลังกลาง</button>';
+  if(m==='central'){
+    b.className='central';
+    b.innerHTML='<span>☁ <b>เชื่อมคลังกลางแล้ว</b> — รายการที่แสดงมาจากคลังกลาง และราคาที่สืบจะบันทึกเข้าคลังกลางอัตโนมัติ</span>'
+      +(n?`<span style="color:var(--amber)">· มี ${n} รายการที่ยังอยู่เฉพาะเครื่องนี้</span><button class="btn btn-amber" type="button" data-bact="push">ส่งที่ค้างอยู่ขึ้นคลังกลาง (${n})</button>`:'');
+  }else if(m==='offline'){
+    b.className='offline';
+    b.innerHTML='<span>⚠ <b>ติดต่อคลังกลางไม่ได้</b>'+(sv.modeErr?' ('+esc(sv.modeErr)+')':'')+' — รายการที่แสดงเป็นสำเนาในเครื่องนี้ ราคาที่สืบตอนนี้จะเก็บในเครื่องก่อน ยังไม่เข้าคลังกลาง</span><button class="btn btn-ghost" type="button" data-bact="retry">ลองเชื่อมใหม่</button>'+cfgBtn;
+  }else{
+    b.className='local';
+    b.innerHTML='<span>💾 <b>ใช้คลังในเครื่องนี้เท่านั้น</b> — '+(m==='noteam'?'ตั้งค่าคลังกลางไว้แล้วแต่ยังไม่ได้ใส่รหัสทีม ':'ยังไม่ได้เชื่อมคลังกลาง ')+'ราคาที่สืบจะ<b>ไม่เข้าคลังกลาง</b> คนอื่นไม่เห็น และจะหายถ้าล้างข้อมูลเบราว์เซอร์</span>'+cfgBtn;
+  }
+}
+function svRefreshBadge(it){
+  const card=document.querySelector('.sv-card[data-k="'+CSS.escape(it.key)+'"]');
+  if(card){const old=card.querySelector('.sv-where'),h=svWhereHtml(it);
+    if(old)old.outerHTML=h;else if(h)card.querySelector('.sv-name').insertAdjacentHTML('beforeend',h);}
+  svBanner();
+}
+function svPayload(it){
+  const imgs=Object.assign({},it.imgs);
+  (it.quotes||[]).forEach(q=>(q.imgs||[]).forEach(id=>{if(!imgs[id]&&sv.imgs[id])imgs[id]=sv.imgs[id];}));
+  return {key:it.key,name:it.name,unit:it.unit,quotes:it.quotes,reason:it.reason,imgs,updated:it.updated,project:it.project||'Cost Hub',ref:it.ref||''};
+}
+async function svPushPending(){
+  const list=svPending();if(!list.length)return;
+  svToast('กำลังส่ง '+list.length+' รายการขึ้นคลังกลาง...',6000);
+  let ok=0,bad=0,last='';
+  for(const it of list){
+    try{await Survey.libPut(it.key,svPayload(it));it._where='central';ok++;}
+    catch(er){it._where='fail';bad++;last=er.message;}
+  }
+  svRender();
+  svToast(bad?`ส่งสำเร็จ ${ok} · ไม่สำเร็จ ${bad} (${last})`:`✓ ส่งขึ้นคลังกลางแล้ว ${ok} รายการ`,bad?7000:3500);
 }
 function svVisible(){
   const q=Survey.normName(sv.q);
@@ -2827,11 +2906,12 @@ function svRender(){
   const list=svVisible();
   svEl('sv-list').innerHTML=list.length?list.map(svCard).join(''):'<div style="padding:30px;text-align:center;color:var(--text3);font-size:13px">ไม่มีรายการ — กด "+ เพิ่มรายการสืบ" เพื่อเริ่มสืบ หรือรอโหลดคลัง</div>';
   if(sv.open){const it=sv.items.find(x=>x.key===sv.open);if(it)svHydrateImgs(it);}
+  svBanner();svMarkTarget();
 }
 function svCard(it){
   const s=Survey.summary(it),open=sv.open===it.key,age=Survey.ageDays(it.updated);
   return `<div class="sv-card" data-k="${esc(it.key)}">
-    <div class="sv-head" data-toggle="1"><div><div class="sv-name">${esc(it.name)}<span class="sv-pill ${s.status}">${SV_ST[s.status]}</span></div>
+    <div class="sv-head" data-toggle="1"><div><div class="sv-name">${esc(it.name)}<span class="sv-pill ${s.status}">${SV_ST[s.status]}</span>${svWhereHtml(it)}</div>
     <div class="sv-meta">หน่วย ${esc(it.unit)} · ${s.n} เจ้า${age!==null?' · สืบเมื่อ '+age+' วันก่อน':''}${age>90?' ⚠ เกิน 90 วัน':''}${it.project?' · '+esc(it.project):''}${projSvHas(it.key)?' · <span style="color:var(--green)">✓ อยู่ในโครงการ</span>':''}</div></div>
     <div class="sv-price">${s.price!==null?s.price.toLocaleString('th-TH',{minimumFractionDigits:2,maximumFractionDigits:2}):'—'}<div class="sv-meta" style="font-family:Sarabun">บาท/${esc(it.unit)} ไม่รวม VAT</div></div></div>
     ${open?svEditor(it,s):''}</div>`;
@@ -2855,7 +2935,9 @@ function svEditor(it,s){
     <label style="font-size:11px;color:var(--text3);display:flex;flex-direction:column;gap:3px;margin-top:8px">หมายเหตุ<input class="sv-in" data-f="note" value="${esc(q.note||'')}"></label>
     <div class="sv-calc" data-calc="1">${svCalc(q)}</div>
     <div class="sv-imgs">${(q.imgs||[]).map(id=>`<span data-imgwrap="${esc(id)}"><img data-img="${esc(id)}" alt="หลักฐาน"><a style="color:var(--red);cursor:pointer;font-size:11px" data-imgdel="${esc(id)}"> ×</a></span>`).join('')}
-      <label class="btn btn-ghost" style="padding:5px 10px;font-size:12px;cursor:pointer">+ แนบภาพ<input type="file" accept="image/*" multiple data-imgadd="1" style="display:none"></label></div>
+      <label class="btn btn-ghost" style="padding:5px 10px;font-size:12px;cursor:pointer">+ แนบภาพ<input type="file" accept="image/*" multiple data-imgadd="1" style="display:none"></label>
+      <button class="btn btn-ghost" type="button" style="padding:5px 10px;font-size:12px" data-imgpaste="1">📋 วางภาพจากคลิปบอร์ด</button></div>
+    <div class="sv-hint">💡 ถ่ายหน้าจอ (เช่น Win+Shift+S) แล้วคลิกในช่องของเจ้านี้ กด Ctrl+V ได้เลย</div>
   </div>`;}).join('');
   return `<div class="sv-body">
     <div class="sv-lib" data-libhint="1"></div>
@@ -2884,11 +2966,16 @@ function svSave(it){
   clearTimeout(svSave._t[it.key]);
   svSave._t[it.key]=setTimeout(()=>{
     if(!(it.quotes||[]).some(q=>+q.price>0))return;
-    const imgs=Object.assign({},it.imgs);
-    (it.quotes||[]).forEach(q=>(q.imgs||[]).forEach(id=>{if(!imgs[id]&&sv.imgs[id])imgs[id]=sv.imgs[id];}));
-    Survey.libPut(it.key,{key:it.key,name:it.name,unit:it.unit,quotes:it.quotes,reason:it.reason,imgs,updated:it.updated,project:'Cost Hub',ref:it.ref||''})
-      .then(()=>svLibStatus(Survey.remote()?'บันทึกเข้าคลังกลางแล้ว':'บันทึกในเครื่องแล้ว'))
-      .catch(er=>svStatus('บันทึกเข้าคลังกลางไม่ได้: '+er.message+' (เก็บในเครื่องไว้ก่อน)',true));
+    const central=sv.mode==='central';
+    Survey.libPut(it.key,svPayload(it))
+      .then(()=>{
+        it._where=central?'central':'local';svRefreshBadge(it);
+        svToast(central?'✓ บันทึกเข้าคลังกลางแล้ว':'💾 บันทึกในเครื่องนี้เท่านั้น — ยังไม่เข้าคลังกลาง',central?2600:5000);
+      })
+      .catch(er=>{
+        it._where=central?'fail':'local';svRefreshBadge(it);
+        svToast(central?'⚠ ส่งขึ้นคลังกลางไม่สำเร็จ ('+er.message+') — เก็บในเครื่องไว้ก่อน กด "ส่งที่ค้างอยู่ขึ้นคลังกลาง" ภายหลังได้':'💾 บันทึกในเครื่องนี้เท่านั้น — ยังไม่เข้าคลังกลาง',7000);
+      });
   },800);
 }
 svSave._t={};
@@ -2926,12 +3013,28 @@ function svFieldChange(el){
     card.querySelectorAll('[data-q]').forEach(n=>n.classList.toggle('best',!!s.best&&n.dataset.q===s.best.id));
   }
 }
+function svMarkTarget(){document.querySelectorAll('#sv-list .sv-q').forEach(n=>n.classList.toggle('paste-target',n.dataset.q===sv.focusQ));}
+async function svAttach(it,q,files){
+  let n=0;
+  for(const f of files){try{const d=await Survey.compress(f);const id=Survey.uid('i');sv.imgs[id]=d;await Survey.imgPut(id,d);q.imgs=(q.imgs||[]).concat(id);n++;}catch(er){svToast('แนบภาพไม่ได้: '+(f.name||'ภาพ'));}}
+  if(n){svSave(it);svRender();}
+  return n;
+}
+async function svPasteBtn(it,q){
+  try{
+    const cis=await navigator.clipboard.read(),files=[];
+    for(const ci of cis){const ty=ci.types.find(t=>t.startsWith('image/'));if(ty){const b=await ci.getType(ty);files.push(new File([b],'clip.'+ty.split('/')[1],{type:ty}));}}
+    if(!files.length){svToast('ในคลิปบอร์ดไม่มีภาพ — ถ่ายหน้าจอก่อน (เช่น Win+Shift+S) แล้วกดอีกครั้ง',4500);return;}
+    if(await svAttach(it,q,files))svToast('✓ แนบภาพจากคลิปบอร์ดแล้ว');
+  }catch(e){svToast('เบราว์เซอร์ไม่อนุญาตอ่านคลิปบอร์ด — คลิกในช่องของเจ้านี้แล้วกด Ctrl+V แทน',5000);}
+}
 function svBind(){
   svEl('sv-list').addEventListener('click',async e=>{
     const card=e.target.closest('.sv-card');if(!card)return;
     const it=sv.items.find(x=>x.key===card.dataset.k);if(!it)return;
     const t=e.target;
     if(t.closest('[data-qdel]')){if(confirm('ลบเจ้านี้?')){const id=t.closest('[data-q]').dataset.q;it.quotes=it.quotes.filter(q=>q.id!==id);svSave(it);svRender();}return;}
+    if(t.dataset.imgpaste){const qq=it.quotes.find(x=>x.id===t.closest('[data-q]').dataset.q);if(qq){sv.focusQ=qq.id;svPasteBtn(it,qq);}return;}
     if(t.dataset.qadd){svAddQuote(it);svRender();return;}
     if(t.dataset.pjadd||t.dataset.pjupd){if(projSvUpsert(it)){svToast(t.dataset.pjadd?'เพิ่มเข้าโครงการแล้ว':'อัปเดตสำเนาในโครงการแล้ว');svRender();}else svToast('ต้องมีราคาสืบอย่างน้อย 1 เจ้า และเลือกโครงการก่อน');return;}
     if(t.dataset.pjrm){projSvRemove(it.key);svToast('นำออกจากโครงการแล้ว');svRender();return;}
@@ -2947,8 +3050,7 @@ function svBind(){
     const t=e.target;
     if(t.dataset.imgadd){
       const card=t.closest('.sv-card'),it=sv.items.find(x=>x.key===card.dataset.k),q=it&&it.quotes.find(x=>x.id===t.closest('[data-q]').dataset.q);if(!q)return;
-      for(const f of t.files){try{const d=await Survey.compress(f);const id=Survey.uid('i');sv.imgs[id]=d;await Survey.imgPut(id,d);q.imgs=(q.imgs||[]).concat(id);}catch(er){svToast('แนบภาพไม่ได้: '+f.name);}}
-      svSave(it);svRender();return;
+      await svAttach(it,q,[...t.files]);t.value='';return;
     }
     svFieldChange(t);
   });
@@ -2956,6 +3058,19 @@ function svBind(){
   svEl('sv-chips').addEventListener('click',e=>{const k=e.target.dataset.chip;if(k){sv.filter=k;svRender();}});
   svEl('sv-q').addEventListener('input',e=>{sv.q=e.target.value;svRender();});
   svEl('sv-refresh').onclick=()=>svLoad(true);
+  svEl('sv-banner').addEventListener('click',e=>{const a=e.target.dataset.bact;if(a==='cfg')svEl('sv-libcfg').click();else if(a==='retry')svLoad(true);else if(a==='push')svPushPending();});
+  svEl('sv-list').addEventListener('focusin',e=>{const q=e.target.closest('[data-q]');if(q){sv.focusQ=q.dataset.q;svMarkTarget();}});
+  svEl('sv-list').addEventListener('click',e=>{const q=e.target.closest('[data-q]');if(q){sv.focusQ=q.dataset.q;svMarkTarget();}});
+  document.addEventListener('paste',e=>{
+    if(!svEl('page-survey').classList.contains('active'))return;
+    const files=[...((e.clipboardData&&e.clipboardData.items)||[])].filter(i=>i.kind==='file'&&i.type.startsWith('image/')).map(i=>i.getAsFile()).filter(Boolean);
+    if(!files.length)return;
+    e.preventDefault();
+    const it=sv.items.find(x=>x.key===sv.open);
+    if(!it||!(it.quotes||[]).length){svToast('เปิดรายการและคลิกในช่องของเจ้าที่จะแนบภาพก่อน แล้วกด Ctrl+V',4000);return;}
+    const q=it.quotes.find(x=>x.id===sv.focusQ)||it.quotes[it.quotes.length-1];
+    svAttach(it,q,files).then(n=>{if(n)svToast('✓ แนบภาพจากคลิปบอร์ดให้เจ้าที่ '+(it.quotes.indexOf(q)+1)+' แล้ว');});
+  });
   svEl('sv-pdf').onclick=svPrint;
   svEl('sv-xls').onclick=svExportExcel;
   svEl('sv-imgmodal').onclick=()=>{svEl('sv-imgmodal').style.display='none';};
