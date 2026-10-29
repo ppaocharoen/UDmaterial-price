@@ -4283,6 +4283,20 @@ const BQ_EXCELJS={src:'https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exce
 function bqLoadScript(src,sri){
   return new Promise((ok,no)=>{const sc=document.createElement('script');sc.src=src;if(sri){sc.integrity=sri;sc.crossOrigin='anonymous';}sc.onload=ok;sc.onerror=()=>no(new Error('โหลดไม่ได้: '+src));document.head.appendChild(sc);});
 }
+/* ข้อมูลราคาที่ Backup ไว้ในโครงการ → ชีต "ที่มาของราคา" ในไฟล์ Excel */
+function boqSourcesData(){
+  const p=projGetActive();if(!p)return null;
+  const r2=BoqCalc.r2;
+  const materials=(p.materials||[]).map(it=>({name:it.name||'',cat:it.catName||'',unit:it.unit||'',price:it.price,province:it.province||''}));
+  const wages=(p.wages||[]).map(it=>({name:wIsLeafH2(it)?(it.h2||it.h1):([it.h3||it.h2,it.h4].filter(x=>x&&x!=='-').join(' — ')||it.h1),sheet:it.sheetLabel||'',unit:it.unit||'',price:it.price,raw:it.rawPrice||''}));
+  const comps=(p.composites||[]).map(c=>({title:((c.comp.sub||'')+' '+(c.comp.name||'')).trim(),unit:c.comp.unit||'หน่วย',total:c.total,
+    lines:(c.snapshot||[]).map(it=>{const fx=it.fixedPrice!==null&&it.fixedPrice!==undefined,price=fx?it.fixedPrice:(it.price||0);
+      return {name:it.itemName||'',qty:+it.qty||0,unit:it.unit||'',price,amount:price>0?r2((+it.qty||0)*price):null,src:fx?'(ราคาตายตัว)':(it.province||'')};})}));
+  const surveys=(p.surveys||[]).map(it=>{const sm=Survey.summary(it);
+    return {name:it.name||'',unit:it.unit||'',n:sm.n,need:Survey.MIN_Q,price:sm.price,
+      quotes:sm.list.map(x=>({shop:x.q.shop||'',contact:[Survey.CHANNEL[x.q.channel]||'',x.q.contact||''].filter(Boolean).join(' · '),date:x.q.date||'',price:x.q.price,factor:x.q.factor||1,vat:!!x.q.vat,up:x.up,best:!!(sm.best&&x.q.id===sm.best.id)}))};});
+  return {materials,wages,comps,surveys};
+}
 function boqFormData(b,T){
   const i=b.info,est=(i.mode||'estimate')==='estimate',top=c=>String(c).split('.')[0];
   const rows=T.pr.filter(r=>String(r.name||'').trim());
@@ -4302,6 +4316,7 @@ function boqFormData(b,T){
     factor:{F:T.ff.F,advance:+fc.advance||0,retention:+fc.retention||0,loanShare:(+fc.loanPct||0)/100,table:FactorF.TABLES['adv'+(+fc.advance||0)+'_ret'+(+fc.retention||0)]||[]},
     pr2:(b.pr2||[]).map(x=>({name:x.name,qty:+x.qty||0,unit:x.unit,price:+x.price||0,install:+x.install||0})),
     pr3:(b.pr3||[]).map(x=>({name:x.name,qty:+x.qty||0,unit:x.unit,amount:+x.amount||0,note:x.note})),
+    sources:boqSourcesData(),
     expect:T.grand,pr4Text:T.pr4===null?'':BoqCalc.bahtText(T.pr4)};
 }
 async function boqExportXlsx(){
