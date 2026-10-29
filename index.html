@@ -4321,6 +4321,8 @@ async function boqExportXlsx(){
       const hf=ws.headerFooter||{};
       ['oddHeader','oddFooter','evenHeader','evenFooter','firstHeader','firstFooter'].forEach(k=>{if(typeof hf[k]==='string')hf[k]=hf[k].replace(/&G/g,'');});
       (ws.rowBreaks||[]).forEach(b=>{if(b.max>16383)b.max=16383;});
+      /* ExcelJS เขียน <pageSetUpPr> ก่อน <outlinePr> ผิดลำดับตามสคีมา → Excel ฟ้อง XML error แล้วทิ้งแผ่นงาน: ตัด outlinePr ออก */
+      if(ws.properties)ws.properties.outlineProperties=undefined;
     }catch(e){}});
     const out=await o.wb.xlsx.writeBuffer();
     const a=document.createElement('a');
