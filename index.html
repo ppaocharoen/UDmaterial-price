@@ -4373,31 +4373,73 @@ const BQ_EXCELJS={src:'https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exce
 function bqLoadScript(src,sri){
   return new Promise((ok,no)=>{const sc=document.createElement('script');sc.src=src;if(sri){sc.integrity=sri;sc.crossOrigin='anonymous';}sc.onload=ok;sc.onerror=()=>no(new Error('โหลดไม่ได้: '+src));document.head.appendChild(sc);});
 }
-/* ข้อมูลราคาที่ Backup ไว้ในโครงการ → ชีต "ที่มาของราคา" ในไฟล์ Excel */
+/* ที่มาของราคา → ชีต "ที่มาของราคา" ในไฟล์ Excel: ราคาที่ BOQ ใช้จริง (พาณิชย์จังหวัด · วัสดุมวลรวมพร้อมที่มาแต่ละบรรทัด · ค่าแรง ว.480 · ราคาสืบ) + ข้อมูลที่ Backup ไว้ในโครงการ */
 function boqSourcesData(){
   const p=projGetActive();if(!p)return null;
-  const r2=BoqCalc.r2;
+  const b=boqGet(),r2=BoqCalc.r2,ready=typeof compLoaded!=='undefined'&&compLoaded;
   const materials=(p.materials||[]).map(it=>({name:it.name||'',cat:it.catName||'',unit:it.unit||'',price:it.price,province:it.province||''}));
   const wages=(p.wages||[]).map(it=>({name:wIsLeafH2(it)?(it.h2||it.h1):([it.h3||it.h2,it.h4].filter(x=>x&&x!=='-').join(' — ')||it.h1),sheet:it.sheetLabel||'',unit:it.unit||'',price:it.price,raw:it.rawPrice||''}));
-  const comps=(p.composites||[]).map(c=>({title:((c.comp.sub||'')+' '+(c.comp.name||'')).trim(),unit:c.comp.unit||'หน่วย',total:c.total,
-    lines:(c.snapshot||[]).map(it=>{const fx=it.fixedPrice!==null&&it.fixedPrice!==undefined,price=fx?it.fixedPrice:(it.price||0);
-      return {name:it.itemName||'',qty:+it.qty||0,unit:it.unit||'',price,amount:price>0?r2((+it.qty||0)*price):null,src:fx?'(ราคาตายตัว)':(it.province||'')};})}));
-  const surveys=(p.surveys||[]).map(it=>{const sm=Survey.summary(it);
-    return {name:it.name||'',unit:it.unit||'',n:sm.n,need:Survey.MIN_Q,price:sm.price,
-      quotes:sm.list.map(x=>({shop:x.q.shop||'',contact:[Survey.CHANNEL[x.q.channel]||'',x.q.contact||''].filter(Boolean).join(' · '),date:x.q.date||'',price:x.q.price,factor:x.q.factor||1,vat:!!x.q.vat,up:x.up,best:!!(sm.best&&x.q.id===sm.best.id)}))};});
-  /* ราคาพาณิชย์จังหวัดที่ BOQ ผูกไว้ (รายการ BOQ + บรรทัดในมวลรวมที่เลือกจากพาณิชย์) */
+  const svEntry=it=>{const sm=Survey.summary(it);
+    return {key:it.key,name:it.name||'',unit:it.unit||'',n:sm.n,need:Survey.MIN_Q,price:sm.price,
+      quotes:sm.list.map(x=>({shop:x.q.shop||'',contact:[Survey.CHANNEL[x.q.channel]||'',x.q.contact||''].filter(Boolean).join(' · '),date:x.q.date||'',price:x.q.price,factor:x.q.factor||1,vat:!!x.q.vat,up:x.up,best:!!(sm.best&&x.q.id===sm.best.id)}))};};
+  const push=(arr,v)=>{if(v&&!arr.includes(v))arr.push(v);};
+  /* พาณิชย์ */
   const cm={};
-  const addC=(code,usedName)=>{if(!code)return;
+  const addC=(code,who)=>{if(!code)return;
     let m=null;try{m=PDB.resolveMat({itemCode:'',commodityCode:code}).matItem;}catch(e){}
     if(!m)return;
-    const e=cm[code]||(cm[code]={code:m.code,name:m.name,unit:m.unit,price:m.price,province:m.province,cat:m.catName||'',period:String(m.period||'').replace('ระยะเวลา ',''),used:[]});
-    if(usedName&&!e.used.includes(usedName))e.used.push(usedName);};
-  const b=boqGet();
-  if(b)(b.rows||[]).forEach(r=>{const m=r.mat||{};
-    if(m.kind==='mat')addC(m.code,r.name);
-    if(m.kind==='comp'){[m].concat(Object.values(m.sub||{})).forEach(sc=>Object.values((sc&&sc.lines)||{}).forEach(l=>{if(l&&l.kind==='mat')addC(l.code,r.name+' (มวลรวม)');}));}});
-  const commerce=Object.values(cm);
-  return {commerce,materials,wages,comps,surveys};
+    const e=cm[m.code]||(cm[m.code]={code:m.code,name:m.name,unit:m.unit,price:m.price,province:m.province,cat:m.catName||'',period:String(m.period||'').replace('ระยะเวลา ',''),used:[]});
+    push(e.used,who);};
+  /* ราคาสืบ */
+  const svm={};
+  const addS=(key,who)=>{if(!key)return;
+    if(!svm[key]){const it=(typeof sv!=='undefined'&&sv.items.find(x=>x.key===key))||(p.surveys||[]).find(x=>x.key===key);if(!it)return;svm[key]=svEntry(it);}};
+  /* ค่าแรง ว.480 */
+  const wm={};
+  const addW=(code,who)=>{if(!code)return;const w=PDB.wage(code);if(!w)return;
+    const path=bqWagePath(w),e=wm[code]||(wm[code]={code,name:path[path.length-1]||code,path:path.slice(0,-1).join(' › '),unit:w.unit||'',price:w.price,used:[]});push(e.used,who);};
+  /* มวลรวม (ชั้นนอกและมวลรวมซ้อน) */
+  const cmp={};
+  const srcOf=(ln,lk,x,sc)=>{
+    if(lk&&x&&x.state==='ok'){
+      if(lk.kind==='mat'){const d=(allData||[]).find(z=>z.code===lk.code);return x.src+(d&&d.province?' · '+d.province:'');}
+      return x.src+(x.label?' · '+x.label:'');}
+    if(sc.prices&&sc.prices[ln.index]!==undefined&&!lk)return 'กรอกเอง';
+    if(ln.unitPrice===null||ln.unitPrice===undefined)return 'ยังไม่มีราคา';
+    return ({'commerce':'พาณิชย์ '+(ln.province||'')+(ln.commodityCode?' ('+ln.commodityCode+')':''),'commerce-fallback':'พาณิชย์ '+(ln.province||'')+(ln.commodityCode?' ('+ln.commodityCode+') รหัสสำรอง':''),'fixed':'ราคาคงที่','sub-comp':'ส่วนผสม '+(ln.subComp||''),'user':'กรอกเอง'}[ln.source])||String(ln.source||'');
+  };
+  const addComp=(m,sc,depth,who)=>{
+    if(!ready)return;const c=compList.find(x=>x.sub===sc.code);if(!c)return;
+    if(cmp[c.sub]){push(cmp[c.sub].used,who);return;}
+    const prices=boqCmpPrices(sc,m,depth),res=PDB.compPrice(c.id,Object.keys(prices).length?{prices}:{});if(!res)return;
+    const e=cmp[c.sub]={title:(c.sub+' '+c.name).trim(),unit:c.unit||'หน่วย',total:res.price,used:[who],lines:[]};
+    res.lines.forEach(ln=>{
+      const lk=boqCmpLink(sc,ln.index),x=lk?boqCmpLineInfo(sc,ln,m,depth):null;
+      const price=x&&x.state==='ok'?x.price:ln.unitPrice;
+      if(lk&&lk.kind==='mat')addC(lk.code,c.sub+' '+ln.name);
+      else if(!lk&&(ln.source==='commerce'||ln.source==='commerce-fallback'))addC(ln.commodityCode,c.sub+' '+ln.name);
+      if(lk&&lk.kind==='survey')addS(lk.key);
+      if(lk&&lk.kind==='comp'&&depth<3)addComp(m,boqScope(m,lk.code),depth+1,c.sub+' '+ln.name);
+      e.lines.push({name:ln.name,qty:ln.qty,unit:ln.unit,price,amount:(price!==null&&price!==undefined&&ln.qty!==null)?r2(ln.qty*price):null,src:srcOf(ln,lk,x,sc)});
+    });
+  };
+  if(b){
+    (b.rows||[]).forEach(r=>{const m=r.mat||{},l=r.lab||{},who=r.name||'';
+      if(m.kind==='mat')addC(m.code,who);
+      else if(m.kind==='comp')addComp(m,m,0,who);
+      else if(m.kind==='survey')addS(m.key,who);
+      if(l.kind==='wage')addW(l.code,who);});
+    (b.pr2||[]).forEach(x=>{addS(x.svkey);addS(x.svkey_i);});
+    (b.pr3||[]).forEach(x=>addS(x.svkey));
+  }
+  /* รวมกับที่ Backup ไว้ (ไม่ซ้ำ) */
+  const comps=Object.values(cmp);
+  (p.composites||[]).forEach(c=>{const t=((c.comp.sub||'')+' '+(c.comp.name||'')).trim();if(cmp[c.comp.sub])return;
+    comps.push({title:t,unit:c.comp.unit||'หน่วย',total:c.total,used:[],
+      lines:(c.snapshot||[]).map(it=>{const fx=it.fixedPrice!==null&&it.fixedPrice!==undefined,price=fx?it.fixedPrice:(it.price||0);
+        return {name:it.itemName||'',qty:+it.qty||0,unit:it.unit||'',price,amount:price>0?r2((+it.qty||0)*price):null,src:fx?'(ราคาตายตัว)':(it.province||'')};})});});
+  (p.surveys||[]).forEach(it=>{if(!svm[it.key])svm[it.key]=svEntry(it);});
+  return {commerce:Object.values(cm),wagesUsed:Object.values(wm),comps,surveys:Object.values(svm),materials,wages};
 }
 function boqFormData(b,T){
   const i=b.info,est=(i.mode||'estimate')==='estimate',top=c=>String(c).split('.')[0];
