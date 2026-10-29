@@ -4279,6 +4279,7 @@ function boqSvPick(it){
 })();
 
 /* ---------- ส่งออก Excel ตามแบบฟอร์มหน่วยงาน (ExcelJS + lib/formxlsx-v1.js + แม่แบบ) ---------- */
+const BQ_JSZIP={src:'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js',sri:'sha384-+mbV2IY1Zk/X1p/nWllGySJSUN8uMs+gUAN10Or95UBH0fpj6GfKgPmgC5EXieXG'};
 const BQ_EXCELJS={src:'https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js',sri:'sha384-Pqp51FUN2/qzfxZxBCtF0stpc9ONI6MYZpVqmo8m20SoaQCzf+arZvACkLkirlPz'};
 function bqLoadScript(src,sri){
   return new Promise((ok,no)=>{const sc=document.createElement('script');sc.src=src;if(sri){sc.integrity=sri;sc.crossOrigin='anonymous';}sc.onload=ok;sc.onerror=()=>no(new Error('โหลดไม่ได้: '+src));document.head.appendChild(sc);});
@@ -4295,7 +4296,19 @@ function boqSourcesData(){
   const surveys=(p.surveys||[]).map(it=>{const sm=Survey.summary(it);
     return {name:it.name||'',unit:it.unit||'',n:sm.n,need:Survey.MIN_Q,price:sm.price,
       quotes:sm.list.map(x=>({shop:x.q.shop||'',contact:[Survey.CHANNEL[x.q.channel]||'',x.q.contact||''].filter(Boolean).join(' · '),date:x.q.date||'',price:x.q.price,factor:x.q.factor||1,vat:!!x.q.vat,up:x.up,best:!!(sm.best&&x.q.id===sm.best.id)}))};});
-  return {materials,wages,comps,surveys};
+  /* ราคาพาณิชย์จังหวัดที่ BOQ ผูกไว้ (รายการ BOQ + บรรทัดในมวลรวมที่เลือกจากพาณิชย์) */
+  const cm={};
+  const addC=(code,usedName)=>{if(!code)return;
+    let m=null;try{m=PDB.resolveMat({itemCode:'',commodityCode:code}).matItem;}catch(e){}
+    if(!m)return;
+    const e=cm[code]||(cm[code]={code:m.code,name:m.name,unit:m.unit,price:m.price,province:m.province,cat:m.catName||'',period:String(m.period||'').replace('ระยะเวลา ',''),used:[]});
+    if(usedName&&!e.used.includes(usedName))e.used.push(usedName);};
+  const b=boqGet();
+  if(b)(b.rows||[]).forEach(r=>{const m=r.mat||{};
+    if(m.kind==='mat')addC(m.code,r.name);
+    if(m.kind==='comp'&&m.lines)Object.values(m.lines).forEach(l=>{if(l&&l.kind==='mat')addC(l.code,r.name+' (มวลรวม)');});});
+  const commerce=Object.values(cm);
+  return {commerce,materials,wages,comps,surveys};
 }
 function boqFormData(b,T){
   const i=b.info,est=(i.mode||'estimate')==='estimate',top=c=>String(c).split('.')[0];
@@ -4332,14 +4345,22 @@ async function boqExportXlsx(){
     const buf=await (await fetch('lib/boq_form_template-v1.xlsx')).arrayBuffer();
     const o=await FormXlsx.build(window.ExcelJS,buf,boqFormData(b,T));
     /* ปรับไฟล์ให้ Excel เปิดได้ไม่ถามกู้คืน: ตัดตัวแทนรูปในหัว/ท้ายกระดาษ (&G) ที่แม่แบบไม่มีรูปจริง + ช่วงตัดหน้าให้อยู่ในขอบเขต */
+    /* ลายน้ำตราเทศบาล: รูปในหัวกระดาษ (&G) ใส่ด้วย JSZip หลังเขียนไฟล์ — โหลดรูป/ไลบรารีไม่ได้ให้ตัด &G ออก ไฟล์ยังเปิดได้ปกติ */
+    let wmImg=null;
+    try{
+      if(!window.JSZip)await bqLoadScript(BQ_JSZIP.src,BQ_JSZIP.sri);
+      if(!window.XlsxWm)await bqLoadScript('lib/xlsxwm-v1.js');
+      wmImg=new Uint8Array(await (await fetch('lib/watermark-v1.jpg')).arrayBuffer());
+    }catch(e){console.warn('ไม่ใส่ลายน้ำ',e);wmImg=null;}
     o.wb.eachSheet(ws=>{try{
       const hf=ws.headerFooter||{};
-      ['oddHeader','oddFooter','evenHeader','evenFooter','firstHeader','firstFooter'].forEach(k=>{if(typeof hf[k]==='string')hf[k]=hf[k].replace(/&G/g,'');});
+      if(!wmImg)['oddHeader','oddFooter','evenHeader','evenFooter','firstHeader','firstFooter'].forEach(k=>{if(typeof hf[k]==='string')hf[k]=hf[k].replace(/&G/g,'');});
       (ws.rowBreaks||[]).forEach(b=>{if(b.max>16383)b.max=16383;});
       /* ExcelJS เขียน <pageSetUpPr> ก่อน <outlinePr> ผิดลำดับตามสคีมา → Excel ฟ้อง XML error แล้วทิ้งแผ่นงาน: ตัด outlinePr ออก */
       if(ws.properties)ws.properties.outlineProperties=undefined;
     }catch(e){}});
-    const out=await o.wb.xlsx.writeBuffer();
+    let out=await o.wb.xlsx.writeBuffer();
+    if(wmImg){try{const w=await XlsxWm.add(window.JSZip,out,wmImg);if(w.count)out=w;}catch(e){console.warn('ใส่ลายน้ำไม่สำเร็จ ใช้ไฟล์ไม่มีลายน้ำ',e);}}
     const a=document.createElement('a');
     a.href=URL.createObjectURL(new Blob([out],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));
     a.download=((b.info.mode||'estimate')==='central'?'ราคากลาง_':'ประมาณราคา_')+(b.info.name||'โครงการ').replace(/[\\/:*?"<>|]+/g,' ').slice(0,60)+'.xlsx';
