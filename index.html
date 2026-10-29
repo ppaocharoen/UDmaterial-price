@@ -369,6 +369,16 @@ table.main td.sm{font-size:11px;color:var(--text2);}
 .ic-import{--ic:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3v12M7 10.5l5 5 5-5M4 20h16'/%3E%3C/svg%3E");}
 .ic-export{--ic:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 16V4M7 8.5l5-5 5 5M4 20h16'/%3E%3C/svg%3E");}
 .ic-folder{--ic:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 6.5h6l2 2.5h10V19H3z'/%3E%3C/svg%3E");}
+
+.io-h{font-weight:700;margin:4px 0 8px;font-size:14px;}
+.io-ck{display:flex;gap:10px;align-items:flex-start;padding:8px 10px;border:1px solid var(--border);border-radius:8px;margin-bottom:6px;cursor:pointer;background:var(--bg3);}
+.io-ck input{margin-top:4px;}
+.io-ck small{display:block;color:var(--text3);font-size:12px;line-height:1.4;}
+.io-ck.dis{opacity:.5;cursor:default;}
+.io-sub{margin-left:26px;}
+.io-drop{border:2px dashed var(--border);border-radius:10px;padding:18px;text-align:center;color:var(--text2);cursor:pointer;}
+.io-drop.over{border-color:var(--accent2);background:var(--bg3);}
+.io-sep{height:1px;background:var(--border);margin:14px 0;}
 /* ===== BOQ ===== */
 .nav-tab.active-boq{color:#34d399;border-bottom-color:#34d399;}
 .bq-wrap{max-width:1180px;margin:0 auto;padding:28px 20px 60px;}
@@ -544,14 +554,8 @@ table.main td.sm{font-size:11px;color:var(--text2);}
       <div class="proj-menu-item" id="proj-menu-sum" onclick="projShowSummary()">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>สรุปโครงการ / Backup
       </div>
-      <div class="proj-menu-item" onclick="projImportPick()">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/></svg>นำเข้าโครงการจากไฟล์ .json
-      </div>
-      <div class="proj-menu-item" onclick="projExportAllPDF()">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>ออกรายงาน PDF ทั้งโครงการ
-      </div>
-      <div class="proj-menu-item" onclick="projExportAllExcel()">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/><path d="M9.5 12.5l5 5M14.5 12.5l-5 5"/></svg>ออกรายงาน Excel ทั้งโครงการ
+      <div class="proj-menu-item" onclick="ioOpen()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/></svg>นำเข้า / ส่งออก
       </div>
     </div>
   </div>
@@ -2787,15 +2791,12 @@ setTimeout(projLoadIntoApp, 0);
   <div class="page-title" id="ps-title">สรุปโครงการ</div>
   <div class="page-sub" id="ps-sub"></div>
   <div class="sv-bar">
-    <button class="btn btn-green" type="button" onclick="projExportAllPDF()">พิมพ์รายงาน PDF</button>
-    <button class="btn btn-green" type="button" onclick="projExportAllExcel()">ส่งออก Excel</button>
-    <button class="btn btn-amber" type="button" onclick="projExportJson()">Backup โครงการ (.json)</button>
-    <button class="btn btn-ghost" type="button" onclick="projImportPick()">นำเข้าจาก .json</button>
+    <button class="btn btn-green" type="button" onclick="ioOpen()"><i class="ic ic-export"></i> นำเข้า / ส่งออก</button>
   </div>
   <div id="ps-body"></div>
 </div>
 </div>
-<input type="file" id="proj-import-file" accept=".json,application/json" style="display:none">
+<input type="file" id="proj-import-file" accept=".json,.xlsx,.xlsm,.xls,.csv,application/json" style="display:none">
 
 <!-- MODAL: เลือกราคาสืบจากคลัง (วัสดุมวลรวม) -->
 <div class="modal-overlay" id="cp-sv-modal" style="display:none" onclick="cpSvClose(event)">
@@ -3430,34 +3431,114 @@ function projSumRender(){
 }
 function psSvRemove(key){if(!confirm('นำราคาสืบนี้ออกจากโครงการ? (คลังกลางไม่ถูกลบ)'))return;projSvRemove(key);projSumRender();}
 /* ---- Backup / นำเข้าโครงการ (.json) ---- */
-function projExportJson(){
+function projExportJson(opt){
   const p=projGetActive();if(!p){alert('ยังไม่ได้เลือกโครงการ');return;}
   const out={format:'ud-costhub-project',version:1,exportedAt:new Date().toISOString(),project:{name:p.name,createdAt:p.createdAt,updatedAt:p.updatedAt,materials:p.materials||[],wages:p.wages||[],composites:p.composites||[],surveys:p.surveys||[],boq:p.boq||null}};
+  if(opt&&opt.link){const lm=boqLinkMem();out.boqlink={mat:lm.mat||{},lab:lm.lab||{}};}
   const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(out)],{type:'application/json'}));
   const d=new Date();a.download='UD-CostHub_โครงการ_'+p.name.replace(/[\\/:*?"<>|]+/g,'_')+'_'+(d.getFullYear()+543)+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')+'.json';
   a.click();URL.revokeObjectURL(a.href);
 }
-function projImportPick(){const m=document.getElementById('proj-menu');if(m)m.style.display='none';document.getElementById('proj-import-file').click();}
-document.getElementById('proj-import-file').addEventListener('change',async e=>{
-  const f=e.target.files[0];e.target.value='';if(!f)return;
+function projImportPick(){ioOpen('import');}
+document.getElementById('proj-import-file').addEventListener('change',e=>{
+  const f=e.target.files[0];e.target.value='';if(f)ioFile(f);
+});
+/* ===== นำเข้า / ส่งออก รวมศูนย์ ===== */
+const io={file:null,kind:'',data:null};
+function ioOpen(){
+  const m=document.getElementById('proj-menu');if(m)m.style.display='none';
+  io.file=null;io.kind='';io.data=null;ioRender();
+  document.getElementById('io-modal').style.display='flex';
+}
+function ioClose(){document.getElementById('io-modal').style.display='none';}
+function ioRender(){
+  const p=projGetActive(),nRows=p&&p.boq?(p.boq.rows||[]).length+((p.boq.pr2||[]).length)+((p.boq.pr3||[]).length):0;
+  const ck=(x,label,sub,o={})=>`<label class="io-ck${o.dis?' dis':''}${o.sub?' io-sub':''}"><input type="checkbox" data-x="${x}"${o.dis?' disabled':''}${o.on?' checked':''}><span><b>${label}</b><small>${sub}</small></span></label>`;
+  let h='<div class="io-h">ส่งออก'+(p?' — โครงการ "'+esc(p.name)+'"':'')+'</div>';
+  if(!p)h+='<div style="color:var(--text3);margin-bottom:8px">ยังไม่ได้เลือกโครงการ — เลือกจากเมนูโครงการด้านบนก่อนส่งออก</div>';
+  h+=ck('xlsx','Excel BOQ ตามแบบฟอร์ม','ปร.1 · ปร.1 (ก) · ปร.2 · ปร.3 · ปร.4 · Factor F · ที่มาของราคา (มีลายน้ำ เปิดแก้ใน Excel ได้)',{dis:!p||!nRows,on:!!nRows})
+    +ck('json','ไฟล์โครงการทั้งหมด (.json)','เอาไปเปิดในเครื่องอื่นได้ — BOQ ทั้งหมด พร้อมราคาวัสดุ ค่าแรง วัสดุมวลรวม และราคาสืบที่ Backup ไว้ในโครงการ (ไม่รวมรูปภาพราคาสืบ)',{dis:!p})
+    +ck('jsonlink','รวมความจำการผูกราคาไปในไฟล์โครงการด้วย','ให้เครื่องปลายทางเลือกราคาให้รายการชื่อเดิมอัตโนมัติ',{dis:!p,sub:1,on:1})
+    +ck('linkjson','ความจำการผูกราคา (.json แยกไฟล์)','ส่งให้เพื่อนร่วมงานเฉพาะตัวช่วยผูกราคา ไม่มีข้อมูลโครงการ')
+    +ck('xlsxsum','สรุปโครงการเป็น Excel','รายการวัสดุ ค่าแรง วัสดุมวลรวม ราคาสืบ ที่เก็บไว้ในโครงการ',{dis:!p})
+    +ck('pdf','รายงานสรุปโครงการ (พิมพ์ / PDF)','เปิดหน้าต่างพิมพ์ของเบราว์เซอร์ เลือก "บันทึกเป็น PDF" ได้',{dis:!p});
+  h+='<div style="margin:10px 0 0"><button class="btn btn-green" type="button" onclick="ioRunExport()"><i class="ic ic-export"></i> ส่งออกที่เลือก</button></div>';
+  h+='<div class="io-sep"></div><div class="io-h">นำเข้า</div>';
+  if(!io.kind){
+    h+='<div class="io-drop" id="io-drop" onclick="document.getElementById(\'proj-import-file\').click()">ลากไฟล์มาวาง หรือกดเพื่อเลือกไฟล์<br><small style="color:var(--text3)">รองรับ: ไฟล์โครงการ .json · ความจำการผูกราคา .json · Excel ปร.1 (.xlsx .xlsm .xls .csv) — ระบบดูชนิดไฟล์ให้เอง</small></div>';
+  }else h+=ioImportHtml();
+  const body=document.getElementById('io-body');body.innerHTML=h;
+  const dz=document.getElementById('io-drop');
+  if(dz){['dragenter','dragover'].forEach(t=>dz.addEventListener(t,e=>{e.preventDefault();dz.classList.add('over');}));
+    ['dragleave','drop'].forEach(t=>dz.addEventListener(t,e=>{e.preventDefault();dz.classList.remove('over');}));
+    dz.addEventListener('drop',e=>{const f=e.dataTransfer.files[0];if(f)ioFile(f);});}
+}
+function ioImportHtml(){
+  const d=io.data,f=io.file,esc2=esc;
+  const head='<div style="margin-bottom:8px">ไฟล์: <b>'+esc2(f.name)+'</b> <span class="bq-lnk" onclick="io.kind=\'\';io.data=null;ioRender()">เลือกไฟล์อื่น</span></div>';
+  if(io.kind==='excel')return head+'<div style="margin-bottom:8px">เป็นไฟล์ Excel — นำเข้ารายการ BOQ (ชื่อรายการ หน่วย จำนวน หมวด) เข้าโครงการปัจจุบัน แล้วคิดราคาจากฐานข้อมูลใหม่ให้'+(boqGet()?'':' <b class="bq-warn">(ต้องเลือกโครงการก่อน)</b>')+'</div><button class="btn btn-green" type="button" onclick="ioDoImport()"'+(boqGet()?'':' disabled')+'>ไปต่อ: เลือกชีตและตรวจรายการ</button>';
+  if(io.kind==='link'){const n=Object.keys(d.mat||{}).length+Object.keys(d.lab||{}).length;return head+'<div style="margin-bottom:8px">ไฟล์ความจำการผูกราคา — '+n+' รายการ (รวมกับของเดิม ชื่อซ้ำจะทับ)</div><button class="btn btn-green" type="button" onclick="ioDoImport()">นำเข้า</button>';}
+  const pr=d.project,arr=v=>Array.isArray(v)?v.filter(x=>x&&typeof x==='object'):[];
+  const nm=arr(pr.materials).length,nw=arr(pr.wages).length,nc=arr(pr.composites).filter(c=>c.comp&&Array.isArray(c.snapshot)).length,ns=arr(pr.surveys).length;
+  const nb=pr.boq&&Array.isArray(pr.boq.rows)?pr.boq.rows.length:0,nl=d.boqlink?Object.keys(d.boqlink.mat||{}).length+Object.keys(d.boqlink.lab||{}).length:0;
+  const ck=(k,l,n)=>'<label class="io-ck'+(n?'':' dis')+'"><input type="checkbox" data-m="'+k+'"'+(n?' checked':' disabled')+'><span><b>'+l+'</b><small>'+n+' รายการ</small></span></label>';
+  let nameV=String(pr.name||'').trim()||'โครงการนำเข้า';if(Object.values(projStore.projects).some(x=>x.name===nameV))nameV+=' (นำเข้า)';
+  return head+'<div style="margin-bottom:6px">ไฟล์โครงการ UD-Cost Hub — เลือกว่าจะนำเข้าอะไรบ้าง (สร้างเป็นโครงการใหม่ ไม่แตะโครงการเดิม)</div>'
+    +'<label style="display:block;margin-bottom:8px;font-size:12px;color:var(--text3)">ชื่อโครงการใหม่<input id="io-name" class="bq-in" style="width:100%" value="'+esc2(nameV)+'"></label>'
+    +ck('boq','BOQ (รายการและตัวตั้งค่า ปร.1–ปร.4)',nb)+ck('materials','ราคาวัสดุ (Backup)',nm)+ck('wages','ค่าแรง (Backup)',nw)+ck('composites','วัสดุมวลรวม (Backup)',nc)+ck('surveys','ราคาสืบ (Backup)',ns)+ck('link','ความจำการผูกราคา (รวมกับของเครื่องนี้)',nl)
+    +'<div style="margin-top:8px"><button class="btn btn-green" type="button" onclick="ioDoImport()">นำเข้า</button></div>';
+}
+async function ioFile(f){
+  if(f.size>20*1024*1024){alert('ไฟล์ใหญ่เกินไป');return;}
+  if(document.getElementById('io-modal').style.display==='none'){io.file=null;io.kind='';ioRender();document.getElementById('io-modal').style.display='flex';}
   try{
-    if(f.size>20*1024*1024)throw new Error('ไฟล์ใหญ่เกินไป');
-    const d=JSON.parse(await f.text()),pr=d&&d.project;
-    if(!d||d.format!=='ud-costhub-project'||!pr||typeof pr.name!=='string')throw new Error('ไม่ใช่ไฟล์ Backup โครงการของ UD-Cost Hub');
+    if(/\.(xlsx|xlsm|xls|csv)$/i.test(f.name)){io.file=f;io.kind='excel';io.data=null;ioRender();return;}
+    const d=JSON.parse(await f.text());
+    if(d&&d.format==='ud-costhub-boqlink'){io.file=f;io.kind='link';io.data=d;ioRender();return;}
+    if(d&&d.format==='ud-costhub-project'&&d.project&&typeof d.project.name==='string'){io.file=f;io.kind='project';io.data=d;ioRender();return;}
+    throw new Error('ไม่รู้จักไฟล์นี้ — ต้องเป็นไฟล์โครงการ (.json) ความจำการผูกราคา (.json) หรือ Excel ปร.1');
+  }catch(er){alert('นำเข้าไม่ได้: '+er.message);}
+}
+function ioDoImport(){
+  const d=io.data;
+  try{
+    if(io.kind==='excel'){ioClose();boqImpLoad(io.file);return;}
+    if(io.kind==='link'){const r=boqLinkMerge(d);ioClose();alert('นำเข้าความจำการผูก '+r.nA+' รายการ (เพิ่มใหม่ '+r.added+', อีก '+(r.nA-r.added)+' รายการทับของเดิมที่ชื่อเดียวกัน)');return;}
+    const pr=d.project,sel={};document.querySelectorAll('#io-body [data-m]').forEach(e=>{sel[e.dataset.m]=e.checked&&!e.disabled;});
+    if(!Object.values(sel).some(Boolean)){alert('เลือกอย่างน้อย 1 อย่าง');return;}
     const arr=v=>Array.isArray(v)?v.filter(x=>x&&typeof x==='object'):[];
-    const comps=arr(pr.composites).filter(c=>c.comp&&Array.isArray(c.snapshot));
-    let name=pr.name.trim()||'โครงการนำเข้า';
+    let name=(document.getElementById('io-name').value||'').trim()||'โครงการนำเข้า';
     if(Object.values(projStore.projects).some(x=>x.name===name))name+=' (นำเข้า)';
-    const n=arr(pr.materials).length+arr(pr.wages).length+comps.length+arr(pr.surveys).length;
-    if(!confirm('นำเข้าโครงการ "'+name+'" ('+n+' รายการ) เป็นโครงการใหม่ และสลับไปใช้โครงการนี้?'))return;
     const id='p'+Date.now()+Math.random().toString(36).slice(2,7),now=Date.now();
-    projStore.projects[id]={id,name,createdAt:+pr.createdAt||now,updatedAt:now,materials:arr(pr.materials),wages:arr(pr.wages),composites:comps,surveys:arr(pr.surveys).filter(x=>x.name&&x.unit&&Array.isArray(x.quotes)),boq:(pr.boq&&typeof pr.boq==='object'&&Array.isArray(pr.boq.rows)&&Array.isArray(pr.boq.groups))?pr.boq:undefined};
+    projStore.projects[id]={id,name,createdAt:+pr.createdAt||now,updatedAt:now,
+      materials:sel.materials?arr(pr.materials):[],wages:sel.wages?arr(pr.wages):[],
+      composites:sel.composites?arr(pr.composites).filter(c=>c.comp&&Array.isArray(c.snapshot)):[],
+      surveys:sel.surveys?arr(pr.surveys).filter(x=>x.name&&x.unit&&Array.isArray(x.quotes)):[],
+      boq:(sel.boq&&pr.boq&&typeof pr.boq==='object'&&Array.isArray(pr.boq.rows)&&Array.isArray(pr.boq.groups))?pr.boq:undefined};
     projStore.activeProjectId=id;
     if(!projSaveStore())return;
-    projLoadIntoApp();projRefreshUI();
+    if(sel.link&&d.boqlink)boqLinkMerge(d.boqlink);
+    projLoadIntoApp();projRefreshUI();ioClose();
     if(typeof svToast==='function')svToast('นำเข้าโครงการแล้ว');
   }catch(er){alert('นำเข้าไม่ได้: '+er.message);}
-});
+}
+async function ioRunExport(){
+  const on=[...document.querySelectorAll('#io-body [data-x]')].filter(e=>e.checked&&!e.disabled).map(e=>e.dataset.x);
+  const todo=on.filter(x=>x!=='jsonlink');
+  if(!todo.length){alert('เลือกอย่างน้อย 1 อย่าง');return;}
+  const wait=ms=>new Promise(r=>setTimeout(r,ms));
+  ioClose();
+  for(const k of todo){
+    try{
+      if(k==='xlsx')await boqExportXlsx();
+      else if(k==='json')projExportJson({link:on.includes('jsonlink')});
+      else if(k==='linkjson')boqLinkExport();
+      else if(k==='xlsxsum')await projExportAllExcel();
+      else if(k==='pdf')projExportAllPDF();
+    }catch(e){console.error(e);}
+    await wait(500);
+  }
+}
 svBind();
 </script>
 
@@ -3476,6 +3557,12 @@ svBind();
       <div style="font-size:11px;color:var(--text3);margin-top:6px" id="bq-sv-label"></div></div>
     <div class="modal-list" id="bq-sv-list"></div>
     <div id="bq-sv-foot" style="padding:10px 16px;display:flex;gap:8px;flex-wrap:wrap;border-top:1px solid var(--border)"></div>
+  </div>
+</div>
+<div class="modal-overlay" id="io-modal" style="display:none">
+  <div class="modal-box" style="max-width:720px">
+    <div class="modal-hd"><div class="modal-title">นำเข้า / ส่งออก</div><span class="modal-close" onclick="ioClose()">×</span></div>
+    <div id="io-body" style="padding:14px 16px;overflow:auto"></div>
   </div>
 </div>
 <div class="modal-overlay" id="bq-imp" style="display:none">
@@ -3521,6 +3608,9 @@ const boqGroupsSorted=b=>b.groups.slice().sort((p,q)=>boqCodeCmp(p.code,q.code))
 const boqNewKey=()=>'r'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
 /* แถวของโครงการ → รูปแบบที่ BoqCalc.priceRows รับ */
 /* ราคาของบรรทัดที่ขาดในวัสดุมวลรวม: ราคาสืบที่ผูกไว้ (svlines: index→key รายการสืบ) ก่อน, รองลงมาคือราคาที่เคยกรอกเอง (prices) */
+/* ขอบเขตการผูก: แถว BOQ (m) เอง หรือมวลรวมซ้อน (m.sub[รหัส] = {lines}) — เก็บการผูกของมวลรวมที่ซ้อนอยู่ในรายการย่อยแยกต่างหาก */
+function boqScope(m,code){const s=(m.sub||{})[code]||{};return {kind:'comp',code,lines:s.lines||{},svlines:s.svlines||{},prices:s.prices||{}};}
+function boqScopeW(m,code){m.sub=m.sub||{};m.sub[code]=m.sub[code]||{lines:{}};m.sub[code].lines=m.sub[code].lines||{};return m.sub[code];}
 function boqCmpLines(m){
   if(!m||m.kind!=='comp'||typeof compLoaded==='undefined'||!compLoaded)return [];
   const c=compList.find(x=>x.sub===m.code);if(!c)return [];
@@ -3533,7 +3623,8 @@ function boqCmpLink(m,i){
   const k=(m.svlines||{})[i];return k?{kind:'survey',key:k}:null;
 }
 /* สถานะราคาของบรรทัด: {state:'ok'|'badunit'|'missing', price, label, src, n, warn} */
-function boqCmpLineInfo(m,ln){
+function boqCmpLineInfo(m,ln,root,depth){
+  root=root||m;depth=depth||0;
   const l=boqCmpLink(m,ln.index);if(!l)return null;
   if(l.kind==='survey'){
     const a=typeof sv!=='undefined'?boqSvResolve(l.key):null;
@@ -3544,8 +3635,9 @@ function boqCmpLineInfo(m,ln){
   if(l.kind==='comp'){
     const c=typeof compList!=='undefined'&&compLoaded?compList.find(x=>x.sub===l.code):null;
     if(!c)return {state:'missing',label:l.code,warn:'ไม่พบวัสดุมวลรวม '+l.code};
-    const pr=PDB.compPrice(c.id,{});
-    if(!pr||pr.price===null)return {state:'missing',label:c.sub+' '+c.name,warn:'มวลรวม '+c.sub+' ยังคิดราคาไม่ครบ (ไปกรอกที่มวลรวมนั้นก่อน)'};
+    const sp=depth<4?boqCmpPrices(boqScope(root,c.sub),root,depth+1):{};
+    const pr=PDB.compPrice(c.id,Object.keys(sp).length?{prices:sp}:{});
+    if(!pr||pr.price===null)return {state:'missing',nested:c.sub,label:c.sub+' '+c.name,warn:'มวลรวม '+c.sub+' ยังคิดราคาไม่ครบ — กรอกราคารายการย่อยของมวลรวมนี้ได้ด้านล่าง'};
     let price=pr.price;
     if(Survey.normUnit(c.unit)!==Survey.normUnit(ln.unit)){const cx=convertPriceX(price,c.unit,ln.unit,c.name,ln.name);if(!cx||!cx.ok||cx.price===null)return {state:'badunit',label:c.sub+' '+c.name,warn:'หน่วยมวลรวม ('+c.unit+') ไม่ตรง '+ln.unit};price=cx.price;}
     return {state:'ok',price,label:c.sub+' '+c.name,src:'วัสดุมวลรวม '+c.sub};
@@ -3556,10 +3648,10 @@ function boqCmpLineInfo(m,ln){
   if(!cx||!cx.ok||cx.price===null)return {state:'badunit',label:d.name,warn:'แปลงหน่วย '+d.unit+' เป็น '+ln.unit+' ไม่ได้'};
   return {state:'ok',price:cx.price,label:d.name,src:'พาณิชย์ '+d.code+(cx.how?' · '+cx.how:'')};
 }
-function boqCmpPrices(m){
+function boqCmpPrices(m,root,depth){
   const out=Object.assign({},m.prices||{});
   const lines=boqCmpLines(m);
-  lines.forEach(ln=>{const x=boqCmpLineInfo(m,ln);if(x&&x.state==='ok')out[ln.index]=x.price;});
+  lines.forEach(ln=>{const x=boqCmpLineInfo(m,ln,root||m,depth||0);if(x&&x.state==='ok')out[ln.index]=x.price;});
   return out;
 }
 function boqCalcInput(b){
@@ -3643,10 +3735,8 @@ function boqRender(){
       <label>สัดส่วนเงินกู้ (%) <span style="font-size:10px">(0 = ไม่ใช้เงินกู้)</span><input class="bq-in n" type="number" min="0" max="100" step="any" data-bf="loanPct" value="${esc(fc.loanPct||0)}"></label>
     </div></div>
     <div class="sv-bar"><button class="btn btn-green" type="button" onclick="boqAddGroup()">+ เพิ่มหมวด</button>
-      <button class="btn btn-ghost" type="button" onclick="boqImpOpen()"><i class="ic ic-import"></i> นำเข้าจาก Excel</button>
+      <button class="btn btn-green" type="button" onclick="ioOpen()"><i class="ic ic-export"></i> นำเข้า / ส่งออก</button>
       <button class="btn btn-ghost" type="button" id="bq-sugall" style="display:none" onclick="boqSugApplyAll()" title="ใช้คำแนะนำที่ระบบเสนอ (ยังไม่ผูก) ทุกรายการ — ตรวจแต่ละแถวได้ภายหลัง"><i class="ic ic-bulb"></i> ใช้คำแนะนำทั้งหมด</button>
-      <button class="btn btn-ghost" type="button" onclick="boqLinkExport()" title="ไฟล์ความจำการผูกราคาตามชื่อรายการ — ส่งให้เพื่อนร่วมงานนำเข้าได้"><i class="ic ic-save"></i> ส่งออกความจำการผูก</button>
-      <button class="btn btn-ghost" type="button" onclick="boqLinkImportPick()"><i class="ic ic-folder"></i> นำเข้าความจำการผูก</button>
       <span style="font-size:12px;color:var(--text3)">เลขหมวด: หมวดหลักเป็นเลขเดียว (1, 2, 3) หมวดย่อยใช้ 1.1, 1.2 …</span></div>`;
   const T=boqCompute(b);
   const groups=boqGroupsSorted(b);
@@ -3673,21 +3763,27 @@ function boqRender(){
 /* วัสดุมวลรวมที่ราคาไม่ครบ: แต่ละบรรทัดที่ขาดราคา → ปุ่ม "เลือกราคา" (ราคาพาณิชย์ หรือ ราคาสืบ) */
 function boqCmpPanel(r){
   const m=r.mat||{};
-  const all=boqCmpLines(m);if(!all.length)return '';
-  const pr=m.prices||{};
-  const nMiss=all.filter(l=>(l.warnings||[]).includes('missing_price')&&!boqCmpLink(m,l.index)&&pr[l.index]===undefined).length;
-  return '<div class="bq-cmp"><div style="font-weight:600;margin-bottom:3px">รายการวัสดุในมวลรวม '+esc(m.code)+(nMiss?' <span class="bq-warn">(ยังไม่มีราคา '+nMiss+' รายการ)</span>':' <span style="color:#34d399">(ราคาครบ)</span>')+' — เลือกราคาพาณิชย์หรือราคาสืบให้รายการใดก็ได้</div>'
+  return boqCmpBlock(m,m,0);
+}
+/* รายการวัสดุของมวลรวมหนึ่งใบ (sc) — ถ้าบรรทัดใดเลือกเป็นมวลรวมอื่น จะแสดงรายการย่อยของมวลรวมนั้นซ้อนข้างล่างให้กรอกราคาต่อได้ */
+function boqCmpBlock(m,sc,depth){
+  const all=boqCmpLines(sc);if(!all.length)return '';
+  const pr=sc.prices||{},sub=sc===m?'':sc.code;
+  const nMiss=all.filter(l=>(l.warnings||[]).includes('missing_price')&&!boqCmpLink(sc,l.index)&&pr[l.index]===undefined).length;
+  return '<div class="bq-cmp"><div style="font-weight:600;margin-bottom:3px">รายการวัสดุในมวลรวม '+esc(sc.code)+(nMiss?' <span class="bq-warn">(ยังไม่มีราคา '+nMiss+' รายการ)</span>':' <span style="color:#34d399">(ราคาครบ)</span>')+(depth?'':' — เลือกราคาพาณิชย์ ราคาสืบ หรือมวลรวมอื่นให้รายการใดก็ได้')+'</div>'
     +all.map(l=>{
-      const x=boqCmpLineInfo(m,l),has=!!boqCmpLink(m,l.index),miss=(l.warnings||[]).includes('missing_price');
+      const x=boqCmpLineInfo(sc,l,m,depth),lk=boqCmpLink(sc,l.index),has=!!lk,miss=(l.warnings||[]).includes('missing_price');
       let st;
       if(x)st=x.state==='ok'?'<b style="color:#34d399">'+esc(x.src)+' '+bqF2(x.price)+' บาท/'+esc(l.unit)+'</b> <span style="color:var(--text3)">('+esc(x.label)+(x.n!==undefined?' · '+x.n+' เจ้า'+(x.n<Survey.MIN_Q?' ไม่ครบ '+Survey.MIN_Q:''):'')+')</span>'
           :'<span class="bq-warn"><i class="ic ic-warn"></i> '+esc(x.warn)+'</span>';
       else if(pr[l.index]!==undefined)st='<span style="color:var(--text3)">ราคาเดิมที่กรอกไว้ '+bqF2(pr[l.index])+' บาท/'+esc(l.unit)+' (ยังไม่ได้เลือกที่มา)</span>';
       else if(!miss)st='<span style="color:var(--text2)">'+({'commerce':'พาณิชย์'+(l.province?' '+esc(l.province):''),'commerce-fallback':'พาณิชย์ (รหัสสำรอง)','fixed':'ราคาคงที่','sub-comp':'ส่วนผสม '+esc(l.subComp||''),'user':'กรอกเอง'}[l.source]||esc(l.source||''))+' '+bqF2(l.unitPrice)+' บาท/'+esc(l.unit)+'</span>';
       else st='<span class="bq-warn">ยังไม่มีราคา</span>';
-      return '<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap"><span>'+esc(l.name)+' <span style="color:var(--text3)">× '+esc(l.qty===null?'?':l.qty)+' '+esc(l.unit)+'</span></span> '+st
-        +' <span class="bq-lnk" data-act="cmpsv" data-i="'+l.index+'" data-n="'+esc(l.name)+'" data-u="'+esc(l.unit)+'">'+(has?'เปลี่ยน':(miss?'เลือกราคา':'เปลี่ยนที่มาราคา'))+'</span>'
-        +(has||pr[l.index]!==undefined?' <span class="bq-lnk" style="color:var(--red)" data-act="cmpunsv" data-i="'+l.index+'">เลิกผูก</span>':'')+'</div>';
+      const nest=has&&lk.kind==='comp'&&depth<3?boqCmpBlock(m,boqScope(m,lk.code),depth+1):'';
+      return '<div><div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap"><span>'+esc(l.name)+' <span style="color:var(--text3)">× '+esc(l.qty===null?'?':l.qty)+' '+esc(l.unit)+'</span></span> '+st
+        +' <span class="bq-lnk" data-act="cmpsv" data-s="'+esc(sub)+'" data-i="'+l.index+'" data-n="'+esc(l.name)+'" data-u="'+esc(l.unit)+'">'+(has?'เปลี่ยน':(miss?'เลือกราคา':'เปลี่ยนที่มาราคา'))+'</span>'
+        +(has||pr[l.index]!==undefined?' <span class="bq-lnk" style="color:var(--red)" data-act="cmpunsv" data-s="'+esc(sub)+'" data-i="'+l.index+'">เลิกผูก</span>':'')+'</div>'
+        +(nest?'<div style="margin:3px 0 4px 14px;padding-left:8px;border-left:2px solid var(--border)">'+nest+'</div>':'')+'</div>';
     }).join('')+'</div>';
 }
 function boqRowHtml(r,n,p){
@@ -3874,8 +3970,8 @@ function boqBind(){
       case 'delrow':if(r&&confirm('ลบรายการนี้?')){b.rows=b.rows.filter(x=>x!==r);boqSave();boqRender();}break;
       case 'useoldmat':if(r&&r.old){r.mat={kind:'manual',price:r.old.mat,label:'ราคาเดิมในไฟล์'};boqSave();boqRender();}break;
       case 'useoldlab':if(r&&r.old){r.lab={kind:'manual',price:r.old.lab,label:'ราคาเดิมในไฟล์'};boqSave();boqRender();}break;
-      case 'cmpsv':if(r)boqOpenLineModal(r.key,{index:+a.dataset.i,name:a.dataset.n,unit:a.dataset.u});break;
-      case 'cmpunsv':if(r&&r.mat){const i=a.dataset.i;if(r.mat.svlines)delete r.mat.svlines[i];if(r.mat.lines)delete r.mat.lines[i];if(r.mat.prices)delete r.mat.prices[i];boqSave();boqRender();}break;
+      case 'cmpsv':if(r)boqOpenLineModal(r.key,{index:+a.dataset.i,name:a.dataset.n,unit:a.dataset.u,sub:a.dataset.s||''});break;
+      case 'cmpunsv':if(r&&r.mat){const i=a.dataset.i,o=a.dataset.s?((r.mat.sub||{})[a.dataset.s]||{}):r.mat;if(o.svlines)delete o.svlines[i];if(o.lines)delete o.lines[i];if(o.prices)delete o.prices[i];boqSave();boqRender();boqUpdateNumbers();}break;
       case 'sugmat':if(r&&boqSugApply(r,'mat')){boqSave();boqRender();}break;
       case 'suglab':if(r&&boqSugApply(r,'lab')){boqSave();boqRender();}break;
       case 'pickmat':if(r)boqOpenModal(r.key,'mat');break;
@@ -3912,8 +4008,9 @@ function boqOpenLineModal(key,line){
 }
 function boqCmpLinePick(r,line,val){
   if(!r||!r.mat||r.mat.kind!=='comp')return;
-  r.mat.lines=r.mat.lines||{};
-  r.mat.lines[line.index]=val.kind==='survey'?{kind:'survey',key:val.key}:val.kind==='comp'?{kind:'comp',code:val.code}:{kind:'mat',code:val.code};
+  const tgt=line.sub?boqScopeW(r.mat,line.sub):r.mat;
+  tgt.lines=tgt.lines||{};
+  tgt.lines[line.index]=val.kind==='survey'?{kind:'survey',key:val.key}:val.kind==='comp'?{kind:'comp',code:val.code}:{kind:'mat',code:val.code};
   boqLinkRemember(line.name,'mat',val);
   boqSave();boqCloseModal();boqRender();boqUpdateNumbers();
 }
@@ -3948,34 +4045,26 @@ function boqLinkExport(){
   const d=new Date();a.download='UD-CostHub_ความจำการผูกBOQ_'+(d.getFullYear()+543)+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')+'.json';
   a.click();URL.revokeObjectURL(a.href);
 }
-function boqLinkImportPick(){
-  const inp=document.createElement('input');inp.type='file';inp.accept='.json,application/json';
-  inp.onchange=async()=>{
-    const f=inp.files[0];if(!f)return;
-    try{
-      if(f.size>5*1024*1024)throw new Error('ไฟล์ใหญ่เกินไป');
-      const d=JSON.parse(await f.text());
-      if(!d||d.format!=='ud-costhub-boqlink')throw new Error('ไม่ใช่ไฟล์ความจำการผูก BOQ ของ UD-Cost Hub');
-      const str=v=>typeof v==='string'?v.slice(0,300):'';
-      const clean=(o,kinds)=>{const out={};Object.keys(o&&typeof o==='object'?o:{}).slice(0,5000).forEach(k=>{
-        const v=o[k];if(!v||typeof v!=='object'||!kinds.includes(v.kind))return;
-        const c={kind:v.kind};
-        if(v.kind==='survey')c.key=str(v.key);else if(v.kind!=='none')c.code=str(v.code);
-        if(v.kind!=='none'&&!(c.key||c.code))return;
-        c.label=str(v.label);out[str(k).toLowerCase()]=c;});return out;};
-      const add={mat:clean(d.mat,['mat','comp','survey','none']),lab:clean(d.lab,['wage','none'])};
-      const nA=Object.keys(add.mat).length+Object.keys(add.lab).length;
-      if(!nA)throw new Error('ไม่พบรายการที่ใช้ได้ในไฟล์');
-      const cur=boqLinkMem();
-      const newer=(a,b)=>Object.keys(b).filter(k=>!(a&&a[k])).length;
-      const added=newer(cur.mat,add.mat)+newer(cur.lab,add.lab);
-      cur.mat=Object.assign({},cur.mat,add.mat);cur.lab=Object.assign({},cur.lab,add.lab);
-      localStorage.setItem(BQ_LINK_KEY,JSON.stringify(cur));
-      alert('นำเข้าความจำการผูก '+nA+' รายการ (เพิ่มใหม่ '+added+', อีก '+(nA-added)+' รายการทับของเดิมที่ชื่อเดียวกัน)');
-    }catch(e){alert('นำเข้าไม่สำเร็จ: '+e.message);}
-  };
-  inp.click();
+/* รวมความจำการผูกเข้าเครื่อง — d: {mat,lab} คืน {nA, added} */
+function boqLinkMerge(d){
+  const str=v=>typeof v==='string'?v.slice(0,300):'';
+  const clean=(o,kinds)=>{const out={};Object.keys(o&&typeof o==='object'?o:{}).slice(0,5000).forEach(k=>{
+    const v=o[k];if(!v||typeof v!=='object'||!kinds.includes(v.kind))return;
+    const c={kind:v.kind};
+    if(v.kind==='survey')c.key=str(v.key);else if(v.kind!=='none')c.code=str(v.code);
+    if(v.kind!=='none'&&!(c.key||c.code))return;
+    c.label=str(v.label);out[str(k).toLowerCase()]=c;});return out;};
+  const add={mat:clean(d.mat,['mat','comp','survey','none']),lab:clean(d.lab,['wage','none'])};
+  const nA=Object.keys(add.mat).length+Object.keys(add.lab).length;
+  if(!nA)throw new Error('ไม่พบรายการที่ใช้ได้ในไฟล์');
+  const cur=boqLinkMem();
+  const newer=(a,b)=>Object.keys(b).filter(k=>!(a&&a[k])).length;
+  const added=newer(cur.mat,add.mat)+newer(cur.lab,add.lab);
+  cur.mat=Object.assign({},cur.mat,add.mat);cur.lab=Object.assign({},cur.lab,add.lab);
+  localStorage.setItem(BQ_LINK_KEY,JSON.stringify(cur));
+  return {nA,added};
 }
+function boqLinkImportPick(){ioOpen();}
 function boqPick(r,kind,val){
   boqLinkRemember(r.name,kind,val);
   if(kind==='mat')r.mat=val;else r.lab=val;
@@ -4306,7 +4395,7 @@ function boqSourcesData(){
   const b=boqGet();
   if(b)(b.rows||[]).forEach(r=>{const m=r.mat||{};
     if(m.kind==='mat')addC(m.code,r.name);
-    if(m.kind==='comp'&&m.lines)Object.values(m.lines).forEach(l=>{if(l&&l.kind==='mat')addC(l.code,r.name+' (มวลรวม)');});});
+    if(m.kind==='comp'){[m].concat(Object.values(m.sub||{})).forEach(sc=>Object.values((sc&&sc.lines)||{}).forEach(l=>{if(l&&l.kind==='mat')addC(l.code,r.name+' (มวลรวม)');}));}});
   const commerce=Object.values(cm);
   return {commerce,materials,wages,comps,surveys};
 }
