@@ -3541,6 +3541,15 @@ function boqCmpLineInfo(m,ln){
     if(Survey.normUnit(a.unit)!==Survey.normUnit(ln.unit))return {state:'badunit',label:a.name,warn:'หน่วยสืบ ('+a.unit+') ไม่ตรง '+ln.unit};
     return {state:'ok',price:a.price,label:a.name,src:'ราคาสืบ',n:a.n};
   }
+  if(l.kind==='comp'){
+    const c=typeof compList!=='undefined'&&compLoaded?compList.find(x=>x.sub===l.code):null;
+    if(!c)return {state:'missing',label:l.code,warn:'ไม่พบวัสดุมวลรวม '+l.code};
+    const pr=PDB.compPrice(c.id,{});
+    if(!pr||pr.price===null)return {state:'missing',label:c.sub+' '+c.name,warn:'มวลรวม '+c.sub+' ยังคิดราคาไม่ครบ (ไปกรอกที่มวลรวมนั้นก่อน)'};
+    let price=pr.price;
+    if(Survey.normUnit(c.unit)!==Survey.normUnit(ln.unit)){const cx=convertPriceX(price,c.unit,ln.unit,c.name,ln.name);if(!cx||!cx.ok||cx.price===null)return {state:'badunit',label:c.sub+' '+c.name,warn:'หน่วยมวลรวม ('+c.unit+') ไม่ตรง '+ln.unit};price=cx.price;}
+    return {state:'ok',price,label:c.sub+' '+c.name,src:'วัสดุมวลรวม '+c.sub};
+  }
   const d=(typeof allData!=='undefined'?allData:[]).find(x=>x.code===l.code);
   if(!d||d.price===null||d.price===undefined)return {state:'missing',label:l.code,warn:'ไม่พบราคาพาณิชย์รหัส '+l.code+' เดือนนี้'};
   const cx=convertPriceX(d.price,d.unit,ln.unit,d.name,ln.name);
@@ -3898,13 +3907,13 @@ function boqOpenLineModal(key,line){
   bqEl('bq-msearch').value=line.name||'';
   bqEl('bq-modal').style.display='flex';
   const P=boqModalPools(r),qq=(line.name||'').trim();
-  for(const k of ['mat','survey']){const t=P[k];const x=bqSearch(t.pool,qq,t.hay,{unit:line.unit,unitOf:t.unit});if(!x.fallback&&x.full){bq.tab=k;break;}}
+  for(const k of ['mat','comp','survey']){const t=P[k];const x=bqSearch(t.pool,qq,t.hay,{unit:line.unit,unitOf:t.unit});if(!x.fallback&&x.full){bq.tab=k;break;}}
   boqModalList();bqEl('bq-msearch').focus();bqEl('bq-msearch').select();
 }
 function boqCmpLinePick(r,line,val){
   if(!r||!r.mat||r.mat.kind!=='comp')return;
   r.mat.lines=r.mat.lines||{};
-  r.mat.lines[line.index]=val.kind==='survey'?{kind:'survey',key:val.key}:{kind:'mat',code:val.code};
+  r.mat.lines[line.index]=val.kind==='survey'?{kind:'survey',key:val.key}:val.kind==='comp'?{kind:'comp',code:val.code}:{kind:'mat',code:val.code};
   boqLinkRemember(line.name,'mat',val);
   boqSave();boqCloseModal();boqRender();boqUpdateNumbers();
 }
@@ -4077,7 +4086,7 @@ function boqModalList(){
   const q=bqEl('bq-msearch').value.trim(),list=bqEl('bq-mlist'),tabs=bqEl('bq-mtabs'),filt=bqEl('bq-mfilt'),foot=bqEl('bq-mfoot');
   const P=boqModalPools(r);
   const cnt=k=>{const t=P[k];if(!t)return 0;const x=bqSearch(t.pool,q,t.hay,{unit:tg.unit,unitOf:t.unit});return x.fallback?0:x.items.length;};
-  const tabDefs=md.kind==='cmpline'?[['mat','ราคาพาณิชย์'],['survey','ราคาสืบ']]:md.kind==='mat'?[['mat','พาณิชย์'],['comp','วัสดุมวลรวม'],['survey','ราคาสืบ'],['manual','กรอกเอง'],['none','ไม่มีค่าวัสดุ']]:[['wage','ค่าแรง ว.480'],['manual','กรอกเอง'],['none','ไม่มีค่าแรง']];
+  const tabDefs=md.kind==='cmpline'?[['mat','ราคาพาณิชย์'],['comp','วัสดุมวลรวม'],['survey','ราคาสืบ']]:md.kind==='mat'?[['mat','พาณิชย์'],['comp','วัสดุมวลรวม'],['survey','ราคาสืบ'],['manual','กรอกเอง'],['none','ไม่มีค่าวัสดุ']]:[['wage','ค่าแรง ว.480'],['manual','กรอกเอง'],['none','ไม่มีค่าแรง']];
   tabs.innerHTML=tabDefs.map(([k,l])=>`<button type="button" class="sv-chip${bq.tab===k?' on':''}" data-tab="${k}">${l}${P[k]&&q?' ('+cnt(k)+')':P[k]?' ('+P[k].pool.length+')':''}</button>`).join('');
   const searchable=!!P[bq.tab];
   bqEl('bq-msearch').style.display=searchable?'':'none';
@@ -4105,6 +4114,7 @@ function boqModalList(){
     if(provs.length>1)fh+=`<select class="bq-in" data-flt="prov" style="max-width:180px"><option value="">ทุกจังหวัด</option>${provs.map(c=>`<option value="${esc(c)}"${bq.fprov===c?' selected':''}>${esc(c)}</option>`).join('')}</select>`;
     filt.innerHTML=fh;
     if(bq.fprov&&T.prov)pool=pool.filter(d=>T.prov(d)===bq.fprov);
+    if(bq.tab==='comp'&&md.kind==='cmpline')pool=pool.filter(d=>d.sub!==(r.mat&&r.mat.code));   /* ไม่ให้เลือกมวลรวมตัวเองซ้อนตัวเอง */
     const res=bqSearch(pool,q,T.hay,{unit:tg.unit,unitOf:T.unit});items=res.items;
     {
       const pref=boqPrefIds(tg,md.kind==='lab'?'lab':'mat',bq.tab);
