@@ -3713,7 +3713,8 @@ function boqCompute(b){
   const eqTotal=r2(eq+eqV+ins+insV),sp=r2((b.pr3||[]).reduce((a,x)=>a+r2(+x.amount||0),0));
   const has=build!==null||eqTotal>0||sp>0;
   const grand=has?r2((build||0)+eqTotal+sp):null;
-  const pr4=grand===null?null:(est?Math.floor(grand/1000+1e-9)*1000:grand);
+  const rt=+b.info.roundTo>0?+b.info.roundTo:1000;
+  const pr4=grand===null?null:(est?Math.floor(grand/rt+1e-9)*rt:grand);
   return {pr,byKey,secs,cost,ff,build,p2,eq,eqV,ins,insV,eqTotal,sp,grand,pr4,est,noPrice:pr.filter(r=>(r.warns||[]).some(w=>/ยังไม่มีราคา/.test(w))).length};
 }
 /* ---------- แสดงผล ---------- */
@@ -3728,8 +3729,9 @@ function boqRender(){
   const i=b.info,fc=b.factor;
   const inp=(k,l,t)=>`<label>${l}<input class="bq-in" ${t?'type="'+t+'"':''} data-bi="${k}" value="${esc(i[k]||'')}"></label>`;
   let h=`<div class="bq-card"><div class="bq-grid">
-      ${inp('name','โครงการงานก่อสร้าง')}${inp('location','สถานที่ก่อสร้าง')}${inp('agency','หน่วยงานเจ้าของโครงการ')}${inp('date','ประมาณราคาเมื่อวันที่','date')}${inp('drawing_no','แบบเลขที่')}${inp('estimator',i.mode==='central'?'ประธานกรรมการ':'ผู้ประมาณราคา (ชื่อที่พิมพ์ท้ายแบบ)')}${i.mode==='central'?[0,1].map(k=>`<label>กรรมการคนที่ ${k+1}<input class="bq-in" data-bm="${k}" value="${esc((i.members||[])[k]||'')}"></label>`).join(''):''}
-      <label>ประเภทงาน<select class="bq-in" data-bi="mode"><option value="estimate"${i.mode!=='central'?' selected':''}>ประมาณราคา (ปร.4 ปัดลงหลักพัน)</option><option value="central"${i.mode==='central'?' selected':''}>กำหนดราคากลาง</option></select></label>
+      ${inp('name','โครงการงานก่อสร้าง')}${inp('location','สถานที่ก่อสร้าง')}${inp('agency','หน่วยงานเจ้าของโครงการ')}${inp('date','ประมาณราคาเมื่อวันที่','date')}${inp('drawing_no','แบบเลขที่')}${inp('estimator',i.mode==='central'?'ประธานกรรมการ':'ผู้ประมาณราคา (ชื่อที่พิมพ์ท้ายแบบ)')}${i.mode==='central'?Array.from({length:Math.max(2,(i.members||[]).length)},(_,k)=>`<label>กรรมการคนที่ ${k+1}${k>=2?' <span class="bq-lnk" style="color:var(--red)" onclick="boqDelMember(${k})">ลบ</span>':''}<input class="bq-in" data-bm="${k}" value="${esc((i.members||[])[k]||'')}"></label>`).join('')+'<div style="display:flex;align-items:flex-end"><button class="btn btn-ghost" type="button" onclick="boqAddMember()">+ เพิ่มกรรมการ</button></div>':''}
+      <label>ประเภทงาน<select class="bq-in" data-bi="mode"><option value="estimate"${i.mode!=='central'?' selected':''}>ประมาณราคา (ปร.4 ปัดลง)</option><option value="central"${i.mode==='central'?' selected':''}>กำหนดราคากลาง</option></select></label>
+      ${i.mode==='central'?'':`<label>ปร.4 ปัดลงที่หลัก<select class="bq-in" data-bi="roundTo">${[[10000,'หลักหมื่น'],[1000,'หลักพัน'],[100,'หลักร้อย'],[10,'หลักสิบ'],[1,'หลักหน่วย (ตัดสตางค์)']].map(([v,l])=>`<option value="${v}"${(+i.roundTo||1000)===v?' selected':''}>${l}</option>`).join('')}</select></label>`}
       <label>เงินล่วงหน้าจ่าย (%)<select class="bq-in" data-bf="advance">${[0,5,10,15].map(v=>`<option value="${v}"${+fc.advance===v?' selected':''}>${v}</option>`).join('')}</select></label>
       <label>เงินประกันผลงานหัก (%)<select class="bq-in" data-bf="retention">${[0,5,10].map(v=>`<option value="${v}"${+fc.retention===v?' selected':''}>${v}</option>`).join('')}</select></label>
       <label>สัดส่วนเงินกู้ (%) <span style="font-size:10px">(0 = ไม่ใช้เงินกู้)</span><input class="bq-in n" type="number" min="0" max="100" step="any" data-bf="loanPct" value="${esc(fc.loanPct||0)}"></label>
@@ -3791,7 +3793,7 @@ function boqRowHtml(r,n,p){
   const ml=m.kind==='mat'?'พาณิชย์':m.kind==='comp'?'มวลรวม':m.kind==='survey'?'ราคาสืบ':m.kind==='manual'?'กรอกเอง':m.kind==='none'?'ไม่มีค่าวัสดุ':'ผูกวัสดุ';
   const ll=l.kind==='wage'?'ว.480':l.kind==='manual'?'กรอกเอง':l.kind==='none'?'ไม่มีค่าแรง':'ผูกค่าแรง';
   return `<tr data-k="${esc(r.key)}"><td style="color:var(--text3)">${n}</td>
-    <td><input class="bq-in" data-f="name" value="${esc(r.name)}" placeholder="ชื่อรายการ"><div class="bq-src" data-c="src"></div>${boqCmpPanel(r)}</td>
+    <td><input class="bq-in" data-f="name" value="${esc(r.name)}" placeholder="ชื่อรายการ"><div class="bq-src" data-c="src"></div>${boqCmpPanel(r)}${m.kind==='manual'?'<input class="bq-in" data-note="mat" style="margin-top:4px;font-size:12px" placeholder="รายละเอียดค่าวัสดุที่กรอกเอง — วิธีคิด / ที่มาคร่าว ๆ (ไปแสดงในชีตที่มาของราคา)" value="'+esc(m.note||'')+'">':''}${l.kind==='manual'?'<input class="bq-in" data-note="lab" style="margin-top:4px;font-size:12px" placeholder="รายละเอียดค่าแรงที่กรอกเอง — วิธีคิด / ที่มาคร่าว ๆ (ไปแสดงในชีตที่มาของราคา)" value="'+esc(l.note||'')+'">':''}</td>
     <td><input class="bq-in n" type="number" step="any" min="0" data-f="qty" value="${esc(r.qty===undefined?'':r.qty)}"></td>
     <td><input class="bq-in" data-f="unit" value="${esc(r.unit||'')}"></td>
     <td class="r"><div class="bq-pri"><span data-c="matu"></span><span class="bq-lnk" data-act="pickmat">${ml}</span></div></td><td class="r" data-c="mata"></td>
@@ -3916,12 +3918,15 @@ function boqAddRow(code){
   const trs=document.querySelectorAll('#bq-body tr[data-k]');const last=[...trs].filter(t=>b.rows.find(r=>r.key===t.dataset.k&&r.group_code===code)).pop();
   if(last){const i=last.querySelector('[data-f="name"]');if(i)i.focus();}
 }
+function boqAddMember(){const b=boqGet();if(!b)return;b.info.members=b.info.members||[];while(b.info.members.length<2)b.info.members.push('');b.info.members.push('');boqSave();boqRender();}
+function boqDelMember(k){const b=boqGet();if(!b||!b.info.members)return;b.info.members.splice(k,1);boqSave();boqRender();}
 function boqBind(){
   const body=bqEl('bq-body');
   body.addEventListener('input',e=>{
     const b=boqGet();if(!b)return;const t=e.target;
-    if(t.dataset.bi){b.info[t.dataset.bi]=t.value;boqSaveSoon();if(t.dataset.bi==='mode')boqUpdateNumbers();return;}
+    if(t.dataset.bi){b.info[t.dataset.bi]=t.value;boqSaveSoon();if(t.dataset.bi==='mode'||t.dataset.bi==='roundTo')boqUpdateNumbers();if(t.dataset.bi==='mode')boqRender();return;}
     if(t.dataset.bf){b.factor[t.dataset.bf]=t.value===''?0:+t.value;boqSaveSoon();boqUpdateNumbers();return;}
+    if(t.dataset.note){const tr=t.closest('tr[data-k]'),rw=tr&&b.rows.find(x=>x.key===tr.dataset.k),o=rw&&(t.dataset.note==='lab'?rw.lab:rw.mat);if(o){o.note=t.value;boqSaveSoon();}return;}
     if(t.dataset.bm!==undefined){b.info.members=b.info.members||[];b.info.members[+t.dataset.bm]=t.value;boqSaveSoon();return;}
     if(t.dataset.pf){
       const ptr=t.closest('tr[data-pk]');if(!ptr)return;const [pk,key]=ptr.dataset.pk.split(':');
@@ -4247,7 +4252,7 @@ function boqModalList(){
   foot.innerHTML=md.kind!=='lab'?`<span style="font-size:12px;color:var(--text3)">ไม่มีในฐานข้อมูล?</span> <button class="btn btn-amber" type="button" id="bq-mnew">+ สืบราคาใหม่</button>${md.kind==='cmpline'?'':' <button class="btn btn-ghost" type="button" data-tab="manual">กรอกราคาเอง</button>'}`:`<button class="btn btn-ghost" type="button" data-tab="manual">ไม่พบ — กรอกค่าแรงเอง</button>`;
   list.onclick=e=>{
     const rw=e.target.closest('.modal-row');if(rw&&list._pick){list._pick(+rw.dataset.i);return;}
-    if(e.target.id==='bq-manual-ok'){const v=bqEl('bq-manual').value;if(v===''){return;}boqPick(r,md.kind,{kind:'manual',price:+v,label:'กรอกเอง'});}
+    if(e.target.id==='bq-manual-ok'){const v=bqEl('bq-manual').value;if(v===''){return;}boqPick(r,md.kind,{kind:'manual',price:+v,label:'กรอกเอง',note:cur&&cur.kind==='manual'&&cur.note?cur.note:''});}
     if(e.target.id==='bq-none-ok')boqPick(r,md.kind,{kind:'none'});
   };
 }
@@ -4439,7 +4444,11 @@ function boqSourcesData(){
       lines:(c.snapshot||[]).map(it=>{const fx=it.fixedPrice!==null&&it.fixedPrice!==undefined,price=fx?it.fixedPrice:(it.price||0);
         return {name:it.itemName||'',qty:+it.qty||0,unit:it.unit||'',price,amount:price>0?r2((+it.qty||0)*price):null,src:fx?'(ราคาตายตัว)':(it.province||'')};})});});
   (p.surveys||[]).forEach(it=>{if(!svm[it.key])svm[it.key]=svEntry(it);});
-  return {commerce:Object.values(cm),wagesUsed:Object.values(wm),comps,surveys:Object.values(svm),materials,wages};
+  const manual=[];
+  if(b)(b.rows||[]).forEach(r=>{
+    [['ค่าแรง',r.lab],['ค่าวัสดุ',r.mat]].forEach(([t,o])=>{if(o&&o.kind==='manual'&&o.price!==''&&o.price!==undefined)manual.push({type:t,name:r.name||'',unit:r.unit||'',price:+o.price,note:String(o.note||'').trim()});});});
+  manual.sort((a,c)=>(a.type===c.type?0:a.type==='ค่าแรง'?-1:1));
+  return {commerce:Object.values(cm),wagesUsed:Object.values(wm),manual,comps,surveys:Object.values(svm),materials,wages};
 }
 function boqFormData(b,T){
   const i=b.info,est=(i.mode||'estimate')==='estimate',top=c=>String(c).split('.')[0];
@@ -4453,8 +4462,8 @@ function boqFormData(b,T){
   });
   const fc=b.factor||{};
   const people=est?[{role:'ผู้ประมาณราคา',name:i.estimator||''}]
-    :[{role:'ประธานกรรมการ',name:i.estimator||''}].concat([0,1].map(k=>({role:'กรรมการ',name:(i.members||[])[k]||''})));
-  return {mode:est?'estimate':'central',
+    :[{role:'ประธานกรรมการ',name:i.estimator||''}].concat(Array.from({length:Math.max(2,(i.members||[]).length)},(_,k)=>({role:'กรรมการ',name:(i.members||[])[k]||''})));
+  return {mode:est?'estimate':'central',roundTo:+i.roundTo>0?+i.roundTo:1000,
     project:{name:i.name||'',location:i.location||'',agency:i.agency||'',drawing_no:i.drawing_no||'',calc_date:i.date||''},
     people,sections,
     factor:{F:T.ff.F,advance:+fc.advance||0,retention:+fc.retention||0,loanShare:(+fc.loanPct||0)/100,table:FactorF.TABLES['adv'+(+fc.advance||0)+'_ret'+(+fc.retention||0)]||[]},
