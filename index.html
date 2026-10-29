@@ -3640,7 +3640,7 @@ function boqSugResolve(r){
     if(sg.lab&&sg.lab.kind==='none')out.lab={kind:'none'};
     else if(sg.lab&&sg.lab.kind==='wage'&&typeof wageData!=='undefined'){
       const d=wageData.find(x=>x.code===sg.lab.code&&x.price);
-      if(d){const nm=wIsLeafH2(d)?(d.h2||d.h1):([d.h3||d.h2,d.h4].filter(x=>x&&x!=='-').join(' — ')||d.h1);out.lab={kind:'wage',code:d.code,label:nm};}
+      if(d){const nm=wIsLeafH2(d)?(d.h2||d.h1):([d.h3||d.h2,d.h4].filter(x=>x&&x!=='-').join(' — ')||d.h1);out.lab={kind:'wage',code:d.code,label:bqWagePath(d).join(' › ')};}
     }
   }
   if(!out.mat&&!out.lab&&!out.note)return null;
@@ -3793,7 +3793,7 @@ function boqBind(){
   bqEl('bq-mclose').onclick=boqCloseModal;
   bqEl('bq-modal').addEventListener('click',e=>{if(e.target.id==='bq-modal')boqCloseModal();});
   bqEl('bq-msearch').addEventListener('input',boqModalList);
-  bqEl('bq-mtabs').addEventListener('click',e=>{const t=e.target.dataset.tab;if(t){bq.tab=t;bq.fcat='';bq.fprov='';boqModalList();}});
+  bqEl('bq-mtabs').addEventListener('click',e=>{const t=e.target.dataset.tab;if(t){bq.tab=t;bq.fcat='';bq.fprov='';bq.fh1=bq.fh2=bq.fh3='';boqModalList();}});
   bqEl('bq-mfoot').addEventListener('click',e=>{
     const t=e.target.dataset.tab;if(t){bq.tab=t;boqModalList();return;}
     if(e.target.id==='bq-mnew'&&bq.modal){
@@ -3802,12 +3802,12 @@ function boqBind(){
       svEl('sv-addbox').classList.add('on');svEl('sv-an').value=r.name||'';svEl('sv-au').value=r.unit||'';svEl('sv-ac').value='mat';svEl('sv-an').focus();
     }
   });
-  bqEl('bq-mfilt').addEventListener('change',e=>{const k=e.target.dataset.flt;if(k){bq[k==='cat'?'fcat':'fprov']=e.target.value;boqModalList();}});
+  bqEl('bq-mfilt').addEventListener('change',e=>{const k=e.target.dataset.flt;if(k){const key=k==='cat'?'fcat':k==='prov'?'fprov':'f'+k;bq[key]=e.target.value;if(k==='cat'){bq.fh1=bq.fh2=bq.fh3='';}else if(k==='h1'){bq.fh2=bq.fh3='';}else if(k==='h2'){bq.fh3='';}boqModalList();}});
 }
 function boqCloseModal(){bqEl('bq-modal').style.display='none';bq.modal=null;}
 function boqOpenModal(key,kind){
   const b=boqGet(),r=b.rows.find(x=>x.key===key);if(!r)return;
-  bq.modal={key,kind};bq.fcat='';bq.fprov='';
+  bq.modal={key,kind};bq.fcat='';bq.fprov='';bq.fh1=bq.fh2=bq.fh3='';
   if(typeof compLoaded!=='undefined'&&!compLoaded&&typeof loadCompData==='function')loadCompData().then(()=>{if(bq.modal)boqModalList();});
   bq.tab=boqBestTab(r,kind);
   bqEl('bq-mtitle').textContent=kind==='mat'?'ผูกราคาค่าวัสดุ':'ผูกราคาค่าแรง';
@@ -3886,13 +3886,16 @@ function bqSearch(pool,q,hay){
   return {items:out.map(x=>x[1]),fallback:false};
 }
 const BQ_MAXROWS=150;
+const bqWc=v=>{v=String(v==null?'':v).trim();return v==='-'?'':v;};
+/* เส้นทางหมวดเต็มของค่าแรง ว.480: หมวดใหญ่ › h1 › h2 › h3 › h4 (ตัดช่องว่าง/ซ้ำติดกัน) */
+function bqWagePath(d){const o=[];[d.sheetLabel,d.h1,d.h2,d.h3,d.h4].forEach(x=>{x=bqWc(x);if(x&&o[o.length-1]!==x)o.push(x);});return o;}
 function boqModalPools(r){
   const wn=d=>wIsLeafH2(d)?(d.h2||d.h1):([d.h3||d.h2,d.h4].filter(x=>x&&x!=='-').join(' — ')||d.h1);
   return {
     mat:{pool:allData,hay:d=>[d.name,d.code,d.catName||''],cat:d=>d.catName||'',prov:d=>d.province||''},
     comp:{pool:(typeof compLoaded!=='undefined'&&compLoaded)?compList:[],hay:d=>[d.name,d.sub,COMP_GROUPS[d.group]||''],cat:d=>COMP_GROUPS[d.group]||''},
     survey:{pool:(typeof sv!=='undefined'?sv.items:[]).filter(x=>(x.cat||'mat')==='mat'&&Survey.summary(x).price!==null),hay:d=>[d.name],cat:()=>''},
-    wage:{pool:wageData.filter(d=>d.code),hay:d=>[[d.h3,d.h4].filter(x=>x&&x!=='-').join(' ')||wn(d),d.h2&&d.h2!=='-'?d.h2:'',d.h1||'',d.code||''],cat:d=>d.sheetLabel||'',wn}
+    wage:{pool:wageData.filter(d=>d.code),hay:d=>[[d.h3,d.h4].filter(x=>x&&x!=='-').join(' ')||wn(d),bqWagePath(d).join(' '),d.code||''],cat:d=>d.sheetLabel||'',wn}
   };
 }
 function boqModalList(){
@@ -3915,11 +3918,27 @@ function boqModalList(){
     const cats=[...new Set(T.pool.map(T.cat).filter(Boolean))].sort((x,y)=>x.localeCompare(y,'th'));
     const provs=T.prov?[...new Set(T.pool.map(T.prov).filter(Boolean))].sort((x,y)=>x.localeCompare(y,'th')):[];
     if(bq.fcat&&!cats.includes(bq.fcat))bq.fcat='';if(bq.fprov&&!provs.includes(bq.fprov))bq.fprov='';
+    let pool=T.pool;
+    if(bq.tab==='wage'){
+      /* ตัวกรองหมวดซ้อนหลายชั้น: หมวดใหญ่ → หมวดย่อย 1 → 2 → 3 */
+      const lv=[['cat',d=>bqWc(d.sheetLabel),'ทุกหมวดใหญ่'],['h1',d=>bqWc(d.h1),'ทุกหมวดย่อย'],['h2',d=>bqWc(d.h2),'ทุกหมวดย่อยชั้น 2'],['h3',d=>bqWc(d.h3),'ทุกหมวดย่อยชั้น 3']];
+      let fh='',dead=false;
+      lv.forEach(([k,fn,all])=>{
+        const key=k==='cat'?'fcat':'f'+k;
+        if(dead){bq[key]='';return;}
+        const opts=[...new Set(pool.map(fn).filter(Boolean))].sort((x,y)=>x.localeCompare(y,'th',{numeric:true}));
+        if(bq[key]&&!opts.includes(bq[key]))bq[key]='';
+        if(opts.length>1||bq[key])fh+=`<select class="bq-in" data-flt="${k}" style="max-width:230px"><option value="">${all} (${opts.length})</option>${opts.map(c=>`<option value="${esc(c)}"${bq[key]===c?' selected':''}>${esc(c)}</option>`).join('')}</select>`;
+        if(bq[key])pool=pool.filter(d=>fn(d)===bq[key]);
+      });
+      filt.innerHTML=fh;
+    }else
     filt.innerHTML=(cats.length>1?`<select class="bq-in" data-flt="cat" style="max-width:260px"><option value="">ทุกหมวด (${cats.length})</option>${cats.map(c=>`<option value="${esc(c)}"${bq.fcat===c?' selected':''}>${esc(c)}</option>`).join('')}</select>`:'')
       +(provs.length>1?`<select class="bq-in" data-flt="prov" style="max-width:180px"><option value="">ทุกจังหวัด</option>${provs.map(c=>`<option value="${esc(c)}"${bq.fprov===c?' selected':''}>${esc(c)}</option>`).join('')}</select>`:'');
-    let pool=T.pool;
-    if(bq.fcat)pool=pool.filter(d=>T.cat(d)===bq.fcat);
-    if(bq.fprov&&T.prov)pool=pool.filter(d=>T.prov(d)===bq.fprov);
+    if(bq.tab!=='wage'){
+      if(bq.fcat)pool=pool.filter(d=>T.cat(d)===bq.fcat);
+      if(bq.fprov&&T.prov)pool=pool.filter(d=>T.prov(d)===bq.fprov);
+    }
     const res=bqSearch(pool,q,T.hay);items=res.items;
     const total=items.length;items=items.slice(0,BQ_MAXROWS);
     const note=(res.fallback?`<div class="sv-hint" style="padding:8px 14px">ไม่พบรายการที่มีครบทุกคำของ "${esc(q)}" — แสดงทั้งหมดในหมวดนี้ให้เลือกเอง (ลองพิมพ์คำเดียว หรือเปลี่ยนหมวด/แท็บ)</div>`:'')
@@ -3935,8 +3954,8 @@ function boqModalList(){
       html=items.length?items.map((x,i)=>{const s=Survey.summary(x);return row(x.name,s.n+' เจ้า'+(s.n<Survey.MIN_Q?' (ไม่ครบ '+Survey.MIN_Q+')':'')+' · ไม่รวม VAT',bqF2(s.price)+' / '+esc(x.unit),i);}).join(''):'<div class="sv-hint" style="padding:14px">ยังไม่มีราคาสืบที่ตรงกัน — กด "+ สืบราคาใหม่" ด้านล่าง</div>';
       list._pick=i=>boqPick(r,'mat',{kind:'survey',key:items[i].key,label:items[i].name});
     }else{
-      html=items.map((d,i)=>row(T.wn(d),d.code+' · '+(d.sheetLabel||''),d.price?bqF2(d.price)+' / '+esc(d.unit):esc(d.rawPrice||'—'),i)).join('');
-      list._pick=i=>boqPick(r,'lab',{kind:'wage',code:items[i].code,label:T.wn(items[i])});
+      html=items.map((d,i)=>row(bqWagePath(d).join(' › '),d.code,d.price?bqF2(d.price)+' / '+esc(d.unit):esc(d.rawPrice||'—'),i)).join('');
+      list._pick=i=>boqPick(r,'lab',{kind:'wage',code:items[i].code,label:bqWagePath(items[i]).join(' › ')});
     }
     html=note+html;
   }else if(bq.tab==='manual'){
@@ -4210,7 +4229,7 @@ function boqAutoLink(r,old){
     const nm=d=>wIsLeafH2(d)?(d.h2||d.h1):([d.h3||d.h2,d.h4].filter(x=>x&&x!=='-').join(' — ')||d.h1);
     let best=null;
     wageData.forEach(d=>{if(!d.code||!d.price)return;let sc=BoqImport.similar(r.name,nm(d));if(!sc)return;if(d.unit&&r.unit&&String(d.unit).trim()===String(r.unit).trim())sc+=0.05;if(!best||sc>best.sc)best={sc,d};});
-    if(best&&best.sc>=TH_LAB)r.lab={kind:'wage',code:best.d.code,label:nm(best.d)};
+    if(best&&best.sc>=TH_LAB)r.lab={kind:'wage',code:best.d.code,label:bqWagePath(best.d).join(' › ')};
   }
 }
 async function boqImpGo(){
