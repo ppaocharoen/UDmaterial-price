@@ -4142,7 +4142,9 @@ async function boqImpLoad(f){
       const res=BoqImport.parse(aoa);
       return {name:n,aoa,count:res.rows.length,found:!!res.map};
     });
-    let best=bqi.sheets.slice().sort((a,b)=>b.count-a.count)[0];
+    /* เลือกชีตอัตโนมัติ: ชื่อ ปร.1 ก่อน, แล้ว ปร.4 — ไม่ใช่ชีตที่แถวเยอะสุด (เช่น "แบ่งงวด" ที่มักมีข้อมูลโครงการเก่าค้าง) */
+    const pri=n=>{const t=String(n).replace(/\s+/g,'');return /^ปร\.?1$/.test(t)?0:/^ปร\.?4$/.test(t)?1:/ปร\.?1/.test(t)&&!/\(ก\)/.test(t)?2:3;};
+    let best=bqi.sheets.filter(x=>x.count>0).sort((a,b)=>pri(a.name)-pri(b.name)||b.count-a.count)[0]||bqi.sheets[0];
     boqImpPick(best.name);
     bqEl('bq-imp').style.display='flex';
   }catch(e){alert('อ่านไฟล์ไม่สำเร็จ: '+e.message);}
