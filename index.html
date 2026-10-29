@@ -3525,7 +3525,7 @@ function boqCmpLines(m){
   if(!m||m.kind!=='comp'||typeof compLoaded==='undefined'||!compLoaded)return [];
   const c=compList.find(x=>x.sub===m.code);if(!c)return [];
   const base=PDB.compPrice(c.id,{});
-  return base&&base.lines?base.lines.filter(l=>(l.warnings||[]).includes('missing_price')):[];
+  return base&&base.lines?base.lines:[];   /* ทุกบรรทัดของมวลรวม (ทั้งที่มีราคาแล้วและยังไม่มี) */
 }
 /* ผูกของแต่ละบรรทัด: m.lines[index] = {kind:'mat',code} | {kind:'survey',key}  (m.svlines = รูปแบบเก่า: index→key สืบ) */
 function boqCmpLink(m,i){
@@ -3664,16 +3664,20 @@ function boqRender(){
 /* วัสดุมวลรวมที่ราคาไม่ครบ: แต่ละบรรทัดที่ขาดราคา → ปุ่ม "เลือกราคา" (ราคาพาณิชย์ หรือ ราคาสืบ) */
 function boqCmpPanel(r){
   const m=r.mat||{};
-  const miss=boqCmpLines(m);if(!miss.length)return '';
+  const all=boqCmpLines(m);if(!all.length)return '';
   const pr=m.prices||{};
-  return '<div class="bq-cmp"><div style="font-weight:600;margin-bottom:3px">วัสดุในมวลรวม '+esc(m.code)+' ที่ยังไม่มีราคา — เลือกราคาพาณิชย์หรือราคาสืบ</div>'
-    +miss.map(l=>{
-      const x=boqCmpLineInfo(m,l),has=!!boqCmpLink(m,l.index);
-      const st=x?(x.state==='ok'?'<b style="color:#34d399">'+esc(x.src)+' '+bqF2(x.price)+' บาท/'+esc(l.unit)+'</b> <span style="color:var(--text3)">('+esc(x.label)+(x.n!==undefined?' · '+x.n+' เจ้า'+(x.n<Survey.MIN_Q?' ไม่ครบ '+Survey.MIN_Q:''):'')+')</span>'
-          :'<span class="bq-warn"><i class="ic ic-warn"></i> '+esc(x.warn)+'</span>')
-        :(pr[l.index]!==undefined?'<span style="color:var(--text3)">ราคาเดิมที่กรอกไว้ '+bqF2(pr[l.index])+' บาท/'+esc(l.unit)+' (ยังไม่ได้เลือกที่มา)</span>':'');
+  const nMiss=all.filter(l=>(l.warnings||[]).includes('missing_price')&&!boqCmpLink(m,l.index)&&pr[l.index]===undefined).length;
+  return '<div class="bq-cmp"><div style="font-weight:600;margin-bottom:3px">รายการวัสดุในมวลรวม '+esc(m.code)+(nMiss?' <span class="bq-warn">(ยังไม่มีราคา '+nMiss+' รายการ)</span>':' <span style="color:#34d399">(ราคาครบ)</span>')+' — เลือกราคาพาณิชย์หรือราคาสืบให้รายการใดก็ได้</div>'
+    +all.map(l=>{
+      const x=boqCmpLineInfo(m,l),has=!!boqCmpLink(m,l.index),miss=(l.warnings||[]).includes('missing_price');
+      let st;
+      if(x)st=x.state==='ok'?'<b style="color:#34d399">'+esc(x.src)+' '+bqF2(x.price)+' บาท/'+esc(l.unit)+'</b> <span style="color:var(--text3)">('+esc(x.label)+(x.n!==undefined?' · '+x.n+' เจ้า'+(x.n<Survey.MIN_Q?' ไม่ครบ '+Survey.MIN_Q:''):'')+')</span>'
+          :'<span class="bq-warn"><i class="ic ic-warn"></i> '+esc(x.warn)+'</span>';
+      else if(pr[l.index]!==undefined)st='<span style="color:var(--text3)">ราคาเดิมที่กรอกไว้ '+bqF2(pr[l.index])+' บาท/'+esc(l.unit)+' (ยังไม่ได้เลือกที่มา)</span>';
+      else if(!miss)st='<span style="color:var(--text2)">'+({'commerce':'พาณิชย์'+(l.province?' '+esc(l.province):''),'commerce-fallback':'พาณิชย์ (รหัสสำรอง)','fixed':'ราคาคงที่','sub-comp':'ส่วนผสม '+esc(l.subComp||''),'user':'กรอกเอง'}[l.source]||esc(l.source||''))+' '+bqF2(l.unitPrice)+' บาท/'+esc(l.unit)+'</span>';
+      else st='<span class="bq-warn">ยังไม่มีราคา</span>';
       return '<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap"><span>'+esc(l.name)+' <span style="color:var(--text3)">× '+esc(l.qty===null?'?':l.qty)+' '+esc(l.unit)+'</span></span> '+st
-        +' <span class="bq-lnk" data-act="cmpsv" data-i="'+l.index+'" data-n="'+esc(l.name)+'" data-u="'+esc(l.unit)+'">'+(has?'เปลี่ยน':'เลือกราคา')+'</span>'
+        +' <span class="bq-lnk" data-act="cmpsv" data-i="'+l.index+'" data-n="'+esc(l.name)+'" data-u="'+esc(l.unit)+'">'+(has?'เปลี่ยน':(miss?'เลือกราคา':'เปลี่ยนที่มาราคา'))+'</span>'
         +(has||pr[l.index]!==undefined?' <span class="bq-lnk" style="color:var(--red)" data-act="cmpunsv" data-i="'+l.index+'">เลิกผูก</span>':'')+'</div>';
     }).join('')+'</div>';
 }
@@ -4302,6 +4306,12 @@ async function boqExportXlsx(){
     if(!window.FormXlsx)await bqLoadScript('lib/formxlsx-v1.js');
     const buf=await (await fetch('lib/boq_form_template-v1.xlsx')).arrayBuffer();
     const o=await FormXlsx.build(window.ExcelJS,buf,boqFormData(b,T));
+    /* ปรับไฟล์ให้ Excel เปิดได้ไม่ถามกู้คืน: ตัดตัวแทนรูปในหัว/ท้ายกระดาษ (&G) ที่แม่แบบไม่มีรูปจริง + ช่วงตัดหน้าให้อยู่ในขอบเขต */
+    o.wb.eachSheet(ws=>{try{
+      const hf=ws.headerFooter||{};
+      ['oddHeader','oddFooter','evenHeader','evenFooter','firstHeader','firstFooter'].forEach(k=>{if(typeof hf[k]==='string')hf[k]=hf[k].replace(/&G/g,'');});
+      (ws.rowBreaks||[]).forEach(b=>{if(b.max>16383)b.max=16383;});
+    }catch(e){}});
     const out=await o.wb.xlsx.writeBuffer();
     const a=document.createElement('a');
     a.href=URL.createObjectURL(new Blob([out],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));
