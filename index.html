@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="th">
 <head>
+<script>try{if(localStorage.getItem('udCostHub_theme')==='light')document.documentElement.setAttribute('data-theme','light');}catch(e){}</script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>UD-Cost Hub | ระบบข้อมูลราคางานก่อสร้าง เทศบาลนครอุดรธานี</title>
@@ -379,6 +380,29 @@ table.main td.sm{font-size:11px;color:var(--text2);}
 .io-drop{border:2px dashed var(--border);border-radius:10px;padding:18px;text-align:center;color:var(--text2);cursor:pointer;}
 .io-drop.over{border-color:var(--accent2);background:var(--bg3);}
 .io-sep{height:1px;background:var(--border);margin:14px 0;}
+
+:root[data-theme="light"]{
+  --bg:#f3f5fa;--bg2:#ffffff;--bg3:#eaeef7;
+  --border:#d3d9e8;--border2:#b4bdd6;
+  --accent:#2461e0;--accent2:#1a4fc0;--accent-dim:rgba(36,97,224,.09);--accent-dim2:rgba(36,97,224,.16);
+  --green:#13804f;--green-dim:rgba(19,128,79,.10);--green-border:rgba(19,128,79,.35);
+  --amber:#a64b00;--amber-dim:rgba(166,75,0,.10);--amber-border:rgba(166,75,0,.35);
+  --text:#161c2e;--text2:#434e6b;--text3:#667090;
+  --red:#c42626;
+}
+:root[data-theme="light"] .modal-overlay{background:rgba(20,28,50,.35);}
+:root[data-theme="light"] [style*="#34d399"]{color:#0d7a4c!important;}
+:root[data-theme="light"] [style*="#a78bfa"]{color:#6a45d1!important;}
+
+:root[data-theme="light"]{--purple:#6a45d1;--purple-dim:rgba(106,69,209,.10);--purple-border:rgba(106,69,209,.3);}
+:root[data-theme="light"] .nav-tab.active-wage,:root[data-theme="light"] .nav-tab.active-sv{color:#a64b00;border-bottom-color:#a64b00;}
+:root[data-theme="light"] .nav-tab.active-comp,:root[data-theme="light"] .comp-banner strong,:root[data-theme="light"] .comp-pill,:root[data-theme="light"] .price-mode-btn.active-sub,:root[data-theme="light"] .total-val,:root[data-theme="light"] .ai-badge-comp,:root[data-theme="light"] .ai-row-price.comp{color:#6a45d1;}
+:root[data-theme="light"] .nav-tab.active-comp{border-bottom-color:#6a45d1;}
+:root[data-theme="light"] .nav-tab.active-boq,:root[data-theme="light"] .bq-tbl tr.g.l0 td,:root[data-theme="light"] .bq-big{color:#0d7a4c;}
+:root[data-theme="light"] .nav-tab.active-boq{border-bottom-color:#0d7a4c;}
+.theme-btn{background:var(--bg3);border:1px solid var(--border);color:var(--text2);border-radius:8px;width:34px;height:34px;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;margin-right:8px;}
+.theme-btn:hover{color:var(--text);border-color:var(--border2);}
+.theme-btn svg{width:17px;height:17px;}
 /* ===== BOQ ===== */
 .nav-tab.active-boq{color:#34d399;border-bottom-color:#34d399;}
 .bq-wrap{max-width:1180px;margin:0 auto;padding:28px 20px 60px;}
@@ -528,6 +552,7 @@ table.main td.sm{font-size:11px;color:var(--text2);}
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h8M8 9h2"/></svg>BOQ
     </div>
   </div>
+  <button class="theme-btn" id="theme-btn" type="button" onclick="toggleTheme()" title="สลับโหมดสว่าง / มืด" aria-label="สลับโหมดสว่าง / มืด"></button>
   <div class="proj-widget" id="proj-widget">
     <button class="proj-btn" onclick="toggleProjMenu(event)" type="button">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
@@ -3539,6 +3564,21 @@ async function ioRunExport(){
     await wait(500);
   }
 }
+
+/* ===== โหมดสว่าง / มืด ===== */
+function themeIcon(){
+  const light=document.documentElement.getAttribute('data-theme')==='light',b=document.getElementById('theme-btn');if(!b)return;
+  b.innerHTML=light?'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1111.2 3a7 7 0 009.8 9.8z"/></svg>'
+    :'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>';
+  b.title=light?'สลับเป็นโหมดมืด':'สลับเป็นโหมดสว่าง';
+}
+function toggleTheme(){
+  const el=document.documentElement,light=el.getAttribute('data-theme')==='light';
+  if(light)el.removeAttribute('data-theme');else el.setAttribute('data-theme','light');
+  try{localStorage.setItem('udCostHub_theme',light?'dark':'light');}catch(e){}
+  themeIcon();
+}
+themeIcon();
 svBind();
 </script>
 
@@ -3729,7 +3769,7 @@ function boqRender(){
   const i=b.info,fc=b.factor;
   const inp=(k,l,t)=>`<label>${l}<input class="bq-in" ${t?'type="'+t+'"':''} data-bi="${k}" value="${esc(i[k]||'')}"></label>`;
   let h=`<div class="bq-card"><div class="bq-grid">
-      ${inp('name','โครงการงานก่อสร้าง')}${inp('location','สถานที่ก่อสร้าง')}${inp('agency','หน่วยงานเจ้าของโครงการ')}${inp('date','ประมาณราคาเมื่อวันที่','date')}${inp('drawing_no','แบบเลขที่')}${inp('estimator',i.mode==='central'?'ประธานกรรมการ':'ผู้ประมาณราคา (ชื่อที่พิมพ์ท้ายแบบ)')}${i.mode==='central'?Array.from({length:Math.max(2,(i.members||[]).length)},(_,k)=>`<label>กรรมการคนที่ ${k+1}${k>=2?' <span class="bq-lnk" style="color:var(--red)" onclick="boqDelMember(${k})">ลบ</span>':''}<input class="bq-in" data-bm="${k}" value="${esc((i.members||[])[k]||'')}"></label>`).join('')+'<div style="display:flex;align-items:flex-end"><button class="btn btn-ghost" type="button" onclick="boqAddMember()">+ เพิ่มกรรมการ</button></div>':''}
+      ${inp('name','โครงการงานก่อสร้าง')}${inp('location','สถานที่ก่อสร้าง')}${inp('agency','หน่วยงานเจ้าของโครงการ')}${inp('date','ประมาณราคาเมื่อวันที่','date')}${inp('drawing_no','แบบเลขที่')}${inp('estimator',i.mode==='central'?'ประธานกรรมการ':'ผู้ประมาณราคา (ชื่อที่พิมพ์ท้ายแบบ)')}${inp('estimatorPos',(i.mode==='central'?'ตำแหน่งประธานกรรมการ':'ตำแหน่งผู้ประมาณราคา')+' (ไม่บังคับ)')}${i.mode==='central'?Array.from({length:Math.max(2,(i.members||[]).length)},(_,k)=>`<label>กรรมการคนที่ ${k+1}${k>=2?' <span class="bq-lnk" style="color:var(--red)" onclick="boqDelMember(${k})">ลบ</span>':''}<input class="bq-in" data-bm="${k}" value="${esc((i.members||[])[k]||'')}"></label><label>ตำแหน่งกรรมการคนที่ ${k+1} (ไม่บังคับ)<input class="bq-in" data-bp="${k}" value="${esc((i.memberPos||[])[k]||'')}"></label>`).join('')+'<div style="display:flex;align-items:flex-end"><button class="btn btn-ghost" type="button" onclick="boqAddMember()">+ เพิ่มกรรมการ</button></div>':''}
       <label>ประเภทงาน<select class="bq-in" data-bi="mode"><option value="estimate"${i.mode!=='central'?' selected':''}>ประมาณราคา (ปร.4 ปัดลง)</option><option value="central"${i.mode==='central'?' selected':''}>กำหนดราคากลาง</option></select></label>
       ${i.mode==='central'?'':`<label>ปร.4 ปัดลงที่หลัก<select class="bq-in" data-bi="roundTo">${[[10000,'หลักหมื่น'],[1000,'หลักพัน'],[100,'หลักร้อย'],[10,'หลักสิบ'],[1,'หลักหน่วย (ตัดสตางค์)']].map(([v,l])=>`<option value="${v}"${(+i.roundTo||1000)===v?' selected':''}>${l}</option>`).join('')}</select></label>`}
       <label>เงินล่วงหน้าจ่าย (%)<select class="bq-in" data-bf="advance">${[0,5,10,15].map(v=>`<option value="${v}"${+fc.advance===v?' selected':''}>${v}</option>`).join('')}</select></label>
@@ -3918,8 +3958,8 @@ function boqAddRow(code){
   const trs=document.querySelectorAll('#bq-body tr[data-k]');const last=[...trs].filter(t=>b.rows.find(r=>r.key===t.dataset.k&&r.group_code===code)).pop();
   if(last){const i=last.querySelector('[data-f="name"]');if(i)i.focus();}
 }
-function boqAddMember(){const b=boqGet();if(!b)return;b.info.members=b.info.members||[];while(b.info.members.length<2)b.info.members.push('');b.info.members.push('');boqSave();boqRender();}
-function boqDelMember(k){const b=boqGet();if(!b||!b.info.members)return;b.info.members.splice(k,1);boqSave();boqRender();}
+function boqAddMember(){const b=boqGet();if(!b)return;b.info.members=b.info.members||[];while(b.info.members.length<2)b.info.members.push('');b.info.members.push('');b.info.memberPos=b.info.memberPos||[];boqSave();boqRender();}
+function boqDelMember(k){const b=boqGet();if(!b||!b.info.members)return;b.info.members.splice(k,1);if(b.info.memberPos)b.info.memberPos.splice(k,1);boqSave();boqRender();}
 function boqBind(){
   const body=bqEl('bq-body');
   body.addEventListener('input',e=>{
@@ -3927,6 +3967,7 @@ function boqBind(){
     if(t.dataset.bi){b.info[t.dataset.bi]=t.value;boqSaveSoon();if(t.dataset.bi==='mode'||t.dataset.bi==='roundTo')boqUpdateNumbers();if(t.dataset.bi==='mode')boqRender();return;}
     if(t.dataset.bf){b.factor[t.dataset.bf]=t.value===''?0:+t.value;boqSaveSoon();boqUpdateNumbers();return;}
     if(t.dataset.note){const tr=t.closest('tr[data-k]'),rw=tr&&b.rows.find(x=>x.key===tr.dataset.k),o=rw&&(t.dataset.note==='lab'?rw.lab:rw.mat);if(o){o.note=t.value;boqSaveSoon();}return;}
+    if(t.dataset.bp!==undefined){b.info.memberPos=b.info.memberPos||[];b.info.memberPos[+t.dataset.bp]=t.value;boqSaveSoon();return;}
     if(t.dataset.bm!==undefined){b.info.members=b.info.members||[];b.info.members[+t.dataset.bm]=t.value;boqSaveSoon();return;}
     if(t.dataset.pf){
       const ptr=t.closest('tr[data-pk]');if(!ptr)return;const [pk,key]=ptr.dataset.pk.split(':');
@@ -4461,8 +4502,8 @@ function boqFormData(b,T){
       rows:rows.filter(r=>r.group_code===g).map(r=>({name:r.name,qty:+r.qty||0,unit:r.unit||'',mat:r.mat_unit,lab:r.lab_unit}))}))};
   });
   const fc=b.factor||{};
-  const people=est?[{role:'ผู้ประมาณราคา',name:i.estimator||''}]
-    :[{role:'ประธานกรรมการ',name:i.estimator||''}].concat(Array.from({length:Math.max(2,(i.members||[]).length)},(_,k)=>({role:'กรรมการ',name:(i.members||[])[k]||''})));
+  const people=est?[{role:'ผู้ประมาณราคา',name:i.estimator||'',pos:(i.estimatorPos||'').trim()}]
+    :[{role:'ประธานกรรมการ',name:i.estimator||'',pos:(i.estimatorPos||'').trim()}].concat(Array.from({length:Math.max(2,(i.members||[]).length)},(_,k)=>({role:'กรรมการ',name:(i.members||[])[k]||'',pos:((i.memberPos||[])[k]||'').trim()})));
   return {mode:est?'estimate':'central',roundTo:+i.roundTo>0?+i.roundTo:1000,
     project:{name:i.name||'',location:i.location||'',agency:i.agency||'',drawing_no:i.drawing_no||'',calc_date:i.date||''},
     people,sections,
