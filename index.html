@@ -3070,6 +3070,7 @@ function svEditor(it,s){
     <div class="sv-hint"><i class="ic ic-bulb"></i> ถ่ายหน้าจอ (เช่น Win+Shift+S) แล้วคลิกในช่องของเจ้านี้ กด Ctrl+V ได้เลย</div>
   </div>`;}).join('');
   return `<div class="sv-body">
+    <label style="font-size:11px;color:var(--text3);display:flex;flex-direction:column;gap:3px;margin-bottom:8px">ชื่อรายการ (แก้ไขได้ — ไม่กระทบการผูกราคาใน BOQ)<input class="sv-in" data-itname="1" value="${esc(it.name)}"></label>
     <label style="font-size:11px;color:var(--text3);display:inline-flex;flex-direction:column;gap:3px;margin-bottom:8px">ชนิดรายการสืบ<select class="sv-in" data-itcat="1" style="min-width:160px">${Object.entries(SV_CATS).map(([k,v])=>`<option value="${k}"${(it.cat||'mat')===k?' selected':''}>${v}</option>`).join('')}</select></label>
     <div class="sv-lib" data-libhint="1"></div>
     ${qs}
@@ -3184,6 +3185,13 @@ function svBind(){
   });
   svEl('sv-list').addEventListener('change',async e=>{
     const t=e.target;
+    if(t.dataset.itname){
+      const card=t.closest('.sv-card'),it=card&&sv.items.find(x=>x.key===card.dataset.k);if(!it)return;
+      const nm=t.value.trim();if(!nm){t.value=it.name;svToast('{warn} ชื่อรายการต้องไม่ว่าง');return;}
+      if(nm===it.name)return;
+      it.name=nm;const p=projGetActive(),pc=p&&(p.surveys||[]).find(x=>x.key===it.key);if(pc){pc.name=nm;p.updatedAt=Date.now();projSaveStore();}
+      svSave(it);svRender();svToast('{ok} เปลี่ยนชื่อรายการแล้ว');return;
+    }
     if(t.dataset.itcat){
       const card=t.closest('.sv-card'),it=card&&sv.items.find(x=>x.key===card.dataset.k);if(!it)return;
       it.cat=t.value;svCatRemember(it.key,it.cat);svSave(it);svRender();return;
@@ -3269,7 +3277,7 @@ function svBind(){
     const f=e.target.files[0];e.target.value='';if(!f)return;
     try{
       const d=JSON.parse(await f.text());if(d.format!=='ud-survey-lib'||!Array.isArray(d.items))throw new Error('ไม่ใช่ไฟล์คลังราคาสืบ');
-      let n=0;for(const x of d.items){if(!x||!x.name||!x.unit)continue;const k=Survey.libKey(x.name,x.unit);const cur=sv.items.find(i=>i.key===k);if(!cur||(x.updated||'')>(cur.updated||'')){await Survey.libPut(k,Object.assign({},x,{key:k}));n++;}}
+      let n=0;for(const x of d.items){if(!x||!x.name||!x.unit)continue;const k=x.key||Survey.libKey(x.name,x.unit);const cur=sv.items.find(i=>i.key===k);if(!cur||(x.updated||'')>(cur.updated||'')){await Survey.libPut(k,Object.assign({},x,{key:k}));n++;}}
       svToast('นำเข้า '+n+' รายการ');svLoad(true);
     }catch(er){svToast('นำเข้าไม่ได้: '+er.message);}
   };
@@ -3620,6 +3628,7 @@ function toggleTheme(){
 
 /* ===== เวอร์ชัน (เลขหลัก.ฟีเจอร์ใหม่.แก้ไขเล็กน้อย) — เพิ่มรายการใหม่ไว้บนสุดทุกครั้งที่แก้ ===== */
 const APP_CHANGELOG=[
+  ['1.5.2','2026-10-30',['ราคาสืบ: แก้ไขชื่อรายการได้ (การผูกราคาใน BOQ ไม่หาย)']],
   ['1.5.1','2026-10-30',['ราคาสืบ: กดดูรายละเอียดเจ้าที่บันทึกแล้วได้โดยไม่ต้องเข้าโหมดแก้ไข','แสดงเลขเวอร์ชัน + ประวัติการแก้ไข']],
   ['1.5.0','2026-10-30',['ราคาสืบ: ปุ่ม "บันทึกเจ้านี้" ต่อเจ้า + สถานะครบ/ไม่ครบ','ราคาสืบ: เพิ่มช่องยี่ห้อ/รุ่น และแสดงยี่ห้อ/หมายเหตุในที่มาของราคา']],
   ['1.4.1','2026-10-30',['BOQ: เตือนค้างไว้เมื่อใส่ราคาแค่ค่าวัสดุหรือค่าแรงฝั่งเดียว']],
