@@ -3019,15 +3019,30 @@ function svCard(it){
     <div class="sv-price">${s.price!==null?s.price.toLocaleString('th-TH',{minimumFractionDigits:2,maximumFractionDigits:2}):'—'}<div class="sv-meta" style="font-family:Sarabun">บาท/${esc(it.unit)} ไม่รวม VAT</div></div></div>
     ${open?svEditor(it,s):''}</div>`;
 }
+/* เจ้าหนึ่งครบพอบันทึกไหม: ต้องมีราคา + ชื่อร้าน/ช่องทางติดต่อ + วันที่ + ตัวคูณ */
+function svQMissing(q){
+  const m=[];if(!(+q.price>0))m.push('ราคา');if(!String(q.shop||'').trim()&&!String(q.contact||'').trim())m.push('ร้าน/ช่องทางติดต่อ');if(!q.date)m.push('วันที่');if(!(+q.factor>0))m.push('ตัวคูณ');
+  return m;
+}
+function svQSummary(it,q,best){
+  const up=Survey.unitPrice(q);
+  return `<div class="sv-q done${best?' best':''}" data-q="${esc(q.id)}" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:12px">
+    <span class="sv-pill ok">บันทึกแล้ว</span><b>${esc(q.shop||q.contact||'—')}</b>${q.brand?'<span>ยี่ห้อ '+esc(q.brand)+'</span>':''}
+    <span>${svFmt(q.price)} บาท${q.vat?' (รวม VAT)':''}</span><span style="color:var(--text3)">${esc(q.date||'')}</span>${up!==null?'<span>→ <b>'+svFmt(up)+'</b> บ./'+esc(it.unit)+'</span>':''}${best?' <span class="sv-pill ok">ต่ำสุด ใช้ราคานี้</span>':''}
+    <a style="margin-left:auto;cursor:pointer;color:var(--accent2)" data-qedit="1">แก้ไข</a> <a style="color:var(--red);cursor:pointer" data-qdel="1">ลบ</a></div>`;
+}
 function svEditor(it,s){
   const bestId=s.best&&s.best.id;
   const qs=(it.quotes||[]).map((q,i)=>{
     const up=Survey.unitPrice(q);
+    if(q.done&&!svQMissing(q).length)return svQSummary(it,q,q.id===bestId);
+    const miss=svQMissing(q);
     return `<div class="sv-q${q.id===bestId?' best':''}" data-q="${esc(q.id)}">
     <div style="display:flex;justify-content:space-between;font-size:12px;font-weight:700;margin-bottom:6px"><span>เจ้าที่ ${i+1}${q.id===bestId?' <span class="sv-pill ok">ต่ำสุด ใช้ราคานี้</span>':''}</span><a style="color:var(--red);cursor:pointer" data-qdel="1">ลบ</a></div>
     <div class="sv-grid">
       <label>ช่องทาง<select class="sv-in" data-f="channel">${Object.entries(Survey.CHANNEL).map(([k,v])=>`<option value="${k}"${q.channel===k?' selected':''}>${v}</option>`).join('')}</select></label>
       <label>ร้าน / บริษัท<input class="sv-in" data-f="shop" value="${esc(q.shop||'')}"></label>
+      <label>ยี่ห้อ / รุ่น<input class="sv-in" data-f="brand" value="${esc(q.brand||'')}" placeholder="เช่น TOA, SCG"></label>
       <label>เบอร์ / ลิงก์ / ไลน์<input class="sv-in" data-f="contact" value="${esc(q.contact||'')}"></label>
       <label>วันที่สืบ<input class="sv-in" type="date" data-f="date" value="${esc(q.date||'')}"></label>
       <label>ราคาที่ร้านเสนอ<input class="sv-in" type="number" step="any" min="0" data-f="price" value="${esc(q.price===undefined?'':q.price)}"></label>
@@ -3037,6 +3052,7 @@ function svEditor(it,s){
     </div>
     <label style="font-size:11px;color:var(--text3);display:flex;flex-direction:column;gap:3px;margin-top:8px">หมายเหตุ<input class="sv-in" data-f="note" value="${esc(q.note||'')}"></label>
     <div class="sv-calc" data-calc="1">${svCalc(q)}</div>
+    <div style="margin-top:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button class="btn btn-green" type="button" data-qsave="1">บันทึกเจ้านี้</button><span data-qstat="1" style="font-size:12px">${svQStat(q)}</span></div>
     <div class="sv-imgs">${(q.imgs||[]).map(id=>`<span data-imgwrap="${esc(id)}"><img data-img="${esc(id)}" alt="หลักฐาน"><a style="color:var(--red);cursor:pointer;font-size:11px" data-imgdel="${esc(id)}"> ×</a></span>`).join('')}
       <label class="btn btn-ghost" style="padding:5px 10px;font-size:12px;cursor:pointer">+ แนบภาพ<input type="file" accept="image/*" multiple data-imgadd="1" style="display:none"></label>
       <button class="btn btn-ghost" type="button" style="padding:5px 10px;font-size:12px" data-imgpaste="1"><i class="ic ic-clip"></i> วางภาพจากคลิปบอร์ด</button></div>
@@ -3051,6 +3067,7 @@ function svEditor(it,s){
     ${(it.quotes||[]).length<Survey.MIN_Q?`<label style="font-size:11px;color:var(--text3);display:flex;flex-direction:column;gap:3px;margin-top:10px">เหตุผล (กรณีสืบไม่ครบ ${Survey.MIN_Q} เจ้า)<input class="sv-in" data-reason="1" value="${esc(it.reason||'')}"></label>`:''}
   </div>`;
 }
+function svQStat(q){const m=svQMissing(q);return m.length?'<span style="color:var(--amber)"><i class="ic ic-warn"></i> ยังไม่ครบ: ขาด '+m.join(', ')+'</span>':'<span style="color:var(--green)">ข้อมูลครบ — กด "บันทึกเจ้านี้" เพื่อยืนยัน</span>';}
 function svCalc(q){
   const up=Survey.unitPrice(q);if(up===null)return 'กรอกราคาและตัวคูณเพื่อคำนวณ';
   const f=+(q.factor||1);
@@ -3108,6 +3125,7 @@ function svFieldChange(el){
   const f=el.dataset.f;
   q[f]=f==='vat'?el.checked:(f==='price'||f==='factor')?(el.value===''?'':+el.value):el.value;
   qel.querySelector('[data-calc]').textContent=svCalc(q);
+  const qs=qel.querySelector('[data-qstat]');if(qs)qs.innerHTML=svQStat(q);
   svSave(it);
   if(f==='price'||f==='factor'||f==='vat'){const open=document.activeElement;const key=it.key;/* ปรับสถานะ/ราคาในหัวการ์ดโดยไม่ทำให้ช่องกรอกหาย */
     const s=Survey.summary(it),head=card.querySelector('.sv-head');
@@ -3140,6 +3158,8 @@ function svBind(){
     if(t.closest('[data-qdel]')){if(confirm('ลบเจ้านี้?')){const id=t.closest('[data-q]').dataset.q;it.quotes=it.quotes.filter(q=>q.id!==id);svSave(it);svRender();}return;}
     if(t.dataset.imgpaste){const qq=it.quotes.find(x=>x.id===t.closest('[data-q]').dataset.q);if(qq){sv.focusQ=qq.id;svPasteBtn(it,qq);}return;}
     if(t.dataset.qadd){svAddQuote(it);svRender();return;}
+    if(t.dataset.qsave){const q=it.quotes.find(x=>x.id===t.closest('[data-q]').dataset.q);if(!q)return;const m=svQMissing(q);if(m.length){svToast('{warn} ยังบันทึกเจ้านี้ไม่ได้ — ขาด '+m.join(', '),4500);return;}q.done=true;svSave(it);svRender();svToast('{ok} บันทึกเจ้านี้แล้ว');return;}
+    if(t.dataset.qedit){const q=it.quotes.find(x=>x.id===t.closest('[data-q]').dataset.q);if(q){q.done=false;svRender();}return;}
     if(t.dataset.pjadd||t.dataset.pjupd){if(projSvUpsert(it)){svToast(t.dataset.pjadd?'เพิ่มเข้าโครงการแล้ว':'อัปเดตสำเนาในโครงการแล้ว');svRender();}else svToast('ต้องมีราคาสืบอย่างน้อย 1 เจ้า และเลือกโครงการก่อน');return;}
     if(t.dataset.pjrm){projSvRemove(it.key);svToast('นำออกจากโครงการแล้ว');svRender();return;}
     if(t.dataset.itdel){if(confirm('ลบ "'+it.name+'" ออกจากรายการนี้?\n(คลังกลางไม่ถูกลบ — ลบเฉพาะสำเนาในเครื่องนี้)')){await Survey.libDel(it.key);sv.items=sv.items.filter(x=>x!==it);sv.open=null;svRender();svLibStatus();}return;}
@@ -3318,7 +3338,7 @@ function svBlockHtml(it,idx,refsFor){
   const s=Survey.summary(it);
   const rows=s.list.map((x,j)=>{
     const q=x.q,refs=refsFor(q);
-    return `<tr${q.id===s.best.id?' style="font-weight:700;background:#f4faf6"':''}><td>${j+1}</td><td>${esc(q.shop||'')}<div style="font-size:9px;color:#666">${esc(Survey.CHANNEL[q.channel]||'')}${q.contact?' · '+esc(q.contact):''}</div></td>
+    return `<tr${q.id===s.best.id?' style="font-weight:700;background:#f4faf6"':''}><td>${j+1}</td><td>${esc(q.shop||'')}${q.brand?' <span style="font-size:10px">(ยี่ห้อ '+esc(q.brand)+')</span>':''}<div style="font-size:9px;color:#666">${esc(Survey.CHANNEL[q.channel]||'')}${q.contact?' · '+esc(q.contact):''}</div></td>
       <td>${esc(q.date||'')}</td><td class="r">${svFmt(q.price)}</td><td>${esc(q.qunit||'')}</td><td class="r">${esc(q.factor||1)}</td><td>${q.vat?'รวม VAT':'ไม่รวม VAT'}</td>
       <td class="r">${svFmt(x.up)}</td><td>${esc(q.note||'')}${refs.length?' ('+refs.join(', ')+')':''}</td></tr>`;
   }).join('');
@@ -3366,7 +3386,7 @@ function svBuildSheets(list){
     const first=aoa.length+1;
     s.list.forEach((x,j)=>{
       const q=x.q,r=aoa.length+1;
-      aoa.push([j+1,q.shop||'',Survey.CHANNEL[q.channel]||'',q.contact||'',q.date||'',+q.price,q.qunit||'',+(q.factor||1),q.vat?'รวม VAT':'ไม่รวม VAT','',q.note||'']);
+      aoa.push([j+1,q.shop||'',Survey.CHANNEL[q.channel]||'',q.contact||'',q.date||'',+q.price,q.qunit||'',+(q.factor||1),q.vat?'รวม VAT':'ไม่รวม VAT','',(q.brand?'ยี่ห้อ '+q.brand+(q.note?' · ':''):'')+(q.note||'')]);
       fcells.push({a:'J'+r,f:`ROUND(IF(I${r}="รวม VAT",F${r}/1.07,F${r})/H${r},2)`,v:x.up});
     });
     const last=aoa.length,tr=aoa.length+1;
@@ -4471,7 +4491,7 @@ function boqSourcesData(){
   const wages=(p.wages||[]).map(it=>({name:wIsLeafH2(it)?(it.h2||it.h1):([it.h3||it.h2,it.h4].filter(x=>x&&x!=='-').join(' — ')||it.h1),sheet:it.sheetLabel||'',unit:it.unit||'',price:it.price,raw:it.rawPrice||''}));
   const svEntry=it=>{const sm=Survey.summary(it);
     return {key:it.key,name:it.name||'',unit:it.unit||'',n:sm.n,need:Survey.MIN_Q,price:sm.price,
-      quotes:sm.list.map(x=>({shop:x.q.shop||'',contact:[Survey.CHANNEL[x.q.channel]||'',x.q.contact||''].filter(Boolean).join(' · '),date:x.q.date||'',price:x.q.price,factor:x.q.factor||1,vat:!!x.q.vat,up:x.up,best:!!(sm.best&&x.q.id===sm.best.id)}))};};
+      quotes:sm.list.map(x=>({shop:x.q.shop||'',contact:[Survey.CHANNEL[x.q.channel]||'',x.q.contact||''].filter(Boolean).join(' · '),brand:x.q.brand||'',note:x.q.note||'',date:x.q.date||'',price:x.q.price,factor:x.q.factor||1,vat:!!x.q.vat,up:x.up,best:!!(sm.best&&x.q.id===sm.best.id)}))};};
   const push=(arr,v)=>{if(v&&!arr.includes(v))arr.push(v);};
   /* พาณิชย์ */
   const cm={};
