@@ -3024,12 +3024,23 @@ function svQMissing(q){
   const m=[];if(!(+q.price>0))m.push('ราคา');if(!String(q.shop||'').trim()&&!String(q.contact||'').trim())m.push('ร้าน/ช่องทางติดต่อ');if(!q.date)m.push('วันที่');if(!(+q.factor>0))m.push('ตัวคูณ');
   return m;
 }
+function svQView(it,q){
+  const f=(l,v)=>v===undefined||v===null||v===''?'':`<div><span style="color:var(--text3)">${l}</span> <b>${esc(v)}</b></div>`;
+  return `<div class="sv-qview" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:4px 14px;margin-top:8px;padding-top:8px;border-top:1px dashed var(--border);font-size:12px;width:100%">
+    ${f('ช่องทาง',Survey.CHANNEL[q.channel]||'')}${f('ร้าน / บริษัท',q.shop)}${f('ยี่ห้อ / รุ่น',q.brand)}${f('เบอร์ / ลิงก์ / ไลน์',q.contact)}${f('วันที่สืบ',q.date)}
+    ${f('ราคาที่ร้านเสนอ',svFmt(q.price)+' บาท / '+(q.qunit||''))}${f('1 หน่วยร้าน =',(q.factor||1)+' '+it.unit)}${f('VAT',q.vat?'รวม VAT 7%':'ไม่รวม VAT')}
+    ${q.note?`<div style="grid-column:1/-1"><span style="color:var(--text3)">หมายเหตุ</span> ${esc(q.note)}</div>`:''}
+    <div style="grid-column:1/-1;color:var(--text2)">${esc(svCalc(q))}</div>
+    ${(q.imgs||[]).length?`<div class="sv-imgs" style="grid-column:1/-1">${q.imgs.map(id=>`<span><img data-img="${esc(id)}" alt="หลักฐาน" style="cursor:zoom-in"></span>`).join('')}</div>`:''}
+  </div>`;
+}
 function svQSummary(it,q,best){
-  const up=Survey.unitPrice(q);
-  return `<div class="sv-q done${best?' best':''}" data-q="${esc(q.id)}" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:12px">
+  const up=Survey.unitPrice(q),vw=sv.viewQ&&sv.viewQ[q.id];
+  return `<div class="sv-q done${best?' best':''}" data-q="${esc(q.id)}" data-qview="1" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:12px;cursor:pointer" title="กดเพื่อดู / ปิดรายละเอียด">
+    <span style="color:var(--text3)">${vw?'▾':'▸'}</span>
     <span class="sv-pill ok">บันทึกแล้ว</span><b>${esc(q.shop||q.contact||'—')}</b>${q.brand?'<span>ยี่ห้อ '+esc(q.brand)+'</span>':''}
     <span>${svFmt(q.price)} บาท${q.vat?' (รวม VAT)':''}</span><span style="color:var(--text3)">${esc(q.date||'')}</span>${up!==null?'<span>→ <b>'+svFmt(up)+'</b> บ./'+esc(it.unit)+'</span>':''}${best?' <span class="sv-pill ok">ต่ำสุด ใช้ราคานี้</span>':''}
-    <a style="margin-left:auto;cursor:pointer;color:var(--accent2)" data-qedit="1">แก้ไข</a> <a style="color:var(--red);cursor:pointer" data-qdel="1">ลบ</a></div>`;
+    <a style="margin-left:auto;cursor:pointer;color:var(--accent2)" data-qedit="1">แก้ไข</a> <a style="color:var(--red);cursor:pointer" data-qdel="1">ลบ</a>${vw?svQView(it,q):''}</div>`;
 }
 function svEditor(it,s){
   const bestId=s.best&&s.best.id;
@@ -3159,6 +3170,7 @@ function svBind(){
     if(t.dataset.imgpaste){const qq=it.quotes.find(x=>x.id===t.closest('[data-q]').dataset.q);if(qq){sv.focusQ=qq.id;svPasteBtn(it,qq);}return;}
     if(t.dataset.qadd){svAddQuote(it);svRender();return;}
     if(t.dataset.qsave){const q=it.quotes.find(x=>x.id===t.closest('[data-q]').dataset.q);if(!q)return;const m=svQMissing(q);if(m.length){svToast('{warn} ยังบันทึกเจ้านี้ไม่ได้ — ขาด '+m.join(', '),4500);return;}q.done=true;svSave(it);svRender();svToast('{ok} บันทึกเจ้านี้แล้ว');return;}
+    if(t.closest('[data-qview]')&&!t.closest('a')&&!t.dataset.img){const qq=it.quotes.find(x=>x.id===t.closest('[data-q]').dataset.q);if(qq){sv.viewQ=sv.viewQ||{};sv.viewQ[qq.id]=!sv.viewQ[qq.id];svRender();}return;}
     if(t.dataset.qedit){const q=it.quotes.find(x=>x.id===t.closest('[data-q]').dataset.q);if(q){q.done=false;svRender();}return;}
     if(t.dataset.pjadd||t.dataset.pjupd){if(projSvUpsert(it)){svToast(t.dataset.pjadd?'เพิ่มเข้าโครงการแล้ว':'อัปเดตสำเนาในโครงการแล้ว');svRender();}else svToast('ต้องมีราคาสืบอย่างน้อย 1 เจ้า และเลือกโครงการก่อน');return;}
     if(t.dataset.pjrm){projSvRemove(it.key);svToast('นำออกจากโครงการแล้ว');svRender();return;}
