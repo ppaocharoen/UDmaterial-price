@@ -3628,6 +3628,7 @@ function toggleTheme(){
 
 /* ===== เวอร์ชัน (เลขหลัก.ฟีเจอร์ใหม่.แก้ไขเล็กน้อย) — เพิ่มรายการใหม่ไว้บนสุดทุกครั้งที่แก้ ===== */
 const APP_CHANGELOG=[
+  ['1.6.0','2026-10-30',['BOQ: ค่าแรงต่อ ตร.ม. แต่หน่วยแถวเป็นชุด/บาน ฯลฯ → ช่องพื้นที่ต่อหน่วย (เดาจากขนาดในชื่อ) คูณให้อัตโนมัติ และแสดงวิธีคิดในที่มาของราคา','เพิ่มวัสดุมวลรวม 12.8, 12.9 ประตู UPVC + วงกบ (ในชีต)']],
   ['1.5.4','2026-10-30',['BOQ: หน้าต่างกรอกราคาวัสดุ/ค่าแรงเอง มีช่องรายละเอียด/วิธีคิด (ไปแสดงในที่มาของราคา)']],
   ['1.5.3','2026-10-30',['ราคาสืบ: เปลี่ยนคำ "เจ้า" เป็น "ราย" และปุ่ม "+ เพิ่มคู่เทียบ"']],
   ['1.5.2','2026-10-30',['ราคาสืบ: แก้ไขชื่อรายการได้ (การผูกราคาใน BOQ ไม่หาย)']],
@@ -3784,6 +3785,23 @@ function boqCmpPrices(m,root,depth){
   lines.forEach(ln=>{const x=boqCmpLineInfo(m,ln,root||m,depth||0);if(x&&x.state==='ok')out[ln.index]=x.price;});
   return out;
 }
+/* ค่าแรงต่อ ตร.ม. แต่หน่วยแถวไม่ใช่ ตร.ม. (ชุด/บาน/ประตู ฯลฯ) → ให้กรอก "พื้นที่ต่อหน่วย" แล้วคูณให้ */
+const BQ_AREA_RE=/^\s*(ตร\.?\s?ม\.?|ตารางเมตร)\s*$/;
+function boqLabAreaApplies(r){
+  const l=r&&r.lab;if(!l||l.kind!=='wage'||!r.unit||!String(r.unit).trim())return false;
+  const w=typeof PDB!=='undefined'&&PDB.wage?PDB.wage(l.code):null;if(!w)return false;
+  return BQ_AREA_RE.test(String(w.unit||''))&&!BQ_AREA_RE.test(String(r.unit));
+}
+function boqAreaGuess(r){
+  for(const t of [r.name,r.mat&&r.mat.label]){
+    const m=String(t||'').match(/(\d+(?:\.\d+)?)\s*[x×*]\s*(\d+(?:\.\d+)?)\s*(ซม|ม)?/i);if(!m)continue;
+    let a=+m[1],b=+m[2];const u=m[3]||'';
+    if(u==='ซม'||(!u&&(a>10||b>10))){a/=100;b/=100;}
+    const v=Math.round(a*b*100)/100;if(v>0)return v;
+  }
+  return 0;
+}
+function boqLabArea(r){const a=+(r.lab&&r.lab.area);return a>0?a:boqAreaGuess(r);}
 function boqCalcInput(b){
   const rows=[],overrides={},survey={};
   b.rows.forEach(r=>{
@@ -3791,7 +3809,7 @@ function boqCalcInput(b){
     const ref={kind:(m.kind==='mat'||m.kind==='comp')?m.kind:'user'};
     if(ref.kind!=='user')ref.code=m.code;
     if(m.kind==='comp'){const cp=boqCmpPrices(m);if(Object.keys(cp).length)ref.prices=cp;const st=boqCmpState(m,m,0);if(st&&st.acc)ref.partial=true;}
-    if(l.kind==='wage')ref.wage_code=l.code;
+    if(l.kind==='wage'){ref.wage_code=l.code;if(boqLabAreaApplies(r)){const ar=boqLabArea(r);if(ar>0){ref.wages=[{code:l.code,per:'area'}];ref.area=ar;}}}
     ref.chk=true;if(l.kind==='none')ref.lab_none=true;
     const g=b.groups.find(x=>x.code===r.group_code);
     rows.push({key:r.key,name:r.name,unit:r.unit,qty:r.qty,group_code:r.group_code,group:g?g.name:'',price_ref:ref});
@@ -3925,12 +3943,18 @@ function boqCmpBlock(m,sc,depth){
         +(nest?'<div style="margin:3px 0 4px 14px;padding-left:8px;border-left:2px solid var(--border)">'+nest+'</div>':'')+'</div>';
     }).join('')+'</details>';
 }
+function boqAreaHtml(r){
+  const l=r.lab,g=boqAreaGuess(r),a=boqLabArea(r),w=PDB.wage(l.code);
+  return '<div style="margin-top:4px;font-size:12px;display:flex;gap:6px;align-items:center;flex-wrap:wrap" data-areabox="1"><span style="color:var(--text2)">ค่าแรง '+esc(w.unit)+' → แปลงเป็นต่อ '+esc(r.unit)+': พื้นที่ต่อ '+esc(r.unit)+' (ตร.ม.)</span>'
+    +'<input class="bq-in n" type="number" step="any" min="0" data-area="1" style="max-width:90px" value="'+esc(a||'')+'" placeholder="เช่น 1.60">'
+    +'<span data-c="areat" style="color:var(--text3)">'+(+(l.area)>0?'':(g?'(เดาจากขนาดในชื่อ — แก้ได้)':'(กรอกพื้นที่เพื่อให้คิดราคา)'))+'</span></div>';
+}
 function boqRowHtml(r,n,p){
   const m=r.mat||{kind:''},l=r.lab||{kind:''};
   const ml=m.kind==='mat'?'พาณิชย์':m.kind==='comp'?'มวลรวม':m.kind==='survey'?'ราคาสืบ':m.kind==='manual'?'กรอกเอง':m.kind==='none'?'ไม่มีค่าวัสดุ':'ผูกวัสดุ';
   const ll=l.kind==='wage'?'ว.480':l.kind==='manual'?'กรอกเอง':l.kind==='none'?'ไม่มีค่าแรง':'ผูกค่าแรง';
   return `<tr data-k="${esc(r.key)}"><td style="color:var(--text3)">${n}</td>
-    <td><input class="bq-in" data-f="name" value="${esc(r.name)}" placeholder="ชื่อรายการ"><div class="bq-src" data-c="src"></div>${boqCmpPanel(r)}${m.kind==='manual'?'<input class="bq-in" data-note="mat" style="margin-top:4px;font-size:12px" placeholder="รายละเอียดค่าวัสดุที่กรอกเอง — วิธีคิด / ที่มาคร่าว ๆ (ไปแสดงในชีตที่มาของราคา)" value="'+esc(m.note||'')+'">':''}${l.kind==='manual'?'<input class="bq-in" data-note="lab" style="margin-top:4px;font-size:12px" placeholder="รายละเอียดค่าแรงที่กรอกเอง — วิธีคิด / ที่มาคร่าว ๆ (ไปแสดงในชีตที่มาของราคา)" value="'+esc(l.note||'')+'">':''}</td>
+    <td><input class="bq-in" data-f="name" value="${esc(r.name)}" placeholder="ชื่อรายการ"><div class="bq-src" data-c="src"></div>${boqCmpPanel(r)}${m.kind==='manual'?'<input class="bq-in" data-note="mat" style="margin-top:4px;font-size:12px" placeholder="รายละเอียดค่าวัสดุที่กรอกเอง — วิธีคิด / ที่มาคร่าว ๆ (ไปแสดงในชีตที่มาของราคา)" value="'+esc(m.note||'')+'">':''}${boqLabAreaApplies(r)?boqAreaHtml(r):''}${l.kind==='manual'?'<input class="bq-in" data-note="lab" style="margin-top:4px;font-size:12px" placeholder="รายละเอียดค่าแรงที่กรอกเอง — วิธีคิด / ที่มาคร่าว ๆ (ไปแสดงในชีตที่มาของราคา)" value="'+esc(l.note||'')+'">':''}</td>
     <td><input class="bq-in n" type="number" step="any" min="0" data-f="qty" value="${esc(r.qty===undefined?'':r.qty)}"></td>
     <td><input class="bq-in" data-f="unit" value="${esc(r.unit||'')}"></td>
     <td class="r"><div class="bq-pri"><span data-c="matu"></span><span class="bq-lnk" data-act="pickmat">${ml}</span></div></td><td class="r" data-c="mata"></td>
@@ -4075,6 +4099,7 @@ function boqBind(){
     const b=boqGet();if(!b)return;const t=e.target;
     if(t.dataset.bi){b.info[t.dataset.bi]=t.value;boqSaveSoon();if(t.dataset.bi==='mode'||t.dataset.bi==='roundTo')boqUpdateNumbers();if(t.dataset.bi==='mode')boqRender();return;}
     if(t.dataset.bf){b.factor[t.dataset.bf]=t.value===''?0:+t.value;boqSaveSoon();boqUpdateNumbers();return;}
+    if(t.dataset.area){const tr=t.closest('tr[data-k]'),rw=tr&&b.rows.find(x=>x.key===tr.dataset.k);if(rw&&rw.lab){rw.lab.area=t.value===''?'':+t.value;boqSaveSoon();boqUpdateNumbers();const ct=tr.querySelector('[data-c="areat"]');if(ct)ct.textContent='';}return;}
     if(t.dataset.note){const tr=t.closest('tr[data-k]'),rw=tr&&b.rows.find(x=>x.key===tr.dataset.k),o=rw&&(t.dataset.note==='lab'?rw.lab:rw.mat);if(o){o.note=t.value;boqSaveSoon();}return;}
     if(t.dataset.bp!==undefined){b.info.memberPos=b.info.memberPos||[];b.info.memberPos[+t.dataset.bp]=t.value;boqSaveSoon();return;}
     if(t.dataset.bm!==undefined){b.info.members=b.info.members||[];b.info.members[+t.dataset.bm]=t.value;boqSaveSoon();return;}
@@ -4097,6 +4122,7 @@ function boqBind(){
   });
   body.addEventListener('change',e=>{   /* ปริมาณปัด 2 ตำแหน่งตอนกรอกเสร็จ — ตัวเลขที่เห็น = ตัวเลขที่ใช้คูณ */
     const t=e.target;
+    if(t.dataset.f==='unit'||t.dataset.f==='name'){const b0=boqGet(),tr0=t.closest('tr[data-k]'),r0=b0&&tr0&&b0.rows.find(x=>x.key===tr0.dataset.k);if(r0&&!!tr0.querySelector('[data-areabox]')!==boqLabAreaApplies(r0)){boqRender();return;}}
     if(t.dataset.pf&&['qty','price','install','amount'].includes(t.dataset.pf)&&t.value!==''){
       const b=boqGet(),ptr=t.closest('tr[data-pk]');if(!b||!ptr)return;const [pk,key]=ptr.dataset.pk.split(':');
       const pr=(b[pk]||[]).find(x=>x.key===key);if(!pr)return;pr[t.dataset.pf]=BoqCalc.r2(+t.value);t.value=pr[t.dataset.pf];boqSave();boqUpdateNumbers();return;
@@ -4554,7 +4580,7 @@ function boqSourcesData(){
     if(!svm[key]){const it=(typeof sv!=='undefined'&&sv.items.find(x=>x.key===key))||(p.surveys||[]).find(x=>x.key===key);if(!it)return;svm[key]=svEntry(it);}};
   /* ค่าแรง ว.480 */
   const wm={};
-  const addW=(code,who)=>{if(!code)return;const w=PDB.wage(code);if(!w)return;
+  const addW=(code,who0,ar,ru)=>{const who=ar?who0+' — '+bqF2((PDB.wage(code)||{}).price)+' × '+ar+' ตร.ม./'+(ru||'หน่วย'):who0;if(!code)return;const w=PDB.wage(code);if(!w)return;
     const path=bqWagePath(w),e=wm[code]||(wm[code]={code,name:path[path.length-1]||code,path:path.slice(0,-1).join(' › '),unit:w.unit||'',price:w.price,used:[]});push(e.used,who);};
   /* มวลรวม (ชั้นนอกและมวลรวมซ้อน) */
   const cmp={};
@@ -4586,7 +4612,7 @@ function boqSourcesData(){
       if(m.kind==='mat')addC(m.code,who);
       else if(m.kind==='comp')addComp(m,m,0,who);
       else if(m.kind==='survey')addS(m.key,who);
-      if(l.kind==='wage')addW(l.code,who);});
+      if(l.kind==='wage')addW(l.code,who,boqLabAreaApplies(r)?boqLabArea(r):0,r.unit);});
     (b.pr2||[]).forEach(x=>{addS(x.svkey);addS(x.svkey_i);});
     (b.pr3||[]).forEach(x=>addS(x.svkey));
   }
