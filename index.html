@@ -3617,6 +3617,24 @@ function toggleTheme(){
   try{localStorage.setItem('udCostHub_theme',light?'dark':'light');}catch(e){}
   themeIcon();
 }
+
+/* ===== เวอร์ชัน (เลขหลัก.ฟีเจอร์ใหม่.แก้ไขเล็กน้อย) — เพิ่มรายการใหม่ไว้บนสุดทุกครั้งที่แก้ ===== */
+const APP_CHANGELOG=[
+  ['1.5.1','2026-10-30',['ราคาสืบ: กดดูรายละเอียดเจ้าที่บันทึกแล้วได้โดยไม่ต้องเข้าโหมดแก้ไข','แสดงเลขเวอร์ชัน + ประวัติการแก้ไข']],
+  ['1.5.0','2026-10-30',['ราคาสืบ: ปุ่ม "บันทึกเจ้านี้" ต่อเจ้า + สถานะครบ/ไม่ครบ','ราคาสืบ: เพิ่มช่องยี่ห้อ/รุ่น และแสดงยี่ห้อ/หมายเหตุในที่มาของราคา']],
+  ['1.4.1','2026-10-30',['BOQ: เตือนค้างไว้เมื่อใส่ราคาแค่ค่าวัสดุหรือค่าแรงฝั่งเดียว']],
+  ['1.4.0','2026-10-30',['BOQ: ยอมรับราคามวลรวมที่ใส่ไม่ครบ (รวมมวลรวมซ้อน) พร้อมแจ้งในที่มาของราคา','สรุปโครงการ/Backup ดึงรายการที่ BOQ ใช้จริงอัตโนมัติ']],
+  ['1.3.0','2026-10-29',['โหมดสว่าง (เริ่มต้น) / มืด, โลโก้ UD, ฉากหลังตราเทศบาล','Excel: ใส่ตำแหน่งผู้ประมาณราคา/กรรมการ, Factor F จบหน้าเดียว, หัวชีทที่มาของราคาพิมพ์ซ้ำ']],
+  ['1.2.0','2026-10-29',['Excel: ชีทที่มาของราคา, ลายน้ำตราเทศบาล, ตั้งสเกลพิมพ์ทุกชีท, เลือกหลักปัด ปร.4','BOQ: มวลรวมซ้อนมวลรวม, ศูนย์นำเข้า/ส่งออกรวมที่เดียว, ค่าแรงกรอกเองมีรายละเอียด']],
+  ['1.1.0','2026-10-28',['เพิ่มแท็บ BOQ: ผูกราคา คิด Factor F สรุป ปร.1–ปร.4 ส่งออก Excel ตามแบบฟอร์ม','นำเข้า ปร.1 จาก Excel, คำแนะนำการผูกราคา, หน้าสรุปโครงการ/Backup']],
+  ['1.0.0','2026-10-22',['แท็บราคาสืบ ใช้คลังกลางร่วมกับ UD-Total-Station, รายงาน PDF/Excel','ระบบค้นหารวม ราคาวัสดุ ค่าแรง วัสดุมวลรวม']]
+];
+const APP_VERSION=APP_CHANGELOG[0][0];
+function verOpen(){
+  document.getElementById('ver-body').innerHTML=APP_CHANGELOG.map(([v,d,l],i)=>`<div style="margin-bottom:12px"><b>v${v}</b>${i===0?' <span style="color:var(--green);font-size:11px">ล่าสุด</span>':''} <span style="color:var(--text3);font-size:11px">${d}</span><ul style="margin:3px 0 0 18px;padding:0">${l.map(x=>'<li>'+esc(x)+'</li>').join('')}</ul></div>`).join('');
+  document.getElementById('ver-modal').style.display='flex';
+}
+document.addEventListener('DOMContentLoaded',()=>{const a=document.getElementById('ver-link');if(a)a.textContent='v'+APP_VERSION;});
 themeIcon();
 document.addEventListener('toggle',e=>{const d=e.target;if(d&&d.matches&&d.matches('details.bq-cmp[data-acc]'))bq.openD[d.dataset.dk]=d.open;},true);
 svBind();
@@ -3637,6 +3655,12 @@ svBind();
       <div style="font-size:11px;color:var(--text3);margin-top:6px" id="bq-sv-label"></div></div>
     <div class="modal-list" id="bq-sv-list"></div>
     <div id="bq-sv-foot" style="padding:10px 16px;display:flex;gap:8px;flex-wrap:wrap;border-top:1px solid var(--border)"></div>
+  </div>
+</div>
+<div class="modal-overlay" id="ver-modal" style="display:none">
+  <div class="modal-box" style="max-width:560px">
+    <div class="modal-hd"><div class="modal-title">ประวัติการแก้ไข</div><span class="modal-close" onclick="document.getElementById('ver-modal').style.display='none'">×</span></div>
+    <div id="ver-body" style="padding:14px 16px;overflow:auto;max-height:70vh;font-size:13px"></div>
   </div>
 </div>
 <div class="modal-overlay" id="io-modal" style="display:none">
@@ -4801,7 +4825,7 @@ boqBind();
 </script>
 
 <div class="credit-bar">
-  <strong style="color:var(--accent2)">UD-Cost Hub</strong> &nbsp;·&nbsp; ระบบข้อมูลราคางานก่อสร้าง เทศบาลนครอุดรธานี &nbsp;·&nbsp; พัฒนาโดย <strong>ส่วนควบคุมการก่อสร้าง สำนักช่าง เทศบาลนครอุดรธานี</strong>
+  <strong style="color:var(--accent2)">UD-Cost Hub</strong> &nbsp;·&nbsp; ระบบข้อมูลราคางานก่อสร้าง เทศบาลนครอุดรธานี &nbsp;·&nbsp; พัฒนาโดย <strong>ส่วนควบคุมการก่อสร้าง สำนักช่าง เทศบาลนครอุดรธานี</strong> &nbsp;·&nbsp; <a id="ver-link" onclick="verOpen()" style="cursor:pointer;color:var(--text3);font-size:11px;text-decoration:underline dotted" title="ดูประวัติการแก้ไข"></a>
 </div>
 </body>
 </html>
