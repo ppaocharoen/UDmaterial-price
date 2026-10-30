@@ -3628,6 +3628,7 @@ function toggleTheme(){
 
 /* ===== เวอร์ชัน (เลขหลัก.ฟีเจอร์ใหม่.แก้ไขเล็กน้อย) — เพิ่มรายการใหม่ไว้บนสุดทุกครั้งที่แก้ ===== */
 const APP_CHANGELOG=[
+  ['1.5.4','2026-10-30',['BOQ: หน้าต่างกรอกราคาวัสดุ/ค่าแรงเอง มีช่องรายละเอียด/วิธีคิด (ไปแสดงในที่มาของราคา)']],
   ['1.5.3','2026-10-30',['ราคาสืบ: เปลี่ยนคำ "เจ้า" เป็น "ราย" และปุ่ม "+ เพิ่มคู่เทียบ"']],
   ['1.5.2','2026-10-30',['ราคาสืบ: แก้ไขชื่อรายการได้ (การผูกราคาใน BOQ ไม่หาย)']],
   ['1.5.1','2026-10-30',['ราคาสืบ: กดดูรายละเอียดรายที่บันทึกแล้วได้โดยไม่ต้องเข้าโหมดแก้ไข','แสดงเลขเวอร์ชัน + ประวัติการแก้ไข']],
@@ -4393,7 +4394,8 @@ function boqModalList(){
     html=note+html;
   }else if(bq.tab==='manual'){
     const v=cur&&cur.kind==='manual'?cur.price:'';
-    html=`<div style="padding:16px;display:flex;gap:8px;align-items:center"><input class="bq-in n" id="bq-manual" type="number" step="any" min="0" placeholder="ราคาต่อหน่วย (บาท/${esc(r.unit||'หน่วย')})" value="${esc(v)}" style="max-width:240px"><button class="btn btn-green" type="button" id="bq-manual-ok">ใช้ราคานี้</button></div>`;
+    html=`<div style="padding:16px;display:flex;gap:8px;align-items:center"><input class="bq-in n" id="bq-manual" type="number" step="any" min="0" placeholder="ราคาต่อหน่วย (บาท/${esc(r.unit||'หน่วย')})" value="${esc(v)}" style="max-width:240px"><button class="btn btn-green" type="button" id="bq-manual-ok">ใช้ราคานี้</button></div>
+      <div style="padding:0 16px 16px"><input class="bq-in" id="bq-manual-note" placeholder="รายละเอียด / วิธีคิด / ที่มาคร่าว ๆ (ไม่บังคับ — ไปแสดงในชีตที่มาของราคา)" value="${esc(cur&&cur.kind==='manual'&&cur.note?cur.note:'')}"></div>`;
     list._pick=null;
   }else{
     html=`<div style="padding:16px"><button class="btn btn-ghost" type="button" id="bq-none-ok">${md.kind==='mat'?'ยืนยัน: รายการนี้ไม่มีค่าวัสดุ (ค่าแรงอย่างเดียว)':'ยืนยัน: รายการนี้ไม่มีค่าแรง'}</button></div>`;
@@ -4403,7 +4405,7 @@ function boqModalList(){
   foot.innerHTML=md.kind!=='lab'?`<span style="font-size:12px;color:var(--text3)">ไม่มีในฐานข้อมูล?</span> <button class="btn btn-amber" type="button" id="bq-mnew">+ สืบราคาใหม่</button>${md.kind==='cmpline'?'':' <button class="btn btn-ghost" type="button" data-tab="manual">กรอกราคาเอง</button>'}`:`<button class="btn btn-ghost" type="button" data-tab="manual">ไม่พบ — กรอกค่าแรงเอง</button>`;
   list.onclick=e=>{
     const rw=e.target.closest('.modal-row');if(rw&&list._pick){list._pick(+rw.dataset.i);return;}
-    if(e.target.id==='bq-manual-ok'){const v=bqEl('bq-manual').value;if(v===''){return;}boqPick(r,md.kind,{kind:'manual',price:+v,label:'กรอกเอง',note:cur&&cur.kind==='manual'&&cur.note?cur.note:''});}
+    if(e.target.id==='bq-manual-ok'){const v=bqEl('bq-manual').value;if(v===''){return;}boqPick(r,md.kind,{kind:'manual',price:+v,label:'กรอกเอง',note:(bqEl('bq-manual-note')?bqEl('bq-manual-note').value.trim():(cur&&cur.kind==='manual'&&cur.note?cur.note:''))});}
     if(e.target.id==='bq-none-ok')boqPick(r,md.kind,{kind:'none'});
   };
 }
