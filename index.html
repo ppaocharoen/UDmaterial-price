@@ -415,6 +415,7 @@ table.main td.sm{font-size:11px;color:var(--text2);}
 .bq-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px;}
 .bq-grid label{font-size:11px;color:var(--text3);display:flex;flex-direction:column;gap:3px;}
 .bq-in{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-family:'Sarabun',sans-serif;font-size:13px;padding:6px 9px;outline:none;box-sizing:border-box;}
+select.bq-in{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%238b96b5' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;padding-right:32px;cursor:pointer;appearance:none;-webkit-appearance:none;}
 .bq-in:focus{border-color:#34d399;}
 .bq-in.n{text-align:right;font-family:'IBM Plex Mono',monospace;}
 .bq-tw{overflow-x:auto;border:1px solid var(--border);border-radius:var(--radius);}
@@ -3628,6 +3629,7 @@ function toggleTheme(){
 
 /* ===== เวอร์ชัน (เลขหลัก.ฟีเจอร์ใหม่.แก้ไขเล็กน้อย) — เพิ่มรายการใหม่ไว้บนสุดทุกครั้งที่แก้ ===== */
 const APP_CHANGELOG=[
+  ['1.7.2','2026-10-30',['BOQ: ช่องเลือกแบบรายการเลื่อนลง (ชุดคิดเปอร์เซ็นต์, ประเภทงาน ฯลฯ) แสดงลูกศรให้เห็นว่ากดเลือกได้']],
   ['1.7.1','2026-10-30',['BOQ: ปรับถ้อยคำเป็น "เลือก" และ "รายการ" · ใต้ราคาวัสดุแสดง "15% ของรายการที่ 1, 3" ตามเลขลำดับในตาราง']],
   ['1.7.0','2026-10-30',['BOQ: ค่าวัสดุแบบใหม่ "% ของรายการอื่น" — เลือกรายการฐาน (เช่น ท่อทุกขนาด) แล้วคิดเป็น % เป็น 1 งาน ใช้กับงานเบ็ดเตล็ดท่อร้อยสาย/สายไฟ และข้อต่อ เหล็กยึด ทดสอบ/ทาสี ของท่อแต่ละชนิด','BOQ: มีชุดสำเร็จรูปตามหลักเกณฑ์งานอาคาร 2569 ใส่ชื่อ % และค่าแรงให้ และเลือกรายการท่อที่ชื่อเข้าข่ายให้เบื้องต้น','BOQ: ค่าแรงแบบใหม่ "% ของค่าวัสดุ" (เริ่มต้น 30%) ใช้ได้กับทุกรายการ']],
   ['1.6.0','2026-10-30',['BOQ: ค่าแรงต่อ ตร.ม. แต่หน่วยแถวเป็นชุด/บาน ฯลฯ → ช่องพื้นที่ต่อหน่วย (เดาจากขนาดในชื่อ) คูณให้อัตโนมัติ และแสดงวิธีคิดในที่มาของราคา','เพิ่มวัสดุมวลรวม 12.8, 12.9 ประตู UPVC + วงกบ (ในชีต)']],
