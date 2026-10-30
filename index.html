@@ -3725,6 +3725,7 @@ function boqCalcInput(b){
     if(ref.kind!=='user')ref.code=m.code;
     if(m.kind==='comp'){const cp=boqCmpPrices(m);if(Object.keys(cp).length)ref.prices=cp;const st=boqCmpState(m,m,0);if(st&&st.acc)ref.partial=true;}
     if(l.kind==='wage')ref.wage_code=l.code;
+    ref.chk=true;if(l.kind==='none')ref.lab_none=true;
     const g=b.groups.find(x=>x.code===r.group_code);
     rows.push({key:r.key,name:r.name,unit:r.unit,qty:r.qty,group_code:r.group_code,group:g?g.name:'',price_ref:ref});
     const o={};
@@ -3778,7 +3779,7 @@ function boqCompute(b){
   const grand=has?r2((build||0)+eqTotal+sp):null;
   const rt=+b.info.roundTo>0?+b.info.roundTo:1000;
   const pr4=grand===null?null:(est?Math.floor(grand/rt+1e-9)*rt:grand);
-  return {pr,byKey,secs,cost,ff,build,p2,eq,eqV,ins,insV,eqTotal,sp,grand,pr4,est,noPrice:pr.filter(r=>(r.warns||[]).some(w=>/ยังไม่มีราคา/.test(w))).length};
+  return {pr,byKey,secs,cost,ff,build,p2,eq,eqV,ins,insV,eqTotal,sp,grand,pr4,est,noPrice:pr.filter(r=>(r.warns||[]).some(w=>/ยังไม่มี(ราคา|ค่าวัสดุ|ค่าแรง)/.test(w))).length};
 }
 /* ---------- แสดงผล ---------- */
 function boqOpen(){
