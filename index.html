@@ -3628,6 +3628,7 @@ function toggleTheme(){
 
 /* ===== เวอร์ชัน (เลขหลัก.ฟีเจอร์ใหม่.แก้ไขเล็กน้อย) — เพิ่มรายการใหม่ไว้บนสุดทุกครั้งที่แก้ ===== */
 const APP_CHANGELOG=[
+  ['1.7.0','2026-10-30',['BOQ: ค่าวัสดุแบบใหม่ "% ของแถวอื่น" — เลือกแถวฐาน (เช่น ท่อทุกขนาด) แล้วคิดเป็น % เป็น 1 งาน ใช้กับงานเบ็ดเตล็ดท่อร้อยสาย/สายไฟ และข้อต่อ เหล็กยึด ทดสอบ/ทาสี ของท่อแต่ละชนิด','BOQ: มีชุดสำเร็จรูปตามหลักเกณฑ์งานอาคาร 2569 ใส่ชื่อ % และค่าแรงให้ และติ๊กแถวท่อที่ชื่อเข้าข่ายให้เบื้องต้น','BOQ: ค่าแรงแบบใหม่ "% ของค่าวัสดุ" (เริ่มต้น 30%) ใช้ได้กับทุกรายการ']],
   ['1.6.0','2026-10-30',['BOQ: ค่าแรงต่อ ตร.ม. แต่หน่วยแถวเป็นชุด/บาน ฯลฯ → ช่องพื้นที่ต่อหน่วย (เดาจากขนาดในชื่อ) คูณให้อัตโนมัติ และแสดงวิธีคิดในที่มาของราคา','เพิ่มวัสดุมวลรวม 12.8, 12.9 ประตู UPVC + วงกบ (ในชีต)']],
   ['1.5.4','2026-10-30',['BOQ: หน้าต่างกรอกราคาวัสดุ/ค่าแรงเอง มีช่องรายละเอียด/วิธีคิด (ไปแสดงในที่มาของราคา)']],
   ['1.5.3','2026-10-30',['ราคาสืบ: เปลี่ยนคำ "เจ้า" เป็น "ราย" และปุ่ม "+ เพิ่มคู่เทียบ"']],
@@ -3811,6 +3812,8 @@ function boqCalcInput(b){
     if(m.kind==='comp'){const cp=boqCmpPrices(m);if(Object.keys(cp).length)ref.prices=cp;const st=boqCmpState(m,m,0);if(st&&st.acc)ref.partial=true;}
     if(l.kind==='wage'){ref.wage_code=l.code;if(boqLabAreaApplies(r)){const ar=boqLabArea(r);if(ar>0){ref.wages=[{code:l.code,per:'area'}];ref.area=ar;}}}
     ref.chk=true;if(l.kind==='none')ref.lab_none=true;
+    if(l.kind==='pctmat'&&l.pct!==''&&l.pct!==undefined)ref.lab_pct=(+l.pct||0)/100;
+    if(m.kind==='pct'){ref.kind='pct';ref.of=(m.of||[]).slice();ref.mat=(+m.pct||0)/100;if(m.ofLabel)ref.of_label=m.ofLabel;}
     const g=b.groups.find(x=>x.code===r.group_code);
     rows.push({key:r.key,name:r.name,unit:r.unit,qty:r.qty,group_code:r.group_code,group:g?g.name:'',price_ref:ref});
     const o={};
@@ -3951,8 +3954,8 @@ function boqAreaHtml(r){
 }
 function boqRowHtml(r,n,p){
   const m=r.mat||{kind:''},l=r.lab||{kind:''};
-  const ml=m.kind==='mat'?'พาณิชย์':m.kind==='comp'?'มวลรวม':m.kind==='survey'?'ราคาสืบ':m.kind==='manual'?'กรอกเอง':m.kind==='none'?'ไม่มีค่าวัสดุ':'ผูกวัสดุ';
-  const ll=l.kind==='wage'?'ว.480':l.kind==='manual'?'กรอกเอง':l.kind==='none'?'ไม่มีค่าแรง':'ผูกค่าแรง';
+  const ml=m.kind==='mat'?'พาณิชย์':m.kind==='comp'?'มวลรวม':m.kind==='survey'?'ราคาสืบ':m.kind==='manual'?'กรอกเอง':m.kind==='none'?'ไม่มีค่าวัสดุ':m.kind==='pct'?(+m.pct||0)+'% ของแถวอื่น':'ผูกวัสดุ';
+  const ll=l.kind==='wage'?'ว.480':l.kind==='manual'?'กรอกเอง':l.kind==='none'?'ไม่มีค่าแรง':l.kind==='pctmat'?(+l.pct||0)+'% ของค่าวัสดุ':'ผูกค่าแรง';
   return `<tr data-k="${esc(r.key)}"><td style="color:var(--text3)">${n}</td>
     <td><input class="bq-in" data-f="name" value="${esc(r.name)}" placeholder="ชื่อรายการ"><div class="bq-src" data-c="src"></div>${boqCmpPanel(r)}${m.kind==='manual'?'<input class="bq-in" data-note="mat" style="margin-top:4px;font-size:12px" placeholder="รายละเอียดค่าวัสดุที่กรอกเอง — วิธีคิด / ที่มาคร่าว ๆ (ไปแสดงในชีตที่มาของราคา)" value="'+esc(m.note||'')+'">':''}${boqLabAreaApplies(r)?boqAreaHtml(r):''}${l.kind==='manual'?'<input class="bq-in" data-note="lab" style="margin-top:4px;font-size:12px" placeholder="รายละเอียดค่าแรงที่กรอกเอง — วิธีคิด / ที่มาคร่าว ๆ (ไปแสดงในชีตที่มาของราคา)" value="'+esc(l.note||'')+'">':''}</td>
     <td><input class="bq-in n" type="number" step="any" min="0" data-f="qty" value="${esc(r.qty===undefined?'':r.qty)}"></td>
@@ -4201,7 +4204,9 @@ function boqOpenModal(key,kind){
   const b=boqGet(),r=b.rows.find(x=>x.key===key);if(!r)return;
   bq.modal={key,kind};bq.fl={};bq.fprov='';
   if(typeof compLoaded!=='undefined'&&!compLoaded&&typeof loadCompData==='function')loadCompData().then(()=>{if(bq.modal)boqModalList();});
-  bq.tab=boqBestTab(r,kind);
+  bq.tab=boqBestTab(r,kind);bq.pct=null;
+  if(kind==='mat'&&r.mat&&r.mat.kind==='pct')bq.tab='pct';
+  if(kind==='lab'&&r.lab&&r.lab.kind==='pctmat')bq.tab='pctmat';
   bqEl('bq-mtitle').textContent=kind==='mat'?'ผูกราคาค่าวัสดุ':'ผูกราคาค่าแรง';
   bqEl('bq-mlabel').innerHTML='รายการ: <strong style="color:#34d399">'+esc(r.name||'(ยังไม่ตั้งชื่อ)')+'</strong> · หน่วย '+esc(r.unit||'—')+' (ระบบแปลงหน่วยราคาให้เมื่อทำได้)';
   bqEl('bq-msearch').value=r.name||'';
@@ -4213,7 +4218,7 @@ const BQ_LINK_KEY='udCostHub_boqlink_v1';
 function boqLinkMem(){try{return JSON.parse(localStorage.getItem(BQ_LINK_KEY))||{mat:{},lab:{}};}catch(e){return {mat:{},lab:{}};}}
 function boqLinkRemember(name,kind,val){
   try{
-    if(!name||!val||val.kind==='manual')return;
+    if(!name||!val||val.kind==='manual'||val.kind==='pct'||val.kind==='pctmat')return;
     const m=boqLinkMem();const bucket=kind==='mat'?'mat':'lab';m[bucket]=m[bucket]||{};
     const k=BoqImport.norm(name).toLowerCase();m[bucket][k]=val;
     const ks=Object.keys(m[bucket]);if(ks.length>1500)delete m[bucket][ks[0]];
@@ -4350,6 +4355,81 @@ function boqModalPools(r){
       levels:[['cat',d=>bqWc(d.sheetLabel),'ทุกหมวดใหญ่'],['h1',d=>bqWc(d.h1),'ทุกหมวดย่อย'],['h2',d=>bqWc(d.h2),'ทุกหมวดย่อยชั้น 2'],['h3',d=>bqWc(d.h3),'ทุกหมวดย่อยชั้น 3']]}
   };
 }
+
+/* ---------- แถวคิดเป็น % ของแถวอื่น (เบ็ดเตล็ด / ข้อต่อ / เหล็กยึด / ทดสอบ) — ตามหลักเกณฑ์งานอาคาร 2569 ข้อ 4.3–4.4 ---------- */
+const BQ_UNIT_M=/^(ม\.?|เมตร|m)$/i;
+const BQ_PCT_PRESETS=(()=>{
+  const lc=n=>String(n||'').toLowerCase();
+  const conduit=n=>/ท่อร้อยสาย|conduit|\b(imc|emt|rsc)\b|ท่อ\s*(imc|emt|rsc)/i.test(lc(n));
+  const wire=n=>/สายไฟ|\b(vct|vctf|thw|nyy|cv|vaf|iec)\b/i.test(lc(n));
+  const ppr=n=>/p\.?p-?r|พีพีอาร์|\bpb\b|พีบี|hdpe|เอชดีพีอี/i.test(lc(n));
+  const drain=n=>/ระบาย|น้ำทิ้ง|โสโครก|น้ำเสีย|ท่อ\s*ส้วม/i.test(lc(n))&&!ppr(n);
+  const water=n=>/ประปา|น้ำดี/i.test(lc(n))&&/pvc|พีวีซี/i.test(lc(n))&&!ppr(n);
+  const out=[
+    {id:'e_conduit',grp:'งานระบบไฟฟ้า',name:'งานเบ็ดเตล็ดท่อร้อยสายไฟ',pct:15,lab:null,of:'ค่าท่อร้อยสายไฟ',test:conduit,hint:'ท่อร้อยสายไฟทุกขนาด · ไม่มีค่าแรง'},
+    {id:'e_wire',grp:'งานระบบไฟฟ้า',name:'งานเบ็ดเตล็ดสายไฟ',pct:5,lab:null,of:'ค่าสายไฟ',test:wire,hint:'สายไฟทุกขนาด · ไม่มีค่าแรง'}
+  ];
+  [['d','ท่อระบายน้ำ PVC',drain,[40,30,10]],['w','ท่อประปา PVC',water,[50,30,10]],['p','ท่อ PP-R / PB / HDPE',ppr,[50,20,10]]].forEach(([k,nm,t,pc])=>{
+    [['fit','ข้อต่อ',pc[0]],['sup','เหล็กยึด',pc[1]],['test','ทดสอบ ทำความสะอาด ทาสีสัญลักษณ์',pc[2]]].forEach(([pk,pn,v])=>{
+      out.push({id:'s_'+k+'_'+pk,grp:'งานระบบสุขาภิบาล — '+nm,name:'งาน'+pn+nm,pct:v,lab:30,of:'ค่า'+nm,test:t,hint:'ท่อชนิดนี้ทุกขนาด · ค่าแรง 30% ของค่าวัสดุ'});
+    });
+  });
+  return out;
+})();
+function boqPctInit(r){
+  const m=r.mat&&r.mat.kind==='pct'?r.mat:null;
+  bq.pct={key:r.key,sel:m?(m.of||[]).slice():[],pct:m?m.pct:'',preset:m&&m.preset||'',filter:''};
+}
+function boqPctAuto(r,T){
+  const ps=BQ_PCT_PRESETS.find(x=>x.id===bq.pct.preset);if(!ps)return;
+  const b=boqGet();
+  bq.pct.sel=b.rows.filter(x=>x.key!==r.key&&!(x.mat&&x.mat.kind==='pct')&&BQ_UNIT_M.test(String(x.unit||'').trim())&&ps.test(x.name)).map(x=>x.key);
+}
+function boqPctSumHtml(r){
+  const T=bq.pctT,st=bq.pct,pc=+st.pct||0;
+  const base=BoqCalc.r2(st.sel.reduce((a,k)=>a+((T.byKey[k]&&T.byKey[k].mat_amt)||0),0));
+  const miss=st.sel.filter(k=>T.byKey[k]&&T.byKey[k].mat_unit===null).length;
+  return 'เลือก '+st.sel.length+' แถว · รวมค่าวัสดุ '+bqF2(base)+' บาท'+(pc>0?' → '+pc+'% = <b>'+bqF2(BoqCalc.r2(base*pc/100))+'</b> บาท':'')
+    +(miss?' <span class="bq-warn"><i class="ic ic-warn"></i> '+miss+' แถวที่เลือกยังไม่มีราคา</span>':'');
+}
+function boqPctHtml(r){
+  const b=boqGet();if(!bq.pct||bq.pct.key!==r.key)boqPctInit(r);
+  const st=bq.pct;bq.pctT=boqCompute(b);const T=bq.pctT;
+  const grps=[...new Set(BQ_PCT_PRESETS.map(x=>x.grp))];
+  const opts='<option value="">กำหนดเอง (ไม่ใช้ชุดสำเร็จรูป)</option>'+grps.map(g=>'<optgroup label="'+esc(g)+'">'+BQ_PCT_PRESETS.filter(x=>x.grp===g).map(x=>'<option value="'+x.id+'"'+(st.preset===x.id?' selected':'')+'>'+esc(x.name)+' — '+x.pct+'%</option>').join('')+'</optgroup>').join('');
+  const ps=BQ_PCT_PRESETS.find(x=>x.id===st.preset);
+  const cand=b.rows.filter(x=>x.key!==r.key&&!(x.mat&&x.mat.kind==='pct'));
+  const rows=cand.map(x=>{const p=T.byKey[x.key]||{};const isM=BQ_UNIT_M.test(String(x.unit||'').trim());
+    return '<label class="modal-row" data-rk="'+esc(x.key)+'" style="display:flex;gap:8px;align-items:center;cursor:pointer"><input type="checkbox" data-pk="'+esc(x.key)+'"'+(st.sel.includes(x.key)?' checked':'')+'><div style="min-width:0;flex:1"><div class="modal-row-name">'+esc(x.name||'(ยังไม่ตั้งชื่อ)')+'</div><div class="modal-row-meta">'+esc(x.qty===''||x.qty===undefined?'-':x.qty)+' '+esc(x.unit||'')+(isM?'':' · หน่วยไม่ใช่ ม.')+'</div></div><div class="modal-row-price">'+(p.mat_unit===null||p.mat_unit===undefined?'<span class="bq-warn">ยังไม่มีราคา</span>':bqF2(p.mat_amt)+' บาท')+'</div></label>';}).join('');
+  return '<div style="padding:12px 14px;display:flex;flex-direction:column;gap:8px">'
+    +'<div style="font-size:12px;color:var(--text2)">ค่าวัสดุของรายการนี้ = % ของค่าวัสดุรวมของแถวที่เลือก (ตามหลักเกณฑ์งานอาคาร 2569) · ผลลัพธ์นับเป็น 1 งาน</div>'
+    +'<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><select class="bq-in" id="bq-pctpre" style="max-width:420px">'+opts+'</select>'
+    +'<label style="display:flex;gap:4px;align-items:center;font-size:13px">เปอร์เซ็นต์ <input class="bq-in n" id="bq-pctv" type="number" step="any" min="0" style="max-width:90px" value="'+esc(st.pct)+'"> %</label></div>'
+    +(ps?'<div style="font-size:12px;color:var(--text3)">'+esc(ps.hint)+' · ระบบติ๊กแถวหน่วย ม. ที่ชื่อเข้าข่ายให้เบื้องต้น ตรวจและแก้เองได้</div>':'')
+    +'<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center"><input class="bq-in" id="bq-pctf" placeholder="กรองรายการด้านล่างด้วยชื่อ" style="max-width:240px" value="'+esc(st.filter)+'">'
+    +(ps?'<button class="btn btn-ghost" type="button" data-pa="auto">ติ๊กตามชนิดท่อ/สายที่เลือก</button>':'')
+    +'<button class="btn btn-ghost" type="button" data-pa="allm">ติ๊กทุกแถวหน่วย ม.</button><button class="btn btn-ghost" type="button" data-pa="clear">ล้างที่ติ๊ก</button></div>'
+    +'<div id="bq-pctrows" style="max-height:34vh;overflow:auto;border:1px solid var(--border);border-radius:8px">'+(rows||'<div class="sv-hint" style="padding:14px">ยังไม่มีรายการอื่นใน BOQ ให้เลือกเป็นฐาน</div>')+'</div>'
+    +'<div id="bq-pctsum" style="font-size:13px">'+boqPctSumHtml(r)+'</div>'
+    +'<div><button class="btn btn-green" type="button" data-pa="ok">ใช้การคิดนี้</button></div></div>';
+}
+function boqPctApply(r){
+  const st=bq.pct,pc=+st.pct;if(!st.sel.length||!(pc>=0)||st.pct===''){alert('เลือกแถวฐานอย่างน้อย 1 แถวและกรอกเปอร์เซ็นต์');return;}
+  const ps=BQ_PCT_PRESETS.find(x=>x.id===st.preset);
+  const m={kind:'pct',of:st.sel.slice(),pct:pc,label:'คิดจาก '+st.sel.length+' แถว'};
+  if(ps){m.preset=ps.id;m.ofLabel=ps.of;}
+  if(ps&&!String(r.name||'').trim())r.name=ps.name;
+  if(!String(r.unit||'').trim())r.unit='งาน';
+  if(r.qty===''||r.qty===undefined)r.qty=1;
+  if(ps&&(!r.lab||!r.lab.kind))r.lab=ps.lab===null?{kind:'none'}:{kind:'pctmat',pct:ps.lab};
+  boqPick(r,'mat',m);
+}
+function boqPctLabHtml(r){
+  const l=r.lab&&r.lab.kind==='pctmat'?r.lab:null;
+  return '<div style="padding:14px;display:flex;flex-direction:column;gap:8px"><div style="font-size:12px;color:var(--text2)">ค่าแรงต่อหน่วย = % ของค่าวัสดุต่อหน่วยของรายการนี้ (หลักเกณฑ์: ค่าแรง 30% ของค่าของ) — ใช้ได้กับทุกรายการ</div>'
+    +'<div style="display:flex;gap:8px;align-items:center"><label style="display:flex;gap:4px;align-items:center;font-size:13px">เปอร์เซ็นต์ของค่าวัสดุ <input class="bq-in n" id="bq-labpct" type="number" step="any" min="0" style="max-width:90px" value="'+esc(l?l.pct:30)+'"> %</label>'
+    +'<button class="btn btn-green" type="button" id="bq-labpct-ok">ใช้การคิดนี้</button></div></div>';
+}
 function boqModalList(){
   const md=bq.modal;if(!md)return;
   const b=boqGet(),r=b.rows.find(x=>x.key===md.key);if(!r)return;
@@ -4358,7 +4438,7 @@ function boqModalList(){
   const q=bqEl('bq-msearch').value.trim(),list=bqEl('bq-mlist'),tabs=bqEl('bq-mtabs'),filt=bqEl('bq-mfilt'),foot=bqEl('bq-mfoot');
   const P=boqModalPools(r);
   const cnt=k=>{const t=P[k];if(!t)return 0;const x=bqSearch(t.pool,q,t.hay,{unit:tg.unit,unitOf:t.unit});return x.fallback?0:x.items.length;};
-  const tabDefs=md.kind==='cmpline'?[['mat','ราคาพาณิชย์'],['comp','วัสดุมวลรวม'],['survey','ราคาสืบ']]:md.kind==='mat'?[['mat','พาณิชย์'],['comp','วัสดุมวลรวม'],['survey','ราคาสืบ'],['manual','กรอกเอง'],['none','ไม่มีค่าวัสดุ']]:[['wage','ค่าแรง ว.480'],['manual','กรอกเอง'],['none','ไม่มีค่าแรง']];
+  const tabDefs=md.kind==='cmpline'?[['mat','ราคาพาณิชย์'],['comp','วัสดุมวลรวม'],['survey','ราคาสืบ']]:md.kind==='mat'?[['mat','พาณิชย์'],['comp','วัสดุมวลรวม'],['survey','ราคาสืบ'],['pct','% ของแถวอื่น'],['manual','กรอกเอง'],['none','ไม่มีค่าวัสดุ']]:[['wage','ค่าแรง ว.480'],['pctmat','% ของค่าวัสดุ'],['manual','กรอกเอง'],['none','ไม่มีค่าแรง']];
   tabs.innerHTML=tabDefs.map(([k,l])=>`<button type="button" class="sv-chip${bq.tab===k?' on':''}" data-tab="${k}">${l}${P[k]&&q?' ('+cnt(k)+')':P[k]?' ('+P[k].pool.length+')':''}</button>`).join('');
   const searchable=!!P[bq.tab];
   bqEl('bq-msearch').style.display=searchable?'':'none';
@@ -4418,6 +4498,10 @@ function boqModalList(){
       list._pick=i=>pk({kind:'wage',code:items[i].code,label:bqWagePath(items[i]).join(' › ')});
     }
     html=note+html;
+  }else if(bq.tab==='pct'){
+    html=boqPctHtml(r);list._pick=null;
+  }else if(bq.tab==='pctmat'){
+    html=boqPctLabHtml(r);list._pick=null;
   }else if(bq.tab==='manual'){
     const v=cur&&cur.kind==='manual'?cur.price:'';
     html=`<div style="padding:16px;display:flex;gap:8px;align-items:center"><input class="bq-in n" id="bq-manual" type="number" step="any" min="0" placeholder="ราคาต่อหน่วย (บาท/${esc(r.unit||'หน่วย')})" value="${esc(v)}" style="max-width:240px"><button class="btn btn-green" type="button" id="bq-manual-ok">ใช้ราคานี้</button></div>
@@ -4429,7 +4513,33 @@ function boqModalList(){
   }
   list.innerHTML=html||'<div class="sv-hint" style="padding:14px">ไม่พบรายการ</div>';
   foot.innerHTML=md.kind!=='lab'?`<span style="font-size:12px;color:var(--text3)">ไม่มีในฐานข้อมูล?</span> <button class="btn btn-amber" type="button" id="bq-mnew">+ สืบราคาใหม่</button>${md.kind==='cmpline'?'':' <button class="btn btn-ghost" type="button" data-tab="manual">กรอกราคาเอง</button>'}`:`<button class="btn btn-ghost" type="button" data-tab="manual">ไม่พบ — กรอกค่าแรงเอง</button>`;
+  if(bq.tab==='pct'||bq.tab==='pctmat')foot.innerHTML='';
+  list.onchange=list.oninput=null;
+  if(bq.tab==='pct'){
+    const st=()=>bq.pct,sum=()=>{const e=bqEl('bq-pctsum');if(e)e.innerHTML=boqPctSumHtml(r);};
+    list.onchange=e=>{
+      const t=e.target;
+      if(t.dataset.pk){const a=st().sel,i=a.indexOf(t.dataset.pk);if(t.checked&&i<0)a.push(t.dataset.pk);if(!t.checked&&i>=0)a.splice(i,1);sum();return;}
+      if(t.id==='bq-pctpre'){st().preset=t.value;const ps=BQ_PCT_PRESETS.find(x=>x.id===t.value);if(ps){st().pct=ps.pct;boqPctAuto(r);}boqModalList();}
+    };
+    list.oninput=e=>{
+      const t=e.target;
+      if(t.id==='bq-pctv'){st().pct=t.value;sum();return;}
+      if(t.id==='bq-pctf'){st().filter=t.value;const q=bqNorm(t.value);list.querySelectorAll('[data-rk]').forEach(el=>{el.style.display=!q||bqNorm(el.textContent).includes(q)?'':'none';});}
+    };
+    const f=st().filter;if(f){const q=bqNorm(f);list.querySelectorAll('[data-rk]').forEach(el=>{el.style.display=bqNorm(el.textContent).includes(q)?'':'none';});}
+  }
   list.onclick=e=>{
+    const pa=e.target.closest('[data-pa]');
+    if(pa&&bq.tab==='pct'){
+      const a=pa.dataset.pa,b2=boqGet();
+      if(a==='ok'){boqPctApply(r);return;}
+      if(a==='clear')bq.pct.sel=[];
+      if(a==='auto')boqPctAuto(r);
+      if(a==='allm')bq.pct.sel=b2.rows.filter(x=>x.key!==r.key&&!(x.mat&&x.mat.kind==='pct')&&BQ_UNIT_M.test(String(x.unit||'').trim())).map(x=>x.key);
+      boqModalList();return;
+    }
+    if(e.target.id==='bq-labpct-ok'){const v=bqEl('bq-labpct').value;if(v===''||+v<0)return;boqPick(r,'lab',{kind:'pctmat',pct:+v});return;}
     const rw=e.target.closest('.modal-row');if(rw&&list._pick){list._pick(+rw.dataset.i);return;}
     if(e.target.id==='bq-manual-ok'){const v=bqEl('bq-manual').value;if(v===''){return;}boqPick(r,md.kind,{kind:'manual',price:+v,label:'กรอกเอง',note:(bqEl('bq-manual-note')?bqEl('bq-manual-note').value.trim():(cur&&cur.kind==='manual'&&cur.note?cur.note:''))});}
     if(e.target.id==='bq-none-ok')boqPick(r,md.kind,{kind:'none'});
@@ -4627,7 +4737,11 @@ function boqSourcesData(){
   if(b)(b.rows||[]).forEach(r=>{
     [['ค่าแรง',r.lab],['ค่าวัสดุ',r.mat]].forEach(([t,o])=>{if(o&&o.kind==='manual'&&o.price!==''&&o.price!==undefined)manual.push({type:t,name:r.name||'',unit:r.unit||'',price:+o.price,note:String(o.note||'').trim()});});});
   manual.sort((a,c)=>(a.type===c.type?0:a.type==='ค่าแรง'?-1:1));
-  return {commerce:Object.values(cm),wagesUsed:Object.values(wm),manual,comps,surveys:Object.values(svm),materials,wages};
+  const pctRows=[];
+  if(b){const T=boqCompute(b);(b.rows||[]).forEach(r=>{const q=T.byKey[r.key];if(!q)return;
+    if(r.mat&&r.mat.kind==='pct')pctRows.push({type:'ค่าวัสดุ',name:r.name||'',unit:r.unit||'',price:q.mat_unit,note:q.mat_src||''});
+    if(r.lab&&r.lab.kind==='pctmat')pctRows.push({type:'ค่าแรง',name:r.name||'',unit:r.unit||'',price:q.lab_unit,note:q.lab_src||''});});}
+  return {commerce:Object.values(cm),wagesUsed:Object.values(wm),manual,pctRows,comps,surveys:Object.values(svm),materials,wages};
 }
 
 /* ดึงรายการที่ BOQ ใช้จริง (พาณิชย์ / ค่าแรง / มวลรวม / ราคาสืบ) เข้ารายการของโครงการ — รายการที่ระบบเพิ่มให้ติดป้าย _auto และจะถูกถอดเมื่อ BOQ ไม่ใช้แล้ว */
