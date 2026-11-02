@@ -3825,6 +3825,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   if(window.UDAuth)hook();else window.addEventListener('udauth-loaded',hook,{once:true});
 });
 const APP_CHANGELOG=[
+  ['1.11.1','2026-11-03',['BOQ: โครงการใหม่ใส่ชื่อและตำแหน่งผู้ประมาณราคาจากข้อมูลผู้ใช้ให้อัตโนมัติ (แก้เป็นชื่ออื่นได้) และมีปุ่ม "ใช้ชื่อและตำแหน่งของฉัน" สำหรับโครงการเดิม']],
   ['1.11.0','2026-11-02',['เก็บโครงการตามบัญชี: ผู้ที่ล็อกอินและได้รับอนุมัติแล้ว โครงการ (วัสดุ ค่าแรง มวลรวม ราคาสืบ BOQ) จะซิงก์ขึ้นบัญชีอัตโนมัติ เปิดใช้จากเครื่องอื่นได้ · ล็อกอินครั้งแรกจะถามว่าจะอัปโหลดโครงการในเครื่องหรือไม่ · แก้ไขสองเครื่องพร้อมกันจะเก็บฉบับที่ถูกทับเป็นสำเนา · ปุ่ม "ซิงก์โครงการตอนนี้" ในเมนูผู้ใช้']],
   ['1.10.0','2026-11-02',['เพิ่มหน้า "จัดการผู้ใช้" สำหรับผู้ดูแลระบบ: ดูรายชื่อผู้ที่ล็อกอินและกรอกข้อมูลแล้ว อนุมัติเป็นผู้แก้ไข ตั้งเป็นผู้ดูแลระบบ หรือถอนสิทธิ์ ได้ในเว็บ (ต้องตั้งกฎ Firestore ตามคู่มือ)']],
   ['1.9.0','2026-11-02',['ราคาสืบ: เชื่อมคลังกลางด้วยบัญชี Google ที่ผู้ดูแลอนุมัติแล้ว (ไม่ต้องใช้รหัสทีม) · บัญชีที่รออนุมัติดูคลังได้แต่บันทึกเฉพาะในเครื่อง · คลังกลางบันทึกชื่อผู้เพิ่ม/แก้ไขรายการ']],
@@ -3941,9 +3942,12 @@ const bq={openD:{},curKey:'',modal:null,tab:'mat',timer:null,fcat:'',fprov:''};
 const bqEl=id=>document.getElementById(id);
 const boqIsOpen=()=>{const e=bqEl('page-boq');return !!e&&e.classList.contains('active');};
 const bqF2=n=>(n===null||n===undefined||n==='')?'—':(+n).toLocaleString('th-TH',{minimumFractionDigits:2,maximumFractionDigits:2});
+function boqMeName(){const pr=authSt&&authSt.profile;return (pr&&pr.name)||'';}
+function boqMePos(){const pr=authSt&&authSt.profile;return (pr&&pr.position)||'';}
+function boqUseMe(){const b=boqGet();if(!b||!boqMeName())return;b.info.estimator=boqMeName();b.info.estimatorPos=boqMePos();boqSave();boqRender();}
 function boqGet(){
   const p=projGetActive();if(!p)return null;
-  if(!p.boq)p.boq={info:{name:p.name,location:'',agency:'',date:new Date().toISOString().slice(0,10),estimator:'',mode:'estimate'},factor:{advance:0,retention:0,loanPct:0},groups:[],rows:[]};
+  if(!p.boq)p.boq={info:{name:p.name,location:'',agency:'',date:new Date().toISOString().slice(0,10),estimator:boqMeName(),estimatorPos:boqMePos(),mode:'estimate'},factor:{advance:0,retention:0,loanPct:0},groups:[],rows:[]};
   const b=p.boq;b.info=b.info||{};b.factor=b.factor||{advance:0,retention:0,loanPct:0};b.groups=b.groups||[];b.rows=b.rows||[];b.pr2=b.pr2||[];b.pr3=b.pr3||[];
   return b;
 }
@@ -4116,7 +4120,7 @@ function boqRender(){
       <label>เงินล่วงหน้าจ่าย (%)<select class="bq-in" data-bf="advance">${[0,5,10,15].map(v=>`<option value="${v}"${+fc.advance===v?' selected':''}>${v}</option>`).join('')}</select></label>
       <label>เงินประกันผลงานหัก (%)<select class="bq-in" data-bf="retention">${[0,5,10].map(v=>`<option value="${v}"${+fc.retention===v?' selected':''}>${v}</option>`).join('')}</select></label>
       <label>สัดส่วนเงินกู้ (%) <span style="font-size:10px">(0 = ไม่ใช้เงินกู้)</span><input class="bq-in n" type="number" min="0" max="100" step="any" data-bf="loanPct" value="${esc(fc.loanPct||0)}"></label>
-    </div></div>
+    </div>${boqMeName()&&(i.estimator!==boqMeName()||(i.estimatorPos||'')!==boqMePos())?`<div style="margin-top:8px;font-size:12px;color:var(--text3)"><button class="btn btn-ghost" type="button" style="padding:3px 10px;font-size:12px" onclick="boqUseMe()">ใช้ชื่อและตำแหน่งของฉัน</button> ${esc(boqMeName())}${boqMePos()?' · '+esc(boqMePos()):''} (จากข้อมูลผู้ใช้ — แก้ไขช่องด้านบนเป็นชื่ออื่นได้)</div>`:''}</div>
     <div class="sv-bar"><button class="btn btn-green" type="button" onclick="boqAddGroup()">+ เพิ่มหมวด</button>
       <button class="btn btn-green" type="button" onclick="ioOpen()"><i class="ic ic-export"></i> นำเข้า / ส่งออก</button>
       <button class="btn btn-ghost" type="button" id="bq-accall" style="display:none" onclick="boqAcceptAll()" title="ยอมรับราคาของมวลรวมที่ใส่ราคาไม่ครบ ทุกรายการ"><i class="ic ic-warn"></i> ยอมรับราคาไม่ครบทั้งหมด</button>
