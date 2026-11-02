@@ -2953,12 +2953,12 @@ async function svLoad(force){
         if(r&&r.ok&&r.user){const w=r.user.status==='approved'&&(r.user.role==='editor'||r.user.role==='admin');mode=w?'central':'pending';sv.who=r.user;}
         else{mode='offline';sv.modeErr=(r&&r.error)||'';}
       }catch(e){mode='offline';sv.modeErr=e.message;}
-    }else mode='noteam';
+    }else mode=(authSt.ready||authFail)?'public':'noteam';   /* ไม่ล็อกอิน: ดูราคาสาธารณะได้ (รออ่านสถานะล็อกอินก่อน) */
   }
   sv.mode=mode;Survey.setAccess({writable:mode==='central'});
   try{
     const loc=(await Survey.localAll())||[];
-    if(mode==='central'||mode==='pending'){
+    if(mode==='central'||mode==='pending'||mode==='public'){
       const cen=(await Survey.libAll(force))||[],byKey={};
       cen.forEach(x=>{byKey[x.key]=Object.assign(svNorm(x),{_where:'central'});});
       loc.forEach(x=>{const k=x.key||Survey.libKey(x.name,x.unit),c=byKey[k];
@@ -2988,6 +2988,9 @@ function svBanner(){
     b.className='central';
     b.innerHTML='<span><i class="ic ic-cloud"></i> <b>เชื่อมคลังกลางแล้ว</b> — รายการที่แสดงมาจากคลังกลาง และราคาที่สืบจะบันทึกเข้าคลังกลางอัตโนมัติ</span>'
       +(n?`<span style="color:var(--amber)">· มี ${n} รายการที่ยังอยู่เฉพาะเครื่องนี้</span><button class="btn btn-amber" type="button" data-bact="push">ส่งที่ค้างอยู่ขึ้นคลังกลาง (${n})</button>`:'');
+  }else if(m==='public'){
+    b.className='local';
+    b.innerHTML='<span><i class="ic ic-cloud"></i> <b>ดูราคาจากคลังกลางแบบสาธารณะ</b> — แสดงราคาและจำนวนรายที่สืบ แต่ไม่แสดงชื่อร้าน ช่องทางติดต่อ หมายเหตุ และรูป เข้าสู่ระบบด้วยบัญชี Google (ปุ่มด้านบน) เพื่อดูรายละเอียด · ราคาที่สืบเองจะบันทึก<b>เฉพาะในเครื่องนี้</b></span>'+cfgBtn;
   }else if(m==='pending'){
     b.className='offline';
     b.innerHTML='<span><i class="ic ic-warn"></i> <b>บัญชีของคุณรอผู้ดูแลอนุมัติ</b> — ดูรายการในคลังกลางได้ แต่ราคาที่สืบจะบันทึก<b>เฉพาะในเครื่องนี้</b>ก่อน เมื่อได้รับอนุมัติแล้วจะส่งขึ้นคลังกลางได้</span>'+cfgBtn;
@@ -3664,11 +3667,12 @@ let authSt={ready:false,user:null,profile:null,access:null,error:''},authAsked=f
 const AU_ROLE={admin:'ผู้ดูแลระบบ',editor:'ผู้แก้ไขคลังกลาง',viewer:'ผู้ใช้ทั่วไป'};
 let authUid='',cloudKey='';
 function authRender(st){
-  if(st){authSt=st;const nu=(st.user&&st.user.uid)||'';if(st.ready&&nu!==authUid){const first=authUid==='';authUid=nu;if((!first||nu)&&typeof sv!=='undefined'&&sv.loaded&&typeof svLoad==='function')svLoad(true);}}
+  if(st){authSt=st;const nu=(st.user&&st.user.uid)||'';if(st.ready&&nu!==authUid){const first=authUid==='';authUid=nu;if((!first||nu)&&typeof sv!=='undefined'&&sv.loaded&&typeof svLoad==='function')svLoad(true);}
+    if(st.ready&&!nu&&typeof sv!=='undefined'&&sv.loaded&&sv.mode==='noteam'&&typeof svLoad==='function')svLoad(true);}
   if(st){const ck=cloudOn()?authUid:'';if(ck!==cloudKey){cloudKey=ck;if(ck)cloudSync(false);}}
   const b=document.getElementById('auth-btn'),m=document.getElementById('auth-menu');if(!b)return;
   const u=authSt.user;
-  if(authFail){b.innerHTML='<span class="au-nm">ล็อกอินไม่พร้อมใช้งาน</span>';b.title='โหลดระบบล็อกอินไม่สำเร็จ (ตรวจสอบอินเทอร์เน็ต) — ค้นหาและใช้งานอื่น ๆ ได้ตามปกติ';return;}
+  if(authFail){if(typeof sv!=='undefined'&&sv.loaded&&sv.mode==='noteam'&&typeof svLoad==='function')svLoad(true);b.innerHTML='<span class="au-nm">ล็อกอินไม่พร้อมใช้งาน</span>';b.title='โหลดระบบล็อกอินไม่สำเร็จ (ตรวจสอบอินเทอร์เน็ต) — ค้นหาและใช้งานอื่น ๆ ได้ตามปกติ';return;}
   b.className='auth-btn';
   if(!u){b.innerHTML='<span class="au-nm">'+(authSt.ready?'เข้าสู่ระบบ':'กำลังเตรียม...')+'</span>';b.title='';if(m)m.style.display='none';return;}
   const nm=(authSt.profile&&authSt.profile.name)||u.name||u.email,ap=authSt.access&&authSt.access.status==='approved';
@@ -3825,6 +3829,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   if(window.UDAuth)hook();else window.addEventListener('udauth-loaded',hook,{once:true});
 });
 const APP_CHANGELOG=[
+  ['1.12.0','2026-11-03',['ราคาสืบ: ผู้ที่ไม่ได้ล็อกอินดูราคาจากคลังกลางได้แบบอ่านอย่างเดียว (เห็นราคา ช่องทาง วันที่ จำนวนราย แต่ไม่เห็นชื่อร้าน ช่องทางติดต่อ หมายเหตุ รูป) · เข้าสู่ระบบเพื่อดูรายละเอียด']],
   ['1.11.1','2026-11-03',['BOQ: โครงการใหม่ใส่ชื่อและตำแหน่งผู้ประมาณราคาจากข้อมูลผู้ใช้ให้อัตโนมัติ (แก้เป็นชื่ออื่นได้) และมีปุ่ม "ใช้ชื่อและตำแหน่งของฉัน" สำหรับโครงการเดิม']],
   ['1.11.0','2026-11-02',['เก็บโครงการตามบัญชี: ผู้ที่ล็อกอินและได้รับอนุมัติแล้ว โครงการ (วัสดุ ค่าแรง มวลรวม ราคาสืบ BOQ) จะซิงก์ขึ้นบัญชีอัตโนมัติ เปิดใช้จากเครื่องอื่นได้ · ล็อกอินครั้งแรกจะถามว่าจะอัปโหลดโครงการในเครื่องหรือไม่ · แก้ไขสองเครื่องพร้อมกันจะเก็บฉบับที่ถูกทับเป็นสำเนา · ปุ่ม "ซิงก์โครงการตอนนี้" ในเมนูผู้ใช้']],
   ['1.10.0','2026-11-02',['เพิ่มหน้า "จัดการผู้ใช้" สำหรับผู้ดูแลระบบ: ดูรายชื่อผู้ที่ล็อกอินและกรอกข้อมูลแล้ว อนุมัติเป็นผู้แก้ไข ตั้งเป็นผู้ดูแลระบบ หรือถอนสิทธิ์ ได้ในเว็บ (ต้องตั้งกฎ Firestore ตามคู่มือ)']],
