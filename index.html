@@ -2428,6 +2428,7 @@ function projLoadStore(){
 function projSaveStore(){
   try{
     localStorage.setItem(PROJ_STORE_KEY, JSON.stringify(projStore));
+    if(typeof cloudSchedule==='function'&&!cloudQuiet)cloudSchedule();
     return true;
   }catch(e){
     alert('บันทึกโครงการไม่สำเร็จ (พื้นที่จัดเก็บของเบราว์เซอร์อาจเต็ม): '+e.message);
@@ -2436,6 +2437,7 @@ function projSaveStore(){
 }
 
 let projStore=projLoadStore();
+let cloudQuiet=false;
 
 function projGetActive(){
   if(!projStore.activeProjectId) return null;
@@ -3660,9 +3662,10 @@ function toggleTheme(){
 /* ---------- ล็อกอิน (Firebase) — ดู lib/auth-v1.js ---------- */
 let authSt={ready:false,user:null,profile:null,access:null,error:''},authAsked=false,authFail=false;
 const AU_ROLE={admin:'ผู้ดูแลระบบ',editor:'ผู้แก้ไขคลังกลาง',viewer:'ผู้ใช้ทั่วไป'};
-let authUid='';
+let authUid='',cloudKey='';
 function authRender(st){
   if(st){authSt=st;const nu=(st.user&&st.user.uid)||'';if(st.ready&&nu!==authUid){const first=authUid==='';authUid=nu;if((!first||nu)&&typeof sv!=='undefined'&&sv.loaded&&typeof svLoad==='function')svLoad(true);}}
+  if(st){const ck=cloudOn()?authUid:'';if(ck!==cloudKey){cloudKey=ck;if(ck)cloudSync(false);}}
   const b=document.getElementById('auth-btn'),m=document.getElementById('auth-menu');if(!b)return;
   const u=authSt.user;
   if(authFail){b.innerHTML='<span class="au-nm">ล็อกอินไม่พร้อมใช้งาน</span>';b.title='โหลดระบบล็อกอินไม่สำเร็จ (ตรวจสอบอินเทอร์เน็ต) — ค้นหาและใช้งานอื่น ๆ ได้ตามปกติ';return;}
@@ -3673,6 +3676,7 @@ function authRender(st){
   b.title=u.email;
   if(m)m.innerHTML='<div class="auth-menu-hd"><b>'+esc(nm)+'</b>'+esc(u.email)+(authSt.profile&&authSt.profile.position?'<br>'+esc(authSt.profile.position)+(authSt.profile.agency?' · '+esc(authSt.profile.agency):''):'')+'</div>'
     +'<div class="auth-st">'+(ap?'<span style="color:var(--green)">อนุมัติแล้ว</span> · '+esc(AU_ROLE[(authSt.access||{}).role]||'ผู้ใช้ทั่วไป')+' — แก้ไขคลังกลางได้':'<span style="color:var(--amber)">รอผู้ดูแลอนุมัติ</span> — ค้นหาและใช้งานโครงการของตนเองได้ แต่ยังแก้ไขคลังกลางไม่ได้')+'</div>'
+    +(ap?'<div class="auth-st">โครงการของบัญชี: '+cloudStatusHtml()+'</div><div class="proj-menu-item" onclick="cloudSync(true)">ซิงก์โครงการตอนนี้</div>':'')
     +(authSt.error?'<div class="auth-st" style="color:var(--red)">'+esc(authSt.error)+'</div>':'')
     +(ap&&(authSt.access||{}).role==='admin'?'<div class="proj-menu-item" onclick="auAdminOpen()">จัดการผู้ใช้ (ผู้ดูแลระบบ)</div>':'')
     +'<div class="proj-menu-item" onclick="authOpenProfile()">ข้อมูลของฉัน (ชื่อ ตำแหน่ง หน่วยงาน)</div><div class="proj-menu-item proj-menu-danger" onclick="UDAuth.signOut()">ออกจากระบบ</div>';
@@ -3700,6 +3704,78 @@ async function authSaveProfile(){
   catch(e){er.textContent='บันทึกไม่สำเร็จ: '+(e&&e.code==='permission-denied'?'ไม่มีสิทธิ์ (ตรวจสอบกฎความปลอดภัยของ Firestore)':(e&&e.message)||e);}
   bt.disabled=false;
 }
+
+
+/* ---------- ซิงก์โครงการกับบัญชี (Firestore: users/{uid}/projects) ----------
+ * เก็บในเครื่องเป็นหลัก (เหมือนเดิม) แล้วซิงก์ขึ้นบัญชีเบื้องหลัง เฉพาะบัญชีที่ผู้ดูแลอนุมัติแล้ว */
+const CLOUD_KEY='udCostHub_cloud_v1';
+let cloudSt={state:'idle',msg:'',last:0},cloudTimer=null,cloudBusy=false,cloudAgain=false;
+function cloudLoc(){try{return JSON.parse(localStorage.getItem(CLOUD_KEY)||'{}')||{};}catch(e){return {};}}
+function cloudLocSave(o){try{localStorage.setItem(CLOUD_KEY,JSON.stringify(o));}catch(e){}}
+function cloudMy(){const u=(authSt.user||{}).uid;if(!u)return null;const all=cloudLoc(),m=all[u]=all[u]||{};m.synced=m.synced||{};m.skip=m.skip||[];return {all,m,u};}
+function cloudOn(){return !!(window.UDAuth&&UDAuth.cloud&&!authFail&&authSt.user&&authSt.access&&authSt.access.status==='approved');}
+function cloudSchedule(){if(!cloudOn())return;clearTimeout(cloudTimer);cloudTimer=setTimeout(()=>cloudSync(false),3000);}
+function cloudStatusHtml(){
+  if(cloudSt.state==='busy')return '<span style="color:var(--amber)">กำลังซิงก์...</span>';
+  if(cloudSt.state==='err')return '<span style="color:var(--red)">ซิงก์ไม่สำเร็จ — '+esc(cloudSt.msg)+'</span>';
+  if(cloudSt.last){const d=new Date(cloudSt.last);return '<span style="color:var(--green)">ซิงก์แล้ว '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')+' น.</span>';}
+  return 'ยังไม่ได้ซิงก์';
+}
+function cloudSetSt(state,msg){cloudSt.state=state;cloudSt.msg=msg||'';if(state==='ok')cloudSt.last=Date.now();try{authRender();}catch(e){}}
+async function cloudSync(manual){
+  if(!cloudOn())return;
+  if(cloudBusy){cloudAgain=true;return;}
+  cloudBusy=true;clearTimeout(cloudTimer);cloudSetSt('busy');
+  let changedLocal=false;
+  try{
+    const my=cloudMy(),syn=my.m.synced;
+    if(manual){my.m.asked=false;my.m.skip=[];}
+    const skip=my.m.skip,remote={};
+    (await UDAuth.cloud.list()).forEach(r=>{remote[r.id]=r;});
+    const L=projStore.projects;
+    const fresh=Object.keys(L).filter(id=>!remote[id]&&syn[id]==null&&!skip.includes(id));
+    if(fresh.length&&!my.m.asked){
+      my.m.asked=true;
+      if(!confirm('พบโครงการที่บันทึกไว้ในเครื่องนี้ '+fresh.length+' โครงการ ยังไม่อยู่ในบัญชีของคุณ\nต้องการอัปโหลดขึ้นบัญชีเพื่อใช้งานจากเครื่องอื่นได้หรือไม่\n\nตกลง = อัปโหลด   ยกเลิก = เก็บไว้ในเครื่องนี้เท่านั้น (กด "ซิงก์โครงการตอนนี้" ในเมนูผู้ใช้เพื่อถามอีกครั้ง)'))fresh.forEach(id=>skip.push(id));
+    }
+    const up=async(id,p)=>{const ts=+p.updatedAt||0;const n=await UDAuth.cloud.put(id,p,(remote[id]||{}).n);remote[id]={id,n,updatedAt:ts};syn[id]=ts;};
+    const down=async id=>{const o=await UDAuth.cloud.get(id);if(!o||typeof o!=='object')throw new Error('อ่านโครงการไม่ได้');o.id=id;L[id]=o;syn[id]=+o.updatedAt||remote[id].updatedAt;changedLocal=true;};
+    const copyId=()=>'p'+Date.now()+Math.random().toString(36).slice(2,7);
+    const ids=Array.from(new Set(Object.keys(L).concat(Object.keys(remote))));
+    for(const id of ids){
+      const r=remote[id],l=L[id],s=syn[id];
+      if(r&&!l){
+        if(s!=null&&!(r.updatedAt>s)){await UDAuth.cloud.del(id,r.n);delete syn[id];delete remote[id];}
+        else await down(id);
+      }else if(!r&&l){
+        if(skip.includes(id))continue;
+        if(s!=null&&!((+l.updatedAt||0)>s)){delete L[id];delete syn[id];if(projStore.activeProjectId===id)projStore.activeProjectId=null;changedLocal=true;}
+        else await up(id,l);
+      }else if(r&&l){
+        if(skip.includes(id))continue;
+        const lu=+l.updatedAt||0,ru=+r.updatedAt||0,b=s||0;
+        if(lu===ru){syn[id]=lu;continue;}
+        const lch=lu>b,rch=ru>b;
+        if(lch&&!rch)await up(id,l);
+        else if(rch&&!lch)await down(id);
+        else{ // แก้ไขทั้งสองฝั่ง: ฉบับใหม่กว่าเป็นหลัก ฉบับเก่าเก็บเป็นสำเนา
+          const cid=copyId();
+          if(lu>=ru){const o=await UDAuth.cloud.get(id);o.id=cid;o.name=(o.name||'')+' (สำรองจากเครื่องอื่น)';o.updatedAt=Date.now();L[cid]=o;await up(cid,o);await up(id,l);}
+          else{const c=JSON.parse(JSON.stringify(l));c.id=cid;c.name=(c.name||'')+' (สำรองจากเครื่องนี้)';c.updatedAt=Date.now();L[cid]=c;await up(cid,c);await down(id);}
+          changedLocal=true;
+        }
+      }
+    }
+    cloudLocSave(my.all);
+    if(changedLocal){cloudQuiet=true;try{projSaveStore();}finally{cloudQuiet=false;}projLoadIntoApp();projRefreshUI();}
+    cloudBusy=false;cloudSetSt('ok');
+  }catch(e){
+    cloudBusy=false;
+    cloudSetSt('err',e&&e.code==='permission-denied'?'ไม่มีสิทธิ์ (ตรวจสอบกฎ Firestore)':(e&&e.message)||String(e));
+  }
+  if(cloudAgain){cloudAgain=false;cloudSchedule();}
+}
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden'&&cloudTimer){clearTimeout(cloudTimer);cloudSync(false);}});
 
 /* ---------- จัดการผู้ใช้ (เฉพาะผู้ดูแลระบบ) ---------- */
 let auAdminList=[];
@@ -3749,6 +3825,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   if(window.UDAuth)hook();else window.addEventListener('udauth-loaded',hook,{once:true});
 });
 const APP_CHANGELOG=[
+  ['1.11.0','2026-11-02',['เก็บโครงการตามบัญชี: ผู้ที่ล็อกอินและได้รับอนุมัติแล้ว โครงการ (วัสดุ ค่าแรง มวลรวม ราคาสืบ BOQ) จะซิงก์ขึ้นบัญชีอัตโนมัติ เปิดใช้จากเครื่องอื่นได้ · ล็อกอินครั้งแรกจะถามว่าจะอัปโหลดโครงการในเครื่องหรือไม่ · แก้ไขสองเครื่องพร้อมกันจะเก็บฉบับที่ถูกทับเป็นสำเนา · ปุ่ม "ซิงก์โครงการตอนนี้" ในเมนูผู้ใช้']],
   ['1.10.0','2026-11-02',['เพิ่มหน้า "จัดการผู้ใช้" สำหรับผู้ดูแลระบบ: ดูรายชื่อผู้ที่ล็อกอินและกรอกข้อมูลแล้ว อนุมัติเป็นผู้แก้ไข ตั้งเป็นผู้ดูแลระบบ หรือถอนสิทธิ์ ได้ในเว็บ (ต้องตั้งกฎ Firestore ตามคู่มือ)']],
   ['1.9.0','2026-11-02',['ราคาสืบ: เชื่อมคลังกลางด้วยบัญชี Google ที่ผู้ดูแลอนุมัติแล้ว (ไม่ต้องใช้รหัสทีม) · บัญชีที่รออนุมัติดูคลังได้แต่บันทึกเฉพาะในเครื่อง · คลังกลางบันทึกชื่อผู้เพิ่ม/แก้ไขรายการ']],
   ['1.8.0','2026-11-02',['เพิ่มระบบเข้าสู่ระบบด้วยบัญชี Google: ปุ่มที่แถบด้านบน เมนูผู้ใช้ และแบบฟอร์มข้อมูลผู้ใช้ (ชื่อ ตำแหน่ง หน่วยงาน) · ระยะนี้ยังไม่บังคับล็อกอิน ค้นหาและใช้งานได้เหมือนเดิม']],
