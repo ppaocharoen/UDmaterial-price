@@ -42,6 +42,10 @@ function tab_(name) {
   else if (name === SHEET && sh.getLastColumn() < HEAD.length) { sh.getRange(1, 1, 1, HEAD.length).setValues([HEAD]); sh.getRange('A:K').setNumberFormat('@'); }   // เพิ่มคอลัมน์ใหม่ให้ชีตเดิม
   return sh;
 }
+/** ที่เก็บภาพของสคริปต์นี้: Script property STORE (ว่าง = 'main' = แบบเดิม ค่าภาพเป็นรหัสไฟล์เปล่า ๆ)
+ *  ถ้าย้ายไปสคริปต์/บัญชี Drive ใหม่ ตั้ง STORE เป็นชื่ออื่น (เช่น s2) ภาพใหม่จะบันทึกเป็น "s2:รหัสไฟล์" และเว็บจะรู้ว่าต้องถามสคริปต์ไหน */
+const store_ = () => props_().getProperty('STORE') || 'main';
+function imgRef_(v) { const m = String(v).match(/^([A-Za-z0-9_-]{1,20}):(.+)$/); return m ? { store: m[1], file: m[2] } : { store: 'main', file: String(v) }; }
 function folder_() {
   const id = props_().getProperty('FOLDER_ID');
   if (id) { try { return DriveApp.getFolderById(id); } catch (e) { /* สร้างใหม่ */ } }
@@ -147,7 +151,9 @@ function doPost(e) {
     if (b.action === 'ping') return out_({ ok: true, name: ss_().getName() });
     if (b.action === 'list') return out_({ ok: true, items: rows_().map(x => { delete x.row; return ctx.kind === 'anon' ? pub_(x) : x; }), view: ctx.kind === 'anon' ? 'public' : 'full' });
     if (b.action === 'img') {   // คืนภาพเป็น data URL — เฉพาะไฟล์ในโฟลเดอร์คลัง
-      const f = DriveApp.getFileById(String(b.file)), fid = folder_().getId();
+      const ref = imgRef_(b.file);
+      if (ref.store !== store_()) return out_({ ok: false, error: 'ภาพอยู่ที่เก็บ "' + ref.store + '" ไม่ใช่ที่เก็บนี้' });
+      const f = DriveApp.getFileById(ref.file), fid = folder_().getId();
       let inLib = false; const ps = f.getParents(); while (ps.hasNext()) if (ps.next().getId() === fid) inLib = true;
       if (!inLib) return out_({ ok: false, error: 'ไม่ใช่ภาพในคลัง' });
       return out_({ ok: true, data: 'data:' + f.getMimeType() + ';base64,' + Utilities.base64Encode(f.getBlob().getBytes()) });
@@ -177,7 +183,7 @@ function doPost(e) {
         if (!m || IMG_TYPES.indexOf(m[1]) < 0) return out_({ ok: false, error: 'รับเฉพาะภาพ JPEG/PNG/WebP' });
         if (m[2].length > IMG_MAX) return out_({ ok: false, error: 'ภาพใหญ่เกิน 2 MB' });
         if (!/^[A-Za-z0-9_-]{1,60}$/.test(id)) return out_({ ok: false, error: 'id ภาพไม่ถูกต้อง' });
-        imgs[id] = fd.createFile(Utilities.newBlob(Utilities.base64Decode(m[2]), m[1], id + '.jpg')).getId();   // ไม่แชร์ลิงก์ (ส่วนตัว)
+        { const fileId = fd.createFile(Utilities.newBlob(Utilities.base64Decode(m[2]), m[1], id + '.jpg')).getId(); imgs[id] = store_() === 'main' ? fileId : store_() + ':' + fileId; }   // ไม่แชร์ลิงก์ (ส่วนตัว)
       }
       const row = [txt_(b.key), txt_(it.name), txt_(it.unit), JSON.stringify(it.quotes || []), txt_(it.reason), txt_(it.updated || new Date().toISOString()), txt_(it.project), txt_(it.by), JSON.stringify(imgs), txt_(String(it.ref || '').slice(0, 120)), JSON.stringify(Array.from(new Set((cur ? cur.aliases : []).concat(Array.isArray(it.aliases) ? it.aliases.map(a => String(a).slice(0, 300)) : []))).slice(-50))];
       if (cur) sh.getRange(cur.row, 1, 1, row.length).setValues([row]); else sh.appendRow(row);
