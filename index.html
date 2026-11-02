@@ -50,6 +50,20 @@ body{font-family:'Sarabun',sans-serif;background:var(--bg);color:var(--text);min
 }
 
 /* PROJECT SELECTOR */
+.auth-widget{position:relative;margin-left:10px;}
+.auth-btn{display:flex;align-items:center;gap:6px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text2);font-family:'Sarabun',sans-serif;font-size:12px;padding:7px 10px;cursor:pointer;white-space:nowrap;max-width:190px;}
+.auth-btn:hover{border-color:var(--accent);color:var(--text);}
+.auth-btn .au-nm{overflow:hidden;text-overflow:ellipsis;}
+@media(max-width:1520px){.auth-btn.in .au-nm{display:none;}}
+.auth-av{width:20px;height:20px;border-radius:50%;background:var(--accent);color:#fff;font-size:11px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;flex:none;overflow:hidden;}
+.auth-av img{width:100%;height:100%;object-fit:cover;}
+.auth-dot{width:7px;height:7px;border-radius:50%;flex:none;}
+.auth-menu{position:absolute;top:calc(100% + 6px);right:0;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);min-width:270px;box-shadow:0 8px 24px rgba(0,0,0,.45);z-index:150;overflow:hidden;}
+.auth-menu-hd{padding:12px 14px;border-bottom:1px solid var(--border);font-size:12px;color:var(--text2);line-height:1.5;}
+.auth-menu-hd b{color:var(--text);font-size:13px;display:block;}
+.auth-st{padding:10px 14px;font-size:12px;line-height:1.5;border-bottom:1px solid var(--border);}
+.auth-f{display:flex;flex-direction:column;gap:3px;font-size:12px;color:var(--text2);}
+@media(max-width:700px){.auth-widget{margin-left:6px;}.auth-btn{padding:6px 8px;font-size:11px;max-width:120px;}.auth-menu{right:auto;left:0;}}
 .proj-widget{position:relative;margin-left:10px;}
 .proj-btn{display:flex;align-items:center;gap:6px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text2);font-family:'Sarabun',sans-serif;font-size:12px;padding:7px 10px;cursor:pointer;white-space:nowrap;}
 .proj-btn:hover{color:var(--text);border-color:var(--border2);}
@@ -561,6 +575,10 @@ select.bq-in{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w
     </div>
   </div>
   <button class="theme-btn" id="theme-btn" type="button" onclick="toggleTheme()" title="สลับโหมดสว่าง / มืด" aria-label="สลับโหมดสว่าง / มืด"></button>
+  <div class="auth-widget" id="auth-widget">
+    <button class="auth-btn" id="auth-btn" type="button" onclick="authBtnClick(event)"><span class="au-nm">เข้าสู่ระบบ</span></button>
+    <div class="auth-menu" id="auth-menu" style="display:none"></div>
+  </div>
   <div class="proj-widget" id="proj-widget">
     <button class="proj-btn" onclick="toggleProjMenu(event)" type="button">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
@@ -3628,7 +3646,56 @@ function toggleTheme(){
 }
 
 /* ===== เวอร์ชัน (เลขหลัก.ฟีเจอร์ใหม่.แก้ไขเล็กน้อย) — เพิ่มรายการใหม่ไว้บนสุดทุกครั้งที่แก้ ===== */
+
+/* ---------- ล็อกอิน (Firebase) — ดู lib/auth-v1.js ---------- */
+let authSt={ready:false,user:null,profile:null,access:null,error:''},authAsked=false,authFail=false;
+const AU_ROLE={admin:'ผู้ดูแลระบบ',editor:'ผู้แก้ไขคลังกลาง',viewer:'ผู้ใช้ทั่วไป'};
+function authRender(st){
+  if(st)authSt=st;
+  const b=document.getElementById('auth-btn'),m=document.getElementById('auth-menu');if(!b)return;
+  const u=authSt.user;
+  if(authFail){b.innerHTML='<span class="au-nm">ล็อกอินไม่พร้อมใช้งาน</span>';b.title='โหลดระบบล็อกอินไม่สำเร็จ (ตรวจสอบอินเทอร์เน็ต) — ค้นหาและใช้งานอื่น ๆ ได้ตามปกติ';return;}
+  b.className='auth-btn';
+  if(!u){b.innerHTML='<span class="au-nm">'+(authSt.ready?'เข้าสู่ระบบ':'กำลังเตรียม...')+'</span>';b.title='';if(m)m.style.display='none';return;}
+  const nm=(authSt.profile&&authSt.profile.name)||u.name||u.email,ap=authSt.access&&authSt.access.status==='approved';
+  b.className='auth-btn in';b.innerHTML='<span class="auth-av">'+(u.photo?'<img alt="" referrerpolicy="no-referrer" src="'+esc(u.photo)+'">':esc((nm||'?').trim().charAt(0).toUpperCase()))+'</span><span class="au-nm">'+esc(nm)+'</span><span class="auth-dot" style="background:'+(ap?'var(--green)':'var(--amber)')+'"></span>';
+  b.title=u.email;
+  if(m)m.innerHTML='<div class="auth-menu-hd"><b>'+esc(nm)+'</b>'+esc(u.email)+(authSt.profile&&authSt.profile.position?'<br>'+esc(authSt.profile.position)+(authSt.profile.agency?' · '+esc(authSt.profile.agency):''):'')+'</div>'
+    +'<div class="auth-st">'+(ap?'<span style="color:var(--green)">อนุมัติแล้ว</span> · '+esc(AU_ROLE[(authSt.access||{}).role]||'ผู้ใช้ทั่วไป')+' — แก้ไขคลังกลางได้':'<span style="color:var(--amber)">รอผู้ดูแลอนุมัติ</span> — ค้นหาและใช้งานโครงการของตนเองได้ แต่ยังแก้ไขคลังกลางไม่ได้')+'</div>'
+    +(authSt.error?'<div class="auth-st" style="color:var(--red)">'+esc(authSt.error)+'</div>':'')
+    +'<div class="proj-menu-item" onclick="authOpenProfile()">ข้อมูลของฉัน (ชื่อ ตำแหน่ง หน่วยงาน)</div><div class="proj-menu-item proj-menu-danger" onclick="UDAuth.signOut()">ออกจากระบบ</div>';
+  if(u&&authSt.ready&&!authSt.profile&&!authAsked&&!authSt.error){authAsked=true;authOpenProfile();}
+}
+async function authBtnClick(e){
+  if(e)e.stopPropagation();
+  if(authFail||!window.UDAuth)return;
+  if(!authSt.user){await UDAuth.signIn();const s=UDAuth.state();if(s.error)alert(s.error);return;}
+  const m=document.getElementById('auth-menu');m.style.display=m.style.display==='block'?'none':'block';
+}
+function authOpenProfile(){
+  const p=authSt.profile||{},u=authSt.user||{};
+  document.getElementById('au-name').value=p.name||u.name||'';document.getElementById('au-pos').value=p.position||'';
+  document.getElementById('au-agency').value=p.agency||'';document.getElementById('au-phone').value=p.phone||'';
+  document.getElementById('au-err').textContent='';document.getElementById('auth-menu').style.display='none';
+  document.getElementById('auth-modal').style.display='flex';
+}
+function authCloseProfile(){document.getElementById('auth-modal').style.display='none';}
+async function authSaveProfile(){
+  const g=id=>document.getElementById(id).value.trim(),er=document.getElementById('au-err');
+  if(!g('au-name')||!g('au-pos')||!g('au-agency')){er.textContent='กรุณากรอกชื่อ-สกุล ตำแหน่ง และหน่วยงาน';return;}
+  const bt=document.getElementById('au-save');bt.disabled=true;er.textContent='';
+  try{await UDAuth.saveProfile({name:g('au-name'),position:g('au-pos'),agency:g('au-agency'),phone:g('au-phone')});authCloseProfile();}
+  catch(e){er.textContent='บันทึกไม่สำเร็จ: '+(e&&e.code==='permission-denied'?'ไม่มีสิทธิ์ (ตรวจสอบกฎความปลอดภัยของ Firestore)':(e&&e.message)||e);}
+  bt.disabled=false;
+}
+document.addEventListener('click',e=>{const w=document.getElementById('auth-widget'),m=document.getElementById('auth-menu');if(w&&m&&!w.contains(e.target))m.style.display='none';});
+document.addEventListener('DOMContentLoaded',()=>{
+  authRender();
+  const hook=()=>{if(window.UDAuth)UDAuth.on(authRender);};
+  if(window.UDAuth)hook();else window.addEventListener('udauth-loaded',hook,{once:true});
+});
 const APP_CHANGELOG=[
+  ['1.8.0','2026-11-02',['เพิ่มระบบเข้าสู่ระบบด้วยบัญชี Google: ปุ่มที่แถบด้านบน เมนูผู้ใช้ และแบบฟอร์มข้อมูลผู้ใช้ (ชื่อ ตำแหน่ง หน่วยงาน) · ระยะนี้ยังไม่บังคับล็อกอิน ค้นหาและใช้งานได้เหมือนเดิม']],
   ['1.7.2','2026-10-30',['BOQ: ช่องเลือกแบบรายการเลื่อนลง (ชุดคิดเปอร์เซ็นต์, ประเภทงาน ฯลฯ) แสดงลูกศรให้เห็นว่ากดเลือกได้']],
   ['1.7.1','2026-10-30',['BOQ: ปรับถ้อยคำเป็น "เลือก" และ "รายการ" · ใต้ราคาวัสดุแสดง "15% ของรายการที่ 1, 3" ตามเลขลำดับในตาราง']],
   ['1.7.0','2026-10-30',['BOQ: ค่าวัสดุแบบใหม่ "% ของรายการอื่น" — เลือกรายการฐาน (เช่น ท่อทุกขนาด) แล้วคิดเป็น % เป็น 1 งาน ใช้กับงานเบ็ดเตล็ดท่อร้อยสาย/สายไฟ และข้อต่อ เหล็กยึด ทดสอบ/ทาสี ของท่อแต่ละชนิด','BOQ: มีชุดสำเร็จรูปตามหลักเกณฑ์งานอาคาร 2569 ใส่ชื่อ % และค่าแรงให้ และเลือกรายการท่อที่ชื่อเข้าข่ายให้เบื้องต้น','BOQ: ค่าแรงแบบใหม่ "% ของค่าวัสดุ" (เริ่มต้น 30%) ใช้ได้กับทุกรายการ']],
@@ -3673,6 +3740,20 @@ svBind();
     <div id="bq-sv-foot" style="padding:10px 16px;display:flex;gap:8px;flex-wrap:wrap;border-top:1px solid var(--border)"></div>
   </div>
 </div>
+<div class="modal-overlay" id="auth-modal" style="display:none">
+  <div class="modal-box" style="max-width:480px">
+    <div class="modal-hd"><div class="modal-title">ข้อมูลผู้ใช้</div><span class="modal-close" onclick="authCloseProfile()">×</span></div>
+    <div style="padding:14px 16px;overflow:auto;display:flex;flex-direction:column;gap:10px">
+      <div style="font-size:12px;color:var(--text2);line-height:1.6">กรุณากรอกข้อมูลเพื่อให้ผู้ดูแลระบบทราบว่าเป็นใคร ข้อมูลนี้ใช้ระบุผู้เพิ่มหรือแก้ไขราคาสืบในคลังกลาง และเติมชื่อผู้ประมาณราคาในแบบ BOQ ข้อมูลเก็บไว้ในระบบของผู้ดูแล และผู้ดูแลระบบเปิดดูได้ แก้ไขได้ภายหลังจากเมนูผู้ใช้ รายละเอียดอยู่ในนโยบายความเป็นส่วนตัว</div>
+      <label class="auth-f">ชื่อ-สกุล<input class="bq-in" id="au-name" maxlength="120"></label>
+      <label class="auth-f">ตำแหน่ง<input class="bq-in" id="au-pos" maxlength="120"></label>
+      <label class="auth-f">หน่วยงาน / สังกัด<input class="bq-in" id="au-agency" maxlength="160"></label>
+      <label class="auth-f">เบอร์โทรศัพท์ (ไม่บังคับ)<input class="bq-in" id="au-phone" maxlength="40"></label>
+      <div id="au-err" style="color:var(--red);font-size:12px;min-height:16px"></div>
+      <div style="display:flex;gap:8px;justify-content:flex-end"><button class="btn btn-ghost" type="button" onclick="authCloseProfile()">ภายหลัง</button><button class="btn btn-green" type="button" id="au-save" onclick="authSaveProfile()">บันทึก</button></div>
+    </div>
+  </div>
+</div>
 <div class="modal-overlay" id="ver-modal" style="display:none">
   <div class="modal-box" style="max-width:560px">
     <div class="modal-hd"><div class="modal-title">ประวัติการแก้ไข</div><span class="modal-close" onclick="document.getElementById('ver-modal').style.display='none'">×</span></div>
@@ -3707,6 +3788,7 @@ svBind();
 <script src="lib/factorf-v1.js"></script>
 <script src="lib/boqimport-v1.js"></script>
 <script src="lib/boqsuggest-v1.js"></script>
+<script type="module" src="lib/auth-v1.js" onerror="authFail=true;authRender()"></script>
 <script>
 /* ===== BOQ ต่อโครงการ — ใช้ตัวคิดราคา/Factor F ชุดเดียวกับ UD-Total-Station (lib/boqcalc-v1.js, lib/factorf-v1.js)
    กติกาปัดเศษ: ปริมาณ และราคาต่อหน่วย ปัด 2 ตำแหน่ง · จำนวนเงิน = ปริมาณ × ราคาต่อหน่วย ปัด 2 ตำแหน่ง
