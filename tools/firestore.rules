@@ -22,9 +22,17 @@ service cloud.firestore {
       allow write: if isAdmin() && request.auth.uid != uid;
     }
 
-    // โครงการของผู้ใช้แต่ละคน
+    // บัญชีที่ผู้ดูแลอนุมัติแล้ว
+    function isApproved() {
+      return request.auth != null
+        && exists(/databases/$(database)/documents/access/$(request.auth.uid))
+        && get(/databases/$(database)/documents/access/$(request.auth.uid)).data.status == 'approved';
+    }
+
+    // โครงการของผู้ใช้แต่ละคน: เจ้าของอ่านได้ เขียน/ลบได้เฉพาะบัญชีที่อนุมัติแล้ว (กันใช้พื้นที่จัดเก็บโดยไม่จำเป็น)
     match /users/{uid}/{document=**} {
-      allow read, write: if request.auth != null && request.auth.uid == uid;
+      allow read: if request.auth != null && request.auth.uid == uid;
+      allow write: if request.auth.uid == uid && isApproved();
     }
   }
 }
