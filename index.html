@@ -60,6 +60,7 @@ body{font-family:'Sarabun',sans-serif;background:var(--bg);color:var(--text);min
 .auth-dot{width:7px;height:7px;border-radius:50%;flex:none;}
 .auth-menu{position:absolute;top:calc(100% + 6px);right:0;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);min-width:270px;box-shadow:0 8px 24px rgba(0,0,0,.45);z-index:150;overflow:hidden;}
 .auth-menu-hd{padding:12px 14px;border-bottom:1px solid var(--border);font-size:12px;color:var(--text2);line-height:1.5;}
+.auadm-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:10px 0;border-bottom:1px solid var(--border);font-size:13px;}
 .auth-menu-hd b{color:var(--text);font-size:13px;display:block;}
 .auth-st{padding:10px 14px;font-size:12px;line-height:1.5;border-bottom:1px solid var(--border);}
 .auth-f{display:flex;flex-direction:column;gap:3px;font-size:12px;color:var(--text2);}
@@ -3673,6 +3674,7 @@ function authRender(st){
   if(m)m.innerHTML='<div class="auth-menu-hd"><b>'+esc(nm)+'</b>'+esc(u.email)+(authSt.profile&&authSt.profile.position?'<br>'+esc(authSt.profile.position)+(authSt.profile.agency?' · '+esc(authSt.profile.agency):''):'')+'</div>'
     +'<div class="auth-st">'+(ap?'<span style="color:var(--green)">อนุมัติแล้ว</span> · '+esc(AU_ROLE[(authSt.access||{}).role]||'ผู้ใช้ทั่วไป')+' — แก้ไขคลังกลางได้':'<span style="color:var(--amber)">รอผู้ดูแลอนุมัติ</span> — ค้นหาและใช้งานโครงการของตนเองได้ แต่ยังแก้ไขคลังกลางไม่ได้')+'</div>'
     +(authSt.error?'<div class="auth-st" style="color:var(--red)">'+esc(authSt.error)+'</div>':'')
+    +(ap&&(authSt.access||{}).role==='admin'?'<div class="proj-menu-item" onclick="auAdminOpen()">จัดการผู้ใช้ (ผู้ดูแลระบบ)</div>':'')
     +'<div class="proj-menu-item" onclick="authOpenProfile()">ข้อมูลของฉัน (ชื่อ ตำแหน่ง หน่วยงาน)</div><div class="proj-menu-item proj-menu-danger" onclick="UDAuth.signOut()">ออกจากระบบ</div>';
   if(u&&authSt.ready&&!authSt.profile&&!authAsked&&!authSt.error){authAsked=true;authOpenProfile();}
 }
@@ -3698,6 +3700,48 @@ async function authSaveProfile(){
   catch(e){er.textContent='บันทึกไม่สำเร็จ: '+(e&&e.code==='permission-denied'?'ไม่มีสิทธิ์ (ตรวจสอบกฎความปลอดภัยของ Firestore)':(e&&e.message)||e);}
   bt.disabled=false;
 }
+
+/* ---------- จัดการผู้ใช้ (เฉพาะผู้ดูแลระบบ) ---------- */
+let auAdminList=[];
+function auAdminClose(){document.getElementById('auadm-modal').style.display='none';}
+async function auAdminOpen(){
+  document.getElementById('auth-menu').style.display='none';
+  document.getElementById('auadm-modal').style.display='flex';
+  await auAdminLoad();
+}
+async function auAdminLoad(){
+  const box=document.getElementById('auadm-body');box.innerHTML='<div style="color:var(--text3);padding:8px">กำลังโหลดรายชื่อ...</div>';
+  try{auAdminList=await UDAuth.listUsers();auAdminRender();}
+  catch(e){box.innerHTML='<div style="color:var(--red);padding:8px">โหลดรายชื่อไม่สำเร็จ: '+esc(e&&e.code==='permission-denied'?'ไม่มีสิทธิ์อ่านข้อมูล (ตรวจสอบกฎความปลอดภัยของ Firestore ตามคู่มือผู้ดูแล)':(e&&e.message)||e)+'</div>';}
+}
+function auAdminRender(){
+  const me=(authSt.user||{}).uid,q=(document.getElementById('auadm-q').value||'').trim().toLowerCase();
+  const st=r=>r.access&&r.access.status==='approved'?'ok':(r.access&&r.access.status==='revoked'?'rev':'wait');
+  const ord={wait:0,ok:1,rev:2};
+  let L=auAdminList.slice().sort((a,b)=>ord[st(a)]-ord[st(b)]||String((a.profile||{}).name||'').localeCompare(String((b.profile||{}).name||''),'th'));
+  if(q)L=L.filter(r=>[(r.profile||{}).name,(r.profile||{}).email,(r.profile||{}).agency,(r.profile||{}).position].join(' ').toLowerCase().includes(q));
+  const nw=auAdminList.filter(r=>st(r)==='wait').length;
+  document.getElementById('auadm-sum').textContent='ทั้งหมด '+auAdminList.length+' บัญชี · รออนุมัติ '+nw+' · อนุมัติแล้ว '+auAdminList.filter(r=>st(r)==='ok').length;
+  const T={wait:['รออนุมัติ','var(--amber)'],ok:['อนุมัติแล้ว','var(--green)'],rev:['ถอนสิทธิ์แล้ว','var(--red)']};
+  document.getElementById('auadm-body').innerHTML=L.length?L.map(r=>{
+    const p=r.profile||{},s=st(r),t=T[s],self=r.uid===me,role=(r.access||{}).role||'viewer';
+    const b=(label,fn,cls)=>'<button class="btn '+(cls||'btn-ghost')+'" type="button" style="padding:4px 10px;font-size:12px" onclick="'+fn+'">'+label+'</button>';
+    let act='';
+    if(self)act='<span style="color:var(--text3);font-size:12px">บัญชีของคุณ</span>';
+    else if(s==='ok')act=(role==='admin'?b('ลดเป็นผู้แก้ไข',"auAdminSet('"+r.uid+"','approved','editor')"):b('ตั้งเป็นผู้ดูแลระบบ',"auAdminSet('"+r.uid+"','approved','admin')"))+b('ถอนสิทธิ์',"auAdminSet('"+r.uid+"','revoked','viewer')",'btn-ghost proj-menu-danger');
+    else act=b('อนุมัติเป็นผู้แก้ไข',"auAdminSet('"+r.uid+"','approved','editor')",'btn-green')+(s==='wait'?'':'');
+    return '<div class="auadm-row"><div style="flex:1;min-width:200px"><b>'+esc(p.name||'(ยังไม่กรอกข้อมูล)')+'</b> <span style="color:'+t[1]+';font-size:11px">'+t[0]+(s==='ok'?' · '+esc(AU_ROLE[role]||role):'')+'</span>'
+      +'<div style="font-size:12px;color:var(--text2);line-height:1.5">'+esc([p.position,p.agency].filter(Boolean).join(' · '))+(p.phone?'<br>โทร '+esc(p.phone):'')+'<br>'+esc(p.email||'')+(p.email?'':'<span style="color:var(--text3)">UID '+esc(r.uid)+'</span>')+'</div></div>'
+      +'<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">'+act+'</div></div>';
+  }).join(''):'<div style="color:var(--text3);padding:8px">ไม่พบรายการ</div>';
+}
+async function auAdminSet(uid,status,role){
+  const r=auAdminList.find(x=>x.uid===uid),nm=((r&&r.profile)||{}).name||uid;
+  const msg=status==='revoked'?'ถอนสิทธิ์ของ "'+nm+'" ใช่หรือไม่ (ผู้ใช้จะแก้ไขคลังกลางไม่ได้ภายในประมาณ 2 นาที)':(role==='admin'?'ตั้ง "'+nm+'" เป็นผู้ดูแลระบบ ซึ่งมีสิทธิ์จัดการผู้ใช้ทุกคน ยืนยันหรือไม่':'อนุมัติ "'+nm+'" เป็นผู้แก้ไขคลังกลางใช่หรือไม่');
+  if(!confirm(msg))return;
+  try{const v=await UDAuth.setAccess(uid,status,role);if(r)r.access=v;auAdminRender();}
+  catch(e){alert('บันทึกไม่สำเร็จ: '+(e&&e.code==='permission-denied'?'ไม่มีสิทธิ์ (ตรวจสอบกฎความปลอดภัยของ Firestore)':(e&&e.message)||e));}
+}
 document.addEventListener('click',e=>{const w=document.getElementById('auth-widget'),m=document.getElementById('auth-menu');if(w&&m&&!w.contains(e.target))m.style.display='none';});
 document.addEventListener('DOMContentLoaded',()=>{
   authRender();
@@ -3705,6 +3749,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   if(window.UDAuth)hook();else window.addEventListener('udauth-loaded',hook,{once:true});
 });
 const APP_CHANGELOG=[
+  ['1.10.0','2026-11-02',['เพิ่มหน้า "จัดการผู้ใช้" สำหรับผู้ดูแลระบบ: ดูรายชื่อผู้ที่ล็อกอินและกรอกข้อมูลแล้ว อนุมัติเป็นผู้แก้ไข ตั้งเป็นผู้ดูแลระบบ หรือถอนสิทธิ์ ได้ในเว็บ (ต้องตั้งกฎ Firestore ตามคู่มือ)']],
   ['1.9.0','2026-11-02',['ราคาสืบ: เชื่อมคลังกลางด้วยบัญชี Google ที่ผู้ดูแลอนุมัติแล้ว (ไม่ต้องใช้รหัสทีม) · บัญชีที่รออนุมัติดูคลังได้แต่บันทึกเฉพาะในเครื่อง · คลังกลางบันทึกชื่อผู้เพิ่ม/แก้ไขรายการ']],
   ['1.8.0','2026-11-02',['เพิ่มระบบเข้าสู่ระบบด้วยบัญชี Google: ปุ่มที่แถบด้านบน เมนูผู้ใช้ และแบบฟอร์มข้อมูลผู้ใช้ (ชื่อ ตำแหน่ง หน่วยงาน) · ระยะนี้ยังไม่บังคับล็อกอิน ค้นหาและใช้งานได้เหมือนเดิม']],
   ['1.7.2','2026-10-30',['BOQ: ช่องเลือกแบบรายการเลื่อนลง (ชุดคิดเปอร์เซ็นต์, ประเภทงาน ฯลฯ) แสดงลูกศรให้เห็นว่ากดเลือกได้']],
@@ -3763,6 +3808,17 @@ svBind();
       <div id="au-err" style="color:var(--red);font-size:12px;min-height:16px"></div>
       <div style="display:flex;gap:8px;justify-content:flex-end"><button class="btn btn-ghost" type="button" onclick="authCloseProfile()">ภายหลัง</button><button class="btn btn-green" type="button" id="au-save" onclick="authSaveProfile()">บันทึก</button></div>
     </div>
+  </div>
+</div>
+<div class="modal-overlay" id="auadm-modal" style="display:none">
+  <div class="modal-box" style="max-width:760px">
+    <div class="modal-hd"><div class="modal-title">จัดการผู้ใช้</div><span class="modal-close" onclick="auAdminClose()">×</span></div>
+    <div style="padding:12px 16px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;border-bottom:1px solid var(--border)">
+      <input class="bq-in" id="auadm-q" placeholder="ค้นหาชื่อ อีเมล หน่วยงาน" style="flex:1;min-width:180px" oninput="auAdminRender()">
+      <button class="btn btn-ghost" type="button" onclick="auAdminLoad()">โหลดใหม่</button>
+    </div>
+    <div id="auadm-sum" style="padding:8px 16px;font-size:12px;color:var(--text2)"></div>
+    <div id="auadm-body" style="padding:0 16px 14px;overflow:auto;max-height:60vh"></div>
   </div>
 </div>
 <div class="modal-overlay" id="ver-modal" style="display:none">
