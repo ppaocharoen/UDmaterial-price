@@ -2939,17 +2939,23 @@ function svNorm(x){
 async function svLoad(force){
   svStatus('กำลังโหลดคลัง...');
   let mode='local';sv.modeErr='';
+  Survey.setAccess({writable:false});
   if(Survey.remote()){
-    if(!Survey.cfg().team)mode='noteam';
-    else{
+    if(Survey.cfg().team){
       try{const r=await Survey.ping();mode=(r&&r.ok)?'central':'offline';if(!(r&&r.ok))sv.modeErr=(r&&r.error)||'';}
       catch(e){mode='offline';sv.modeErr=e.message;}
-    }
+    }else if(window.UDAuth&&UDAuth.state().user){   /* ล็อกอินด้วย Google: ตรวจสิทธิ์กับคลังกลาง */
+      try{
+        const r=await Survey.whoami();
+        if(r&&r.ok&&r.user){const w=r.user.status==='approved'&&(r.user.role==='editor'||r.user.role==='admin');mode=w?'central':'pending';sv.who=r.user;}
+        else{mode='offline';sv.modeErr=(r&&r.error)||'';}
+      }catch(e){mode='offline';sv.modeErr=e.message;}
+    }else mode='noteam';
   }
-  sv.mode=mode;
+  sv.mode=mode;Survey.setAccess({writable:mode==='central'});
   try{
     const loc=(await Survey.localAll())||[];
-    if(mode==='central'){
+    if(mode==='central'||mode==='pending'){
       const cen=(await Survey.libAll(force))||[],byKey={};
       cen.forEach(x=>{byKey[x.key]=Object.assign(svNorm(x),{_where:'central'});});
       loc.forEach(x=>{const k=x.key||Survey.libKey(x.name,x.unit),c=byKey[k];
@@ -2979,12 +2985,15 @@ function svBanner(){
     b.className='central';
     b.innerHTML='<span><i class="ic ic-cloud"></i> <b>เชื่อมคลังกลางแล้ว</b> — รายการที่แสดงมาจากคลังกลาง และราคาที่สืบจะบันทึกเข้าคลังกลางอัตโนมัติ</span>'
       +(n?`<span style="color:var(--amber)">· มี ${n} รายการที่ยังอยู่เฉพาะเครื่องนี้</span><button class="btn btn-amber" type="button" data-bact="push">ส่งที่ค้างอยู่ขึ้นคลังกลาง (${n})</button>`:'');
+  }else if(m==='pending'){
+    b.className='offline';
+    b.innerHTML='<span><i class="ic ic-warn"></i> <b>บัญชีของคุณรอผู้ดูแลอนุมัติ</b> — ดูรายการในคลังกลางได้ แต่ราคาที่สืบจะบันทึก<b>เฉพาะในเครื่องนี้</b>ก่อน เมื่อได้รับอนุมัติแล้วจะส่งขึ้นคลังกลางได้</span>'+cfgBtn;
   }else if(m==='offline'){
     b.className='offline';
     b.innerHTML='<span><i class="ic ic-warn"></i> <b>ติดต่อคลังกลางไม่ได้</b>'+(sv.modeErr?' ('+esc(sv.modeErr)+')':'')+' — รายการที่แสดงเป็นสำเนาในเครื่องนี้ ราคาที่สืบตอนนี้จะเก็บในเครื่องก่อน ยังไม่เข้าคลังกลาง</span><button class="btn btn-ghost" type="button" data-bact="retry">ลองเชื่อมใหม่</button>'+cfgBtn;
   }else{
     b.className='local';
-    b.innerHTML='<span><i class="ic ic-save"></i> <b>ใช้คลังในเครื่องนี้เท่านั้น</b> — '+(m==='noteam'?'ตั้งค่าคลังกลางไว้แล้วแต่ยังไม่ได้ใส่รหัสทีม ':'ยังไม่ได้เชื่อมคลังกลาง ')+'ราคาที่สืบจะ<b>ไม่เข้าคลังกลาง</b> คนอื่นไม่เห็น และจะหายถ้าล้างข้อมูลเบราว์เซอร์</span>'+cfgBtn;
+    b.innerHTML='<span><i class="ic ic-save"></i> <b>ใช้คลังในเครื่องนี้เท่านั้น</b> — '+(m==='noteam'?'ตั้งค่าคลังกลางไว้แล้วแต่ยังไม่ได้เข้าสู่ระบบ (ปุ่มด้านบน) หรือใส่รหัสทีม ':'ยังไม่ได้เชื่อมคลังกลาง ')+'ราคาที่สืบจะ<b>ไม่เข้าคลังกลาง</b> คนอื่นไม่เห็น และจะหายถ้าล้างข้อมูลเบราว์เซอร์</span>'+cfgBtn;
   }
 }
 function svRefreshBadge(it){
@@ -3650,8 +3659,9 @@ function toggleTheme(){
 /* ---------- ล็อกอิน (Firebase) — ดู lib/auth-v1.js ---------- */
 let authSt={ready:false,user:null,profile:null,access:null,error:''},authAsked=false,authFail=false;
 const AU_ROLE={admin:'ผู้ดูแลระบบ',editor:'ผู้แก้ไขคลังกลาง',viewer:'ผู้ใช้ทั่วไป'};
+let authUid='';
 function authRender(st){
-  if(st)authSt=st;
+  if(st){authSt=st;const nu=(st.user&&st.user.uid)||'';if(st.ready&&nu!==authUid){const first=authUid==='';authUid=nu;if((!first||nu)&&typeof sv!=='undefined'&&sv.loaded&&typeof svLoad==='function')svLoad(true);}}
   const b=document.getElementById('auth-btn'),m=document.getElementById('auth-menu');if(!b)return;
   const u=authSt.user;
   if(authFail){b.innerHTML='<span class="au-nm">ล็อกอินไม่พร้อมใช้งาน</span>';b.title='โหลดระบบล็อกอินไม่สำเร็จ (ตรวจสอบอินเทอร์เน็ต) — ค้นหาและใช้งานอื่น ๆ ได้ตามปกติ';return;}
@@ -3695,6 +3705,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   if(window.UDAuth)hook();else window.addEventListener('udauth-loaded',hook,{once:true});
 });
 const APP_CHANGELOG=[
+  ['1.9.0','2026-11-02',['ราคาสืบ: เชื่อมคลังกลางด้วยบัญชี Google ที่ผู้ดูแลอนุมัติแล้ว (ไม่ต้องใช้รหัสทีม) · บัญชีที่รออนุมัติดูคลังได้แต่บันทึกเฉพาะในเครื่อง · คลังกลางบันทึกชื่อผู้เพิ่ม/แก้ไขรายการ']],
   ['1.8.0','2026-11-02',['เพิ่มระบบเข้าสู่ระบบด้วยบัญชี Google: ปุ่มที่แถบด้านบน เมนูผู้ใช้ และแบบฟอร์มข้อมูลผู้ใช้ (ชื่อ ตำแหน่ง หน่วยงาน) · ระยะนี้ยังไม่บังคับล็อกอิน ค้นหาและใช้งานได้เหมือนเดิม']],
   ['1.7.2','2026-10-30',['BOQ: ช่องเลือกแบบรายการเลื่อนลง (ชุดคิดเปอร์เซ็นต์, ประเภทงาน ฯลฯ) แสดงลูกศรให้เห็นว่ากดเลือกได้']],
   ['1.7.1','2026-10-30',['BOQ: ปรับถ้อยคำเป็น "เลือก" และ "รายการ" · ใต้ราคาวัสดุแสดง "15% ของรายการที่ 1, 3" ตามเลขลำดับในตาราง']],
