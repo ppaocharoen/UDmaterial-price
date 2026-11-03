@@ -2300,7 +2300,7 @@ function _doRenderComp(compId){
 }
 
 // ============================================================
-// EXCEL EXPORT (SheetJS lazy-loaded จาก CDN)
+// EXCEL EXPORT (SheetJS 0.20.3 lazy-loaded จาก lib/)
 // ============================================================
 let xlsxLibPromise=null;
 function loadXLSXLib(){
@@ -2308,7 +2308,7 @@ function loadXLSXLib(){
   if(xlsxLibPromise) return xlsxLibPromise;
   xlsxLibPromise=new Promise((resolve,reject)=>{
     const s=document.createElement('script');
-    s.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+    s.src='lib/xlsx-0.20.3.full.min.js';   // SheetJS 0.20.3 (ไฟล์ทางการจาก cdn.sheetjs.com เก็บไว้ในเว็บเอง — รุ่นบน cdnjs หยุดที่ 0.18.5 ซึ่งมีช่องโหว่)
     s.onload=()=>resolve();
     s.onerror=()=>{xlsxLibPromise=null;reject(new Error('โหลดไลบรารี Excel ไม่สำเร็จ (ตรวจสอบการเชื่อมต่ออินเทอร์เน็ต)'));};
     document.head.appendChild(s);
@@ -3829,6 +3829,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   if(window.UDAuth)hook();else window.addEventListener('udauth-loaded',hook,{once:true});
 });
 const APP_CHANGELOG=[
+  ['1.13.2','2026-11-03',['อัปเดตไลบรารีอ่าน/เขียน Excel (SheetJS) เป็นรุ่น 0.20.3 และเก็บไว้ในเว็บเอง — แก้ช่องโหว่ของรุ่นเดิมตอนนำเข้าไฟล์ Excel']],
   ['1.13.1','2026-11-03',['Excel: จัดหน้ากระดาษตามไฟล์ตัวอย่างใหม่ — สเกลพิมพ์ใหญ่ขึ้นเป็น 91-98% (เดิมถูกย่อเกินจริง) · ช่องเงินของ ปร.1 กว้างตามแม่แบบ · Factor F แบ่ง 2 หน้า (หน้า 1 ตารางค่า F, หน้า 2 ค่างานของโครงการ)']],
   ['1.13.0','2026-11-03',['คลังกลาง: ใช้ URL มาตรฐานของทีมโดยอัตโนมัติ (ผู้ใช้ใหม่ไม่ต้องตั้งค่า) · รองรับที่เก็บภาพหลายที่ (เตรียมย้ายภาพไป Drive อีกบัญชีในอนาคต โดยภาพเดิมยังเปิดได้)']],
   ['1.12.0','2026-11-03',['ราคาสืบ: ผู้ที่ไม่ได้ล็อกอินดูราคาจากคลังกลางได้แบบอ่านอย่างเดียว (เห็นราคา ช่องทาง วันที่ จำนวนราย แต่ไม่เห็นชื่อร้าน ช่องทางติดต่อ หมายเหตุ รูป) · เข้าสู่ระบบเพื่อดูรายละเอียด']],
