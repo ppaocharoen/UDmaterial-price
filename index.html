@@ -2581,6 +2581,7 @@ async function projExportAllExcel(){
   const svItems=projSvList().filter(x=>Survey.summary(x).price!==null);
   const hasMat=selectedItems.length>0, hasWage=wSelectedItems.length>0, hasComp=cpSelectedItems.length>0, hasSv=svItems.length>0;
   if(!hasMat&&!hasWage&&!hasComp&&!hasSv){alert('ยังไม่มีรายการที่บันทึกไว้ในโครงการนี้');return;}
+  let svSh=null;
   try{
     await loadXLSXLib();
     const wb=XLSX.utils.book_new();
@@ -2636,17 +2637,17 @@ async function projExportAllExcel(){
     }
 
     if(hasSv){
-      const sh=svBuildSheets(svItems);
+      svSh=svBuildSheets(svItems);const sh=svSh;
       XLSX.utils.book_append_sheet(wb,sh.sum,SV_SHEET_SUM);
       XLSX.utils.book_append_sheet(wb,sh.detail,SV_SHEET_DETAIL);
     }
     const p=projGetActive();
-    XLSX.writeFile(wb,xlsxFileName(p?p.name:'ทั้งหมด'));
+    await svWriteXlsx(wb,xlsxFileName(p?p.name:'ทั้งหมด'),svSh);
   }catch(e){alert('ออกไฟล์ Excel ไม่สำเร็จ: '+e.message);}
 }
 
 // ---- ออกรายงานรวมทั้งโครงการ: PDF (รวม 3 หมวดในรายงานเดียว) ----
-function projExportAllPDF(){
+async function projExportAllPDF(){
   const svItems=projSvList().filter(x=>Survey.summary(x).price!==null);
   const hasMat=selectedItems.length>0, hasWage=wSelectedItems.length>0, hasComp=cpSelectedItems.length>0, hasSv=svItems.length>0;
   if(!hasMat&&!hasWage&&!hasComp&&!hasSv){alert('ยังไม่มีรายการที่บันทึกไว้ในโครงการนี้');return;}
@@ -2654,6 +2655,8 @@ function projExportAllPDF(){
   const p=projGetActive();
   const projName=p?p.name:'ทั้งหมด';
   const dateStr=new Date().toLocaleDateString('th-TH',{year:'numeric',month:'long',day:'numeric'});
+  const svMaps=[];for(const it of svItems)svMaps.push(await svQThumbs(it,2).catch(()=>({})));
+  const svAny=svMaps.some(m=>Object.keys(m).length);
 
   let html=`<div class="pdf-hd">
     <div class="pdf-title">รายงานสรุปโครงการ: ${esc(projName)}</div>
@@ -2720,12 +2723,12 @@ function projExportAllPDF(){
 
   if(hasSv){
     html+=`<div class="sel-title" style="margin:18px 0 8px">ราคาสืบ (${svItems.length} รายการ)</div>
-    <div class="cp-print-detail" style="display:block">${svItems.map((it,i)=>svBlockHtml(it,i,()=>[])).join('')}</div>
+    <div class="cp-print-detail" style="display:block">${svItems.map((it,i)=>svBlockHtml(it,i,()=>[],svAny?svMaps[i]:null)).join('')}</div>
     <div style="font-size:9px;color:#555;margin-top:6px">* ราคาต่อหน่วย = (ราคาที่ร้านเสนอ ÷ 1.07 กรณีรวม VAT) ÷ ตัวคูณแปลงหน่วย · ราคาที่ใช้ = ต่ำสุดของทุกราย</div>`;
   }
 
   const container=document.getElementById('proj-print-all');
-  if(container) container.innerHTML=html;
+  if(container){container.innerHTML=html;await svWaitImgs(container);}
   document.body.classList.add('proj-printing');
   window.print();
 }
@@ -3424,58 +3427,82 @@ async function svImgData(it,id){
   const d=v?await Survey.libImg(v).catch(()=>null):await Survey.imgGet(id);
   if(d)sv.imgs[id]=d;return d;
 }
-function svBlockHtml(it,idx,refsFor){
+/* ภาพย่อหลักฐานสำหรับรายงาน (PDF / Excel ทุกแบบใช้ร่วมกัน): สูงไม่เกิน 60 กว้างไม่เกิน 76 px (เก็บละเอียด 2 เท่า) */
+function svThumb(d){return new Promise(res=>{const im=new Image();im.onload=()=>{
+  const H=60,W=76,w0=im.naturalWidth||1,h0=im.naturalHeight||1;let h=H,w=Math.round(w0*H/h0);if(w>W){w=W;h=Math.round(h0*W/w0);}
+  const c=document.createElement('canvas');c.width=w*2;c.height=h*2;const g=c.getContext('2d');g.fillStyle='#fff';g.fillRect(0,0,c.width,c.height);g.drawImage(im,0,0,c.width,c.height);
+  res({b64:c.toDataURL('image/jpeg',0.82),w,h});};im.onerror=()=>res(null);im.src=d;});}
+/* หารายการในคลังตามรหัส (สำเนาในโครงการเก็บแค่ตัวหนังสือ ภาพอยู่ในคลัง) */
+async function svLibFind(key){
+  const a=(typeof sv!=='undefined'&&sv.items||[]).find(x=>x.key===key);if(a)return a;
+  const all=await Survey.libAll().catch(()=>[]);return all.find(x=>x.key===key)||null;
+}
+/* ภาพย่อของทุกรายในรายการหนึ่ง → {รหัสราย: {t:[ภาพย่อ], n:จำนวนภาพทั้งหมด}} · ไม่เกิน max ภาพต่อราย */
+async function svQThumbs(it,max){
+  max=max||2;let src=it;
+  if(!(it.quotes||[]).some(q=>(q.imgs||[]).length))src=(await svLibFind(it.key))||it;
+  const out={};
+  for(const q of src.quotes||[]){
+    const ids=q.imgs||[];if(!ids.length)continue;
+    const o=out[q.id]={n:ids.length,t:[]};
+    for(const id of ids.slice(0,max)){const d=await svImgData(src,id).catch(()=>null);if(!d||!Survey.safeImg(d))continue;const t=await svThumb(d);if(t)o.t.push(t);}
+  }
+  return out;
+}
+/* รอให้ภาพในพื้นที่พิมพ์โหลด/ถอดรหัสเสร็จก่อนเปิดหน้าต่างพิมพ์ (ไม่งั้นภาพที่ยังไม่เคยแสดงจะออกเป็นช่องว่าง) */
+async function svWaitImgs(el){
+  const ims=[...el.querySelectorAll('img')];
+  await Promise.race([Promise.all(ims.map(i=>(i.decode?i.decode():Promise.resolve()).catch(()=>{}))),new Promise(r=>setTimeout(r,8000))]);
+}
+function svBlockHtml(it,idx,refsFor,imgMap){   /* imgMap: {รหัสราย:{t,n}} → มีคอลัมน์ภาพหลักฐาน · null = ไม่มีคอลัมน์ */
   const s=Survey.summary(it);
   const rows=s.list.map((x,j)=>{
     const q=x.q,refs=refsFor(q);
     return `<tr${q.id===s.best.id?' style="font-weight:700;background:#f4faf6"':''}><td>${j+1}</td><td>${esc(q.shop||'')}${q.brand?' <span style="font-size:10px">(ยี่ห้อ '+esc(q.brand)+')</span>':''}<div style="font-size:9px;color:#666">${esc(Survey.CHANNEL[q.channel]||'')}${q.contact?' · '+esc(q.contact):''}</div></td>
       <td>${esc(q.date||'')}</td><td class="r">${svFmt(q.price)}</td><td>${esc(q.qunit||'')}</td><td class="r">${esc(q.factor||1)}</td><td>${q.vat?'รวม VAT':'ไม่รวม VAT'}</td>
-      <td class="r">${svFmt(x.up)}</td><td>${esc(q.note||'')}${refs.length?' ('+refs.join(', ')+')':''}</td></tr>`;
+      <td class="r">${svFmt(x.up)}</td><td>${esc(q.note||'')}${refs.length?' ('+refs.join(', ')+')':''}</td>${imgMap?`<td style="white-space:nowrap">${svImgCell(imgMap[q.id])}</td>`:''}</tr>`;
   }).join('');
   return `<div class="cp-item-block"><div class="cp-item-header">${idx+1}. ${esc(it.name)} <span style="font-weight:400">[หน่วย ${esc(it.unit)}]</span></div>
     <div class="cp-item-sub">${esc(Survey.srcText(it))}${s.n<Survey.MIN_Q?' · สืบได้ '+s.n+' ราย (ไม่ครบ '+Survey.MIN_Q+')'+(it.reason?' เหตุผล: '+esc(it.reason):''):''}</div>
-    <table class="cp-detail-tbl"><thead><tr><th>#</th><th>ร้าน / ช่องทาง</th><th>วันที่</th><th class="r">ราคาเสนอ</th><th>หน่วยร้าน</th><th class="r">ตัวคูณ</th><th>VAT</th><th class="r">บาท/${esc(it.unit)} ไม่รวม VAT</th><th>หมายเหตุ</th></tr></thead>
+    <table class="cp-detail-tbl"><thead><tr><th>#</th><th>ร้าน / ช่องทาง</th><th>วันที่</th><th class="r">ราคาเสนอ</th><th>หน่วยร้าน</th><th class="r">ตัวคูณ</th><th>VAT</th><th class="r">บาท/${esc(it.unit)} ไม่รวม VAT</th><th>หมายเหตุ</th>${imgMap?'<th>ภาพหลักฐาน</th>':''}</tr></thead>
     <tbody>${rows}</tbody>
-    <tfoot><tr class="total-row"><td colspan="7" style="text-align:right">ราคาที่ใช้ (ต่ำสุด)</td><td class="r mono">${svFmt(s.price)}</td><td></td></tr></tfoot></table></div>`;
+    <tfoot><tr class="total-row"><td colspan="7" style="text-align:right">ราคาที่ใช้ (ต่ำสุด)</td><td class="r mono">${svFmt(s.price)}</td><td></td>${imgMap?'<td></td>':''}</tr></tfoot></table></div>`;
+}
+function svImgCell(o){
+  if(!o||!o.t.length)return '<span style="color:#999">-</span>';
+  return o.t.map(t=>`<img src="${t.b64}" alt="" style="width:${Math.round(t.w*0.75)}px;height:${Math.round(t.h*0.75)}px;object-fit:contain;border:1px solid #ccc;margin:1px 2px 1px 0;vertical-align:middle">`).join('')+(o.n>o.t.length?`<span style="font-size:9px;color:#555"> +${o.n-o.t.length} ภาพ</span>`:'');
 }
 async function svPrint(){
   const list=svReportItems();
   if(!list.length){svToast('ยังไม่มีรายการที่มีราคาสืบให้ออกรายงาน');return;}
-  svToast('กำลังเตรียมรายงาน...');
-  const figs=[],blocks=[];
-  for(const [idx,it] of list.entries()){
-    const refMap={};
-    for(const x of Survey.summary(it).list){
-      const q=x.q;refMap[q.id]=[];
-      for(const id of (q.imgs||[])){const d=await svImgData(it,id);if(d&&Survey.safeImg(d)){figs.push({d,cap:`${it.name} — ${q.shop||Survey.CHANNEL[q.channel]||''}`});refMap[q.id].push('ภาพที่ '+figs.length);}}
-    }
-    blocks.push(svBlockHtml(it,idx,q=>refMap[q.id]||[]));
-  }
-  const appendix=figs.length?`<div style="page-break-before:always"><div class="pdf-title" style="margin-bottom:8px">ภาคผนวก — ภาพหลักฐานการสืบราคา</div>
-    <div style="display:flex;flex-wrap:wrap;gap:10px">${figs.map((f,i)=>`<div style="width:48%;page-break-inside:avoid"><img src="${f.d}" style="width:100%;border:1px solid #ccc"><div style="font-size:9px">ภาพที่ ${i+1}: ${esc(f.cap)}</div></div>`).join('')}</div></div>`:'';
+  svToast('กำลังเตรียมรายงานและภาพหลักฐาน...');
+  const maps=[];for(const it of list)maps.push(await svQThumbs(it,2).catch(()=>({})));
+  const any=maps.some(m=>Object.keys(m).length);
+  const blocks=list.map((it,idx)=>svBlockHtml(it,idx,()=>[],any?maps[idx]:null));
   const filt={all:'ทั้งหมด',ok:'ครบ 3 ราย',few:'ไม่ครบ 3 ราย'}[sv.filter]||'';
   const html=`<div style="width:100%;max-width:188mm;box-sizing:border-box"><div class="pdf-hd"><div class="pdf-title">บัญชีราคาสืบวัสดุ</div>
-    <div class="pdf-meta">UD-Cost Hub | ${list.length} รายการ${filt?' ('+filt+')':''} | วันที่พิมพ์: ${svThaiDate()}</div></div>
+    <div class="pdf-meta">UD-Cost Hub | ${list.length} รายการ${sv.sel.size?' (เฉพาะที่เลือก)':(filt?' ('+filt+')':'')} | วันที่พิมพ์: ${svThaiDate()}</div></div>
     ${blocks.join('')}
-    <div class="pdf-ft" style="font-size:9px;color:#555;margin-top:8px">* ราคาต่อหน่วย = (ราคาที่ร้านเสนอ ÷ 1.07 กรณีรวม VAT) ÷ ตัวคูณแปลงหน่วย · ราคาที่ใช้ = ต่ำสุดของทุกราย</div>
-    ${appendix}</div>`;
+    <div class="pdf-ft" style="font-size:9px;color:#555;margin-top:8px">* ราคาต่อหน่วย = (ราคาที่ร้านเสนอ ÷ 1.07 กรณีรวม VAT) ÷ ตัวคูณแปลงหน่วย · ราคาที่ใช้ = ต่ำสุดของรายที่สืบ${any?' · ภาพหลักฐานแสดงไม่เกิน 2 ภาพต่อราย':''}</div></div>`;
   const container=document.getElementById('proj-print-all');
   if(!container){svToast('ไม่พบพื้นที่พิมพ์');return;}
   container.innerHTML=html;
+  await svWaitImgs(container);
   document.body.classList.add('proj-printing');
   window.print();
 }
 /* สร้างชีต Excel ราคาสืบ (สูตร) จากรายการที่มีราคา — ใช้ทั้งหน้าราคาสืบและรายงานโครงการ */
 const SV_SHEET_DETAIL='รายละเอียดการสืบ',SV_SHEET_SUM='สรุปราคาสืบ';
 function svBuildSheets(list){
-  const aoa=[],fcells=[],sumRows=[];
+  const aoa=[],fcells=[],sumRows=[],qrows=[],hrows=[];
   list.forEach((it,idx)=>{
     const s=Survey.summary(it);
     aoa.push([`${idx+1}. ${it.name} [หน่วย ${it.unit}]`,'','','','','','','','']);
+    hrows.push(aoa.length+1);
     aoa.push(['#','ร้าน / บริษัท','ช่องทาง','เบอร์ / ลิงก์','วันที่','ราคาที่เสนอ','หน่วยร้าน','ตัวคูณ (1 หน่วยร้าน = ? '+it.unit+')','VAT','บาท/'+it.unit+' ไม่รวม VAT','หมายเหตุ']);
     const first=aoa.length+1;
     s.list.forEach((x,j)=>{
-      const q=x.q,r=aoa.length+1;
+      const q=x.q,r=aoa.length+1;qrows.push({r,it,q});
       aoa.push([j+1,q.shop||'',Survey.CHANNEL[q.channel]||'',q.contact||'',q.date||'',+q.price,q.qunit||'',+(q.factor||1),q.vat?'รวม VAT':'ไม่รวม VAT','',(q.brand?'ยี่ห้อ '+q.brand+(q.note?' · ':''):'')+(q.note||'')]);
       fcells.push({a:'J'+r,f:`ROUND(IF(I${r}="รวม VAT",F${r}/1.07,F${r})/H${r},2)`,v:x.up});
     });
@@ -3493,7 +3520,36 @@ function svBuildSheets(list){
   const ws2=XLSX.utils.aoa_to_sheet(sum);
   sumRows.forEach((o,i)=>{ws2['E'+(i+2)]={t:'n',f:`'${SV_SHEET_DETAIL}'!J${o.tr}`,v:o.s.price,z:'#,##0.00'};});
   ws2['!cols']=[{wch:5},{wch:52},{wch:10},{wch:11},{wch:30},{wch:16},{wch:16}];
-  return {sum:ws2,detail:ws};
+  return {sum:ws2,detail:ws,qrows,hrows};
+}
+/* บันทึกไฟล์ Excel ที่สร้างด้วย SheetJS · ถ้ามีภาพหลักฐาน เปิดต่อด้วย ExcelJS เพื่อใส่ภาพย่อในคอลัมน์ L ของชีตรายละเอียดการสืบ
+ * (SheetJS รุ่นฟรีใส่ภาพไม่ได้) — สูตรและข้อมูลเดิมคงอยู่ */
+async function svWriteXlsx(wb,name,sh){
+  const jobs=[];
+  if(sh&&sh.qrows&&sh.qrows.length){
+    const cache={};
+    for(const o of sh.qrows){
+      if(!cache[o.it.key])cache[o.it.key]=await svQThumbs(o.it,2).catch(()=>({}));
+      const m=cache[o.it.key][o.q.id];if(m&&m.t.length)jobs.push({r:o.r,m});
+    }
+  }
+  if(!jobs.length){XLSX.writeFile(wb,name);return;}
+  if(!window.ExcelJS)await bqLoadScript(BQ_EXCELJS.src,BQ_EXCELJS.sri);
+  const ew=new ExcelJS.Workbook();await ew.xlsx.load(XLSX.write(wb,{type:'array',bookType:'xlsx'}));
+  const ws=ew.getWorksheet(SV_SHEET_DETAIL);
+  ws.getColumn(12).width=26;
+  sh.hrows.forEach(r=>{const c=ws.getRow(r).getCell(12);c.value='ภาพหลักฐาน';});
+  const H=48;   // pt
+  jobs.forEach(j=>{
+    const row=ws.getRow(j.r);row.height=Math.max(row.height||15,H);
+    let x=4;const rowPx=H*96/72;
+    j.m.t.forEach(t=>{const id=ew.addImage({base64:t.b64,extension:'jpeg'});
+      ws.addImage(id,{tl:{nativeCol:11,nativeColOff:Math.round(x*9525),nativeRow:j.r-1,nativeRowOff:Math.round(Math.max(0,(rowPx-t.h)/2)*9525)},ext:{width:t.w,height:t.h},editAs:'oneCell'});x+=t.w+4;});
+    if(j.m.n>j.m.t.length){const c=row.getCell(12);c.value='+'+(j.m.n-j.m.t.length)+' ภาพ';c.alignment={horizontal:'right',vertical:'bottom'};}
+  });
+  const out=await ew.xlsx.writeBuffer();
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([out],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));a.download=name;
+  document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},1500);
 }
 async function svExportExcel(){
   const list=svReportItems();
@@ -3503,7 +3559,8 @@ async function svExportExcel(){
     const sh=svBuildSheets(list),wb=XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb,sh.sum,SV_SHEET_SUM);
     XLSX.utils.book_append_sheet(wb,sh.detail,SV_SHEET_DETAIL);
-    XLSX.writeFile(wb,xlsxFileName('ราคาสืบ'));
+    svToast('กำลังสร้างไฟล์และใส่ภาพหลักฐาน...');
+    await svWriteXlsx(wb,xlsxFileName('ราคาสืบ'),sh);
   }catch(e){svToast('ออกไฟล์ Excel ไม่สำเร็จ: '+e.message);}
 }
 
@@ -3677,7 +3734,7 @@ async function ioRunExport(){
       else if(k==='json')projExportJson({link:on.includes('jsonlink')});
       else if(k==='linkjson')boqLinkExport();
       else if(k==='xlsxsum')await projExportAllExcel();
-      else if(k==='pdf')projExportAllPDF();
+      else if(k==='pdf')await projExportAllPDF();
     }catch(e){console.error(e);alert('ส่งออก "'+({xlsx:'Excel BOQ',json:'ไฟล์โครงการ',linkjson:'ความจำการผูกราคา',xlsxsum:'สรุปโครงการเป็น Excel',pdf:'รายงานสรุปโครงการ'}[k]||k)+'" ไม่สำเร็จ: '+(e&&e.message||e));}
     await wait(500);
   }
@@ -3866,6 +3923,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   if(window.UDAuth)hook();else window.addEventListener('udauth-loaded',hook,{once:true});
 });
 const APP_CHANGELOG=[
+  ['1.17.0','2026-11-11',['ภาพหลักฐานในทุกรายงานที่แสดงราคาสืบ: พิมพ์รายงาน PDF ราคาสืบ · รายงานสรุปโครงการ (PDF) · ส่งออก Excel ราคาสืบ · สรุปโครงการเป็น Excel — แสดงภาพย่อในคอลัมน์ "ภาพหลักฐาน" ไม่เกิน 2 ภาพต่อราย (เกินแสดง +N ภาพ) · ตัดภาคผนวกภาพท้ายรายงาน PDF ราคาสืบ · แก้ภาพไม่ขึ้นในรายงาน PDF ถ้ายังไม่เคยเปิดดูรายการนั้น (รอภาพโหลดเสร็จก่อนเปิดหน้าต่างพิมพ์)']],
   ['1.16.0','2026-11-11',['ราคาสืบ: เลือกรายการเพื่อออกรายงานได้ (ช่องเลือกหน้าแต่ละรายการ · เลือกทั้งหมดที่แสดงอยู่ · ล้างการเลือก) — พิมพ์รายงาน PDF และส่งออก Excel ออกเฉพาะที่เลือก ถ้าไม่ได้เลือกจะออกทุกรายการที่แสดงตามตัวกรองเหมือนเดิม ปุ่มแสดงจำนวนรายการที่จะออก']],
   ['1.15.1','2026-11-11',['แก้รายงานสรุปโครงการ (พิมพ์ / PDF) ไม่เปิดหน้าต่างพิมพ์เมื่อโครงการมีวัสดุมวลรวมที่ผูกจาก BOQ (ข้อมูลบางช่องว่างทำให้สร้างรายงานล้มเงียบ ๆ) · การส่งออกที่ล้มเหลวจะแจ้งข้อความแทนการเงียบ']],
   ['1.15.0','2026-11-11',['Excel ตามแบบฟอร์ม ชีท "ที่มาของราคา": ตารางราคาสืบเพิ่มคอลัมน์ "ภาพหลักฐาน" แสดงภาพย่อของแต่ละราย (ไม่เกิน 2 ภาพ เกินแสดง +N ภาพ) ดึงจากคลังตอนส่งออก — คอลัมน์นี้มีเฉพาะเมื่อมีภาพ']],
@@ -5081,10 +5139,7 @@ async function boqSvThumbs(S){
   let lib=null;const libGet=async key=>{
     const a=(typeof sv!=='undefined'&&sv.items||[]).find(x=>x.key===key);if(a)return a;
     if(!lib)lib=await Survey.libAll().catch(()=>[]);return lib.find(x=>x.key===key)||null;};
-  const thumb=d=>new Promise(res=>{const im=new Image();im.onload=()=>{
-      const H=60,W=76,w0=im.naturalWidth||1,h0=im.naturalHeight||1;let h=H,w=Math.round(w0*H/h0);if(w>W){w=W;h=Math.round(h0*W/w0);}
-      const c=document.createElement('canvas');c.width=w*2;c.height=h*2;const g=c.getContext('2d');g.fillStyle='#fff';g.fillRect(0,0,c.width,c.height);g.drawImage(im,0,0,c.width,c.height);
-      res({b64:c.toDataURL('image/jpeg',0.82),w,h});};im.onerror=()=>res(null);im.src=d;});
+  const thumb=svThumb;
   for(const v of list){
     const it=await libGet(v.key);if(!it)continue;
     for(const q of v.quotes||[]){
