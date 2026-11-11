@@ -3840,6 +3840,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   if(window.UDAuth)hook();else window.addEventListener('udauth-loaded',hook,{once:true});
 });
 const APP_CHANGELOG=[
+  ['1.15.0','2026-11-11',['Excel ตามแบบฟอร์ม ชีท "ที่มาของราคา": ตารางราคาสืบเพิ่มคอลัมน์ "ภาพหลักฐาน" แสดงภาพย่อของแต่ละราย (ไม่เกิน 2 ภาพ เกินแสดง +N ภาพ) ดึงจากคลังตอนส่งออก — คอลัมน์นี้มีเฉพาะเมื่อมีภาพ']],
   ['1.14.2','2026-11-11',['นำเข้า/ส่งออก: เลือก "รายงานสรุปโครงการ (พิมพ์ / PDF)" ร่วมกับตัวเลือกอื่น หน้าต่างพิมพ์จะเปิดก่อนทันที (เดิมถูกเบราว์เซอร์บล็อกเมื่อทำหลังดาวน์โหลดไฟล์ จึงดูเหมือนไม่มีอะไรเกิดขึ้น)']],
   ['1.14.1','2026-11-11',['ราคาสืบ: กดเพิ่มรายการแล้วเด้งไปที่การ์ดของรายการนั้น (ขึ้นบนสุด ไฮไลต์ และวางเคอร์เซอร์ที่ช่องร้านของรายที่ 1) กรอกต่อได้ทันที · หน้าต่างเพิ่มรายการกรอกแค่ชื่อ หน่วย ชนิด · กด Enter เพื่อเพิ่มได้']],
   ['1.13.3','2026-11-03',['Excel: ตั้งให้ทุกชีทพอดีความกว้าง 1 หน้าด้วยการปรับของ Excel เอง (ไม่เกิน/ไม่แคบกว่าหน้ากระดาษ) · ปร.1 ไม่มีช่องลงนามตามตัวอย่าง (ลงนามที่ ปร.4) · คืนเส้นตารางแถวใต้หัวตารางสรุปของ ปร.1']],
@@ -4937,7 +4938,7 @@ function boqSourcesData(){
   const wages=(p.wages||[]).map(it=>({name:wIsLeafH2(it)?(it.h2||it.h1):([it.h3||it.h2,it.h4].filter(x=>x&&x!=='-').join(' — ')||it.h1),sheet:it.sheetLabel||'',unit:it.unit||'',price:it.price,raw:it.rawPrice||''}));
   const svEntry=it=>{const sm=Survey.summary(it);
     return {key:it.key,name:it.name||'',unit:it.unit||'',n:sm.n,need:Survey.MIN_Q,price:sm.price,
-      quotes:sm.list.map(x=>({shop:x.q.shop||'',contact:[Survey.CHANNEL[x.q.channel]||'',x.q.contact||''].filter(Boolean).join(' · '),brand:x.q.brand||'',note:x.q.note||'',date:x.q.date||'',price:x.q.price,factor:x.q.factor||1,vat:!!x.q.vat,up:x.up,best:!!(sm.best&&x.q.id===sm.best.id)}))};};
+      quotes:sm.list.map(x=>({qid:x.q.id,shop:x.q.shop||'',contact:[Survey.CHANNEL[x.q.channel]||'',x.q.contact||''].filter(Boolean).join(' · '),brand:x.q.brand||'',note:x.q.note||'',date:x.q.date||'',price:x.q.price,factor:x.q.factor||1,vat:!!x.q.vat,up:x.up,best:!!(sm.best&&x.q.id===sm.best.id)}))};};
   const push=(arr,v)=>{if(v&&!arr.includes(v))arr.push(v);};
   /* พาณิชย์ */
   const cm={};
@@ -5045,6 +5046,31 @@ function boqFormData(b,T){
     sources:boqSourcesData(),
     expect:T.grand,pr4Text:T.pr4===null?'':BoqCalc.bahtText(T.pr4)};
 }
+/* ภาพหลักฐานของราคาสืบสำหรับชีท "ที่มาของราคา": ข้อมูลในโครงการเก็บแค่ตัวหนังสือ จึงดึงภาพจากคลัง (ในเครื่อง/คลังกลาง) ตามรหัสรายการ+รหัสราย
+ * ย่อเป็นรูปเล็ก (สูงไม่เกิน 60 กว้างไม่เกิน 76 px) ไม่เกิน 2 ภาพต่อราย — ภาพที่เกินแสดงเป็น "+N ภาพ" */
+async function boqSvThumbs(S){
+  const list=(S&&S.surveys)||[];if(!list.length)return;
+  let lib=null;const libGet=async key=>{
+    const a=(typeof sv!=='undefined'&&sv.items||[]).find(x=>x.key===key);if(a)return a;
+    if(!lib)lib=await Survey.libAll().catch(()=>[]);return lib.find(x=>x.key===key)||null;};
+  const thumb=d=>new Promise(res=>{const im=new Image();im.onload=()=>{
+      const H=60,W=76,w0=im.naturalWidth||1,h0=im.naturalHeight||1;let h=H,w=Math.round(w0*H/h0);if(w>W){w=W;h=Math.round(h0*W/w0);}
+      const c=document.createElement('canvas');c.width=w*2;c.height=h*2;const g=c.getContext('2d');g.fillStyle='#fff';g.fillRect(0,0,c.width,c.height);g.drawImage(im,0,0,c.width,c.height);
+      res({b64:c.toDataURL('image/jpeg',0.82),w,h});};im.onerror=()=>res(null);im.src=d;});
+  for(const v of list){
+    const it=await libGet(v.key);if(!it)continue;
+    for(const q of v.quotes||[]){
+      const lq=(it.quotes||[]).find(x=>x.id===q.qid);const ids=(lq&&lq.imgs)||[];if(!ids.length)continue;
+      q.imgN=ids.length;q.thumbs=[];
+      for(const id of ids.slice(0,2)){
+        let d=(typeof sv!=='undefined'&&sv.imgs&&sv.imgs[id])||null;
+        if(!d){const ref=it.imgs&&it.imgs[id];d=ref?await Survey.libImg(ref).catch(()=>null):await Survey.imgGet(id).catch(()=>null);}
+        if(!d||!Survey.safeImg(d))continue;
+        const t=await thumb(d);if(t)q.thumbs.push(t);
+      }
+    }
+  }
+}
 async function boqExportXlsx(){
   const b=boqGet();if(!b)return;
   const T=boqCompute(b);
@@ -5056,7 +5082,11 @@ async function boqExportXlsx(){
     if(!window.ExcelJS)await bqLoadScript(BQ_EXCELJS.src,BQ_EXCELJS.sri);
     if(!window.FormXlsx)await bqLoadScript('lib/formxlsx-v1.js');
     const buf=await (await fetch('lib/boq_form_template-v1.xlsx')).arrayBuffer();
-    const o=await FormXlsx.build(window.ExcelJS,buf,boqFormData(b,T));
+    const fd=boqFormData(b,T);
+    if(btn)btn.textContent='กำลังเตรียมภาพหลักฐาน...';
+    try{await boqSvThumbs(fd.sources);}catch(e){console.warn('ไม่ใส่ภาพหลักฐาน',e);}
+    if(btn)btn.textContent='กำลังสร้างไฟล์ Excel...';
+    const o=await FormXlsx.build(window.ExcelJS,buf,fd);
     /* ปรับไฟล์ให้ Excel เปิดได้ไม่ถามกู้คืน: ตัดตัวแทนรูปในหัว/ท้ายกระดาษ (&G) ที่แม่แบบไม่มีรูปจริง + ช่วงตัดหน้าให้อยู่ในขอบเขต */
     /* ลายน้ำตราเทศบาล: รูปในหัวกระดาษ (&G) ใส่ด้วย JSZip หลังเขียนไฟล์ — โหลดรูป/ไลบรารีไม่ได้ให้ตัด &G ออก ไฟล์ยังเปิดได้ปกติ */
     let wmImg=null;
