@@ -3547,6 +3547,8 @@ async function svWriteXlsx(wb,name,sh){
       ws.addImage(id,{tl:{nativeCol:11,nativeColOff:Math.round(x*9525),nativeRow:j.r-1,nativeRowOff:Math.round(Math.max(0,(rowPx-t.h)/2)*9525)},ext:{width:t.w,height:t.h},editAs:'oneCell'});x+=t.w+4;});
     if(j.m.n>j.m.t.length){const c=row.getCell(12);c.value='+'+(j.m.n-j.m.t.length)+' ภาพ';c.alignment={horizontal:'right',vertical:'bottom'};}
   });
+  /* ไฟล์จาก SheetJS ไม่มี defaultRowHeight → ExcelJS เขียน <sheetFormatPr> ขาดค่าที่ Excel บังคับ แล้ว Excel ต้อง "ซ่อมแซม" และทิ้งภาพ: ใส่ค่าให้ครบ */
+  ew.eachSheet(w=>{w.properties.defaultRowHeight=w.properties.defaultRowHeight||15;if(w.properties)w.properties.outlineProperties=undefined;});
   const out=await ew.xlsx.writeBuffer();
   const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([out],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));a.download=name;
   document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},1500);
@@ -3923,6 +3925,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   if(window.UDAuth)hook();else window.addEventListener('udauth-loaded',hook,{once:true});
 });
 const APP_CHANGELOG=[
+  ['1.17.1','2026-11-11',['แก้ไฟล์ Excel ราคาสืบ/สรุปโครงการที่มีภาพหลักฐาน: Excel ฟ้องซ่อมแซมไฟล์และทิ้งภาพ (ขาดค่าความสูงแถวมาตรฐานในชีต)']],
   ['1.17.0','2026-11-11',['ภาพหลักฐานในทุกรายงานที่แสดงราคาสืบ: พิมพ์รายงาน PDF ราคาสืบ · รายงานสรุปโครงการ (PDF) · ส่งออก Excel ราคาสืบ · สรุปโครงการเป็น Excel — แสดงภาพย่อในคอลัมน์ "ภาพหลักฐาน" ไม่เกิน 2 ภาพต่อราย (เกินแสดง +N ภาพ) · ตัดภาคผนวกภาพท้ายรายงาน PDF ราคาสืบ · แก้ภาพไม่ขึ้นในรายงาน PDF ถ้ายังไม่เคยเปิดดูรายการนั้น (รอภาพโหลดเสร็จก่อนเปิดหน้าต่างพิมพ์)']],
   ['1.16.0','2026-11-11',['ราคาสืบ: เลือกรายการเพื่อออกรายงานได้ (ช่องเลือกหน้าแต่ละรายการ · เลือกทั้งหมดที่แสดงอยู่ · ล้างการเลือก) — พิมพ์รายงาน PDF และส่งออก Excel ออกเฉพาะที่เลือก ถ้าไม่ได้เลือกจะออกทุกรายการที่แสดงตามตัวกรองเหมือนเดิม ปุ่มแสดงจำนวนรายการที่จะออก']],
   ['1.15.1','2026-11-11',['แก้รายงานสรุปโครงการ (พิมพ์ / PDF) ไม่เปิดหน้าต่างพิมพ์เมื่อโครงการมีวัสดุมวลรวมที่ผูกจาก BOQ (ข้อมูลบางช่องว่างทำให้สร้างรายงานล้มเงียบ ๆ) · การส่งออกที่ล้มเหลวจะแจ้งข้อความแทนการเงียบ']],
