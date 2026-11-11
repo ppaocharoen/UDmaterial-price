@@ -2888,6 +2888,15 @@ setTimeout(projLoadIntoApp, 0);
       <label>ชนิด<select class="sv-in" id="sv-ac"><option value="mat">วัสดุ</option><option value="eq">ครุภัณฑ์</option><option value="sp">ค่าใช้จ่ายพิเศษ</option></select></label>
       <button class="btn btn-amber" type="button" id="sv-aok">เพิ่ม</button>
     </div>
+    <div style="font-size:11px;color:var(--text3);margin:10px 0 4px">ราคาที่สืบมาแล้ว (ถ้ามี) — ใส่ที่นี่ได้เลย ส่วนยี่ห้อ ช่องทางติดต่อ วันที่ หมายเหตุ และภาพหลักฐาน เพิ่มในการ์ดรายการได้ภายหลัง</div>
+    <div class="sv-grid" style="grid-template-columns:1fr 1.4fr 1fr 1fr 1fr auto;align-items:end">
+      <label>ช่องทาง<select class="sv-in" id="sv-qch"></select></label>
+      <label>ร้าน / บริษัท<input class="sv-in" id="sv-qshop" autocomplete="off"></label>
+      <label>ราคาที่ร้านเสนอ<input class="sv-in" id="sv-qprice" type="number" step="any" min="0" inputmode="decimal"></label>
+      <label>หน่วยที่ร้านขาย<input class="sv-in" id="sv-qunit" autocomplete="off" placeholder="เท่ากับหน่วยด้านบน"></label>
+      <label>1 หน่วยร้าน = ? หน่วยรายการ<input class="sv-in" id="sv-qfac" type="number" step="any" min="0" value="1"></label>
+      <label style="flex-direction:row;align-items:center;gap:6px;font-size:12px;padding-bottom:8px"><input type="checkbox" id="sv-qvat" checked> รวม VAT 7%</label>
+    </div>
     <div class="sv-lib" id="sv-ahint"></div>
   </div>
   <input type="text" id="sv-q" placeholder="ค้นหารายการในคลังราคาสืบ..." autocomplete="off" style="margin-bottom:0">
@@ -3272,17 +3281,43 @@ function svBind(){
     });
   };
   svEl('sv-an').addEventListener('input',hintNew);svEl('sv-au').addEventListener('input',hintNew);
+  svEl('sv-qch').innerHTML=Object.entries(Survey.CHANNEL).map(([k,v])=>`<option value="${k}">${v}</option>`).join('');
+  const addReset=()=>{
+    ['sv-an','sv-au','sv-qshop','sv-qprice','sv-qunit'].forEach(i=>{svEl(i).value='';});
+    svEl('sv-ac').value='mat';svEl('sv-qch').selectedIndex=0;svEl('sv-qfac').value='1';svEl('sv-qvat').checked=true;svEl('sv-ahint').innerHTML='';
+  };
   svEl('sv-aok').onclick=()=>{
     const name=svEl('sv-an').value.trim(),unit=svEl('sv-au').value.trim();
     if(!name||!unit){svToast('ต้องใส่ชื่อและหน่วย');return;}
     const key=Survey.libKey(name,unit);
-    let it=sv.items.find(x=>x.key===key);
-    if(!it){const cat=svEl('sv-ac').value;it=svNorm({key,name,unit,ref:sv.pendRef||'',cat});sv.items.push(it);svAddQuote(it);svCatRemember(key,cat);}
+    let it=sv.items.find(x=>x.key===key),fresh=false;
+    if(!it){const cat=svEl('sv-ac').value;it=svNorm({key,name,unit,ref:sv.pendRef||'',cat});sv.items.push(it);svCatRemember(key,cat);fresh=true;}
     sv.pendRef='';
-    sv.open=key;sv.filter='all';sv.q='';svEl('sv-q').value='';
-    svEl('sv-an').value='';svEl('sv-au').value='';svEl('sv-ac').value='mat';svEl('sv-ahint').innerHTML='';svEl('sv-addbox').classList.remove('on');
-    svRender();svToast('กรอกราคาแล้วจะบันทึกเข้าคลังให้อัตโนมัติ');
+    // ราคาที่กรอกมาในหน้าต่างเดียวกัน → เป็นรายที่สืบ; ไม่ได้กรอกราคา → แถวว่างให้กรอกในการ์ด
+    const price=svEl('sv-qprice').value.trim(),has=price!==''&&+price>0;
+    let q=null;
+    if(has||fresh){
+      if(fresh||has)svAddQuote(it);
+      q=it.quotes[it.quotes.length-1];
+      if(has){
+        q.price=+price;q.channel=svEl('sv-qch').value;q.shop=svEl('sv-qshop').value.trim();
+        q.qunit=svEl('sv-qunit').value.trim()||unit;q.factor=+svEl('sv-qfac').value>0?+svEl('sv-qfac').value:1;q.vat=svEl('sv-qvat').checked;
+      }
+    }
+    it.updated=new Date().toISOString();   // ขึ้นบนสุดของลิสต์ (ลิสต์เรียงตามวันที่แก้ไขล่าสุด)
+    sv.open=key;sv.filter='all';sv.cat='all';sv.q='';svEl('sv-q').value='';
+    addReset();svEl('sv-addbox').classList.remove('on');
+    svRender();
+    if(has)svSave(it);
+    const card=document.querySelector('.sv-card[data-k="'+CSS.escape(key)+'"]');
+    if(card){
+      card.scrollIntoView({block:'start',behavior:'smooth'});
+      card.style.transition='box-shadow .3s';card.style.boxShadow='0 0 0 3px var(--accent)';setTimeout(()=>{card.style.boxShadow='';},1800);
+      const f=card.querySelector(has?'[data-f="shop"]':'[data-f="price"]')||card.querySelector('[data-f]');if(f)setTimeout(()=>f.focus({preventScroll:true}),350);
+    }
+    svToast(has?'เพิ่มรายการและราคาแล้ว — ตรวจข้อมูลที่ขาด แล้วกด "บันทึกรายนี้"':'เพิ่มรายการแล้ว — กรอกราคาที่สืบได้ในการ์ดด้านล่าง');
   };
+  svEl('sv-addbox').addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.tagName==='INPUT'&&e.target.type!=='checkbox'){e.preventDefault();svEl('sv-aok').click();}});
   /* ตั้งค่าคลังกลาง */
   const modal=svEl('sv-modal');
   svEl('sv-libcfg').onclick=()=>{const c=Survey.cfg();svEl('sv-url').value=c.url||'';svEl('sv-team').value=c.team||'';svEl('sv-rem').checked=!!c.remember;svEl('sv-mmsg').textContent='';svEl('sv-mmsg').className='sv-msg';modal.style.display='flex';};
@@ -3829,6 +3864,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   if(window.UDAuth)hook();else window.addEventListener('udauth-loaded',hook,{once:true});
 });
 const APP_CHANGELOG=[
+  ['1.14.0','2026-11-11',['ราคาสืบ: หน้าต่างเพิ่มรายการใส่ราคาที่สืบมาแล้ว (ช่องทาง ร้าน ราคา หน่วย ตัวคูณ VAT) ได้ในครั้งเดียว · รายการใหม่ขึ้นบนสุดของลิสต์ เลื่อนไปที่การ์ดและไฮไลต์ให้อัตโนมัติ พร้อมวางเคอร์เซอร์ในช่องถัดไป · กด Enter ในหน้าต่างเพิ่มรายการเพื่อเพิ่มได้ทันที']],
   ['1.13.3','2026-11-03',['Excel: ตั้งให้ทุกชีทพอดีความกว้าง 1 หน้าด้วยการปรับของ Excel เอง (ไม่เกิน/ไม่แคบกว่าหน้ากระดาษ) · ปร.1 ไม่มีช่องลงนามตามตัวอย่าง (ลงนามที่ ปร.4) · คืนเส้นตารางแถวใต้หัวตารางสรุปของ ปร.1']],
   ['1.13.2','2026-11-03',['อัปเดตไลบรารีอ่าน/เขียน Excel (SheetJS) เป็นรุ่น 0.20.3 และเก็บไว้ในเว็บเอง — แก้ช่องโหว่ของรุ่นเดิมตอนนำเข้าไฟล์ Excel']],
   ['1.13.1','2026-11-03',['Excel: จัดหน้ากระดาษตามไฟล์ตัวอย่างใหม่ — สเกลพิมพ์ใหญ่ขึ้นเป็น 91-98% (เดิมถูกย่อเกินจริง) · ช่องเงินของ ปร.1 กว้างตามแม่แบบ · Factor F แบ่ง 2 หน้า (หน้า 1 ตารางค่า F, หน้า 2 ค่างานของโครงการ)']],
