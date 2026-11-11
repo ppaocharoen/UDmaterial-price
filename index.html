@@ -2686,13 +2686,13 @@ function projExportAllPDF(){
     <div class="cp-print-detail" style="display:block">${cpSelectedItems.map((s,idx)=>{
       const compUnit=s.comp.unit||'หน่วย';
       const itemRows=s.snapshot.map((it,i)=>{
-        const isFixed=it.fixedPrice!==null;
-        const price=isFixed?it.fixedPrice:(it.price||0);
-        const sub=it.qty*price;
+        const isFixed=it.fixedPrice!==null&&it.fixedPrice!==undefined;   /* รายการที่ดึงจาก BOQ อัตโนมัติไม่มีช่อง fixedPrice */
+        const price=+(isFixed?it.fixedPrice:(it.price||0))||0,qty=+it.qty||0;
+        const sub=qty*price;
         const pd=price>0?(price<1?price.toFixed(5).replace(/\.?0+$/,''):price.toLocaleString('th-TH',{minimumFractionDigits:2,maximumFractionDigits:2})):'—';
         const sd=price>0?sub.toLocaleString('th-TH',{minimumFractionDigits:2,maximumFractionDigits:2}):'—';
         return `<tr><td>${i+1}</td><td>${esc(it.itemName)}</td>
-          <td class="r mono">${it.qty.toLocaleString('th-TH',{minimumFractionDigits:2,maximumFractionDigits:3})}</td>
+          <td class="r mono">${qty.toLocaleString('th-TH',{minimumFractionDigits:2,maximumFractionDigits:3})}</td>
           <td>${esc(it.unit)}</td><td class="r mono">${pd}</td>
           <td style="font-size:9px;color:#666">${isFixed?'(ตายตัว)':esc(it.province||'')}</td>
           <td class="r mono">${sd}</td></tr>`;
@@ -2706,7 +2706,7 @@ function projExportAllPDF(){
           <tbody>${itemRows}</tbody>
           <tfoot><tr class="total-row">
             <td colspan="6" style="text-align:right">รวมราคาวัสดุมวลรวม (ค่างานต้นทุน) พื้นที่ 1 ${esc(compUnit)}</td>
-            <td class="r mono">${s.total.toLocaleString('th-TH',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
+            <td class="r mono">${(+s.total||0).toLocaleString('th-TH',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
           </tr></tfoot>
         </table>
       </div>`;
@@ -3652,7 +3652,7 @@ async function ioRunExport(){
       else if(k==='linkjson')boqLinkExport();
       else if(k==='xlsxsum')await projExportAllExcel();
       else if(k==='pdf')projExportAllPDF();
-    }catch(e){console.error(e);}
+    }catch(e){console.error(e);alert('ส่งออก "'+({xlsx:'Excel BOQ',json:'ไฟล์โครงการ',linkjson:'ความจำการผูกราคา',xlsxsum:'สรุปโครงการเป็น Excel',pdf:'รายงานสรุปโครงการ'}[k]||k)+'" ไม่สำเร็จ: '+(e&&e.message||e));}
     await wait(500);
   }
 }
@@ -3840,6 +3840,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   if(window.UDAuth)hook();else window.addEventListener('udauth-loaded',hook,{once:true});
 });
 const APP_CHANGELOG=[
+  ['1.15.1','2026-11-11',['แก้รายงานสรุปโครงการ (พิมพ์ / PDF) ไม่เปิดหน้าต่างพิมพ์เมื่อโครงการมีวัสดุมวลรวมที่ผูกจาก BOQ (ข้อมูลบางช่องว่างทำให้สร้างรายงานล้มเงียบ ๆ) · การส่งออกที่ล้มเหลวจะแจ้งข้อความแทนการเงียบ']],
   ['1.15.0','2026-11-11',['Excel ตามแบบฟอร์ม ชีท "ที่มาของราคา": ตารางราคาสืบเพิ่มคอลัมน์ "ภาพหลักฐาน" แสดงภาพย่อของแต่ละราย (ไม่เกิน 2 ภาพ เกินแสดง +N ภาพ) ดึงจากคลังตอนส่งออก — คอลัมน์นี้มีเฉพาะเมื่อมีภาพ']],
   ['1.14.2','2026-11-11',['นำเข้า/ส่งออก: เลือก "รายงานสรุปโครงการ (พิมพ์ / PDF)" ร่วมกับตัวเลือกอื่น หน้าต่างพิมพ์จะเปิดก่อนทันที (เดิมถูกเบราว์เซอร์บล็อกเมื่อทำหลังดาวน์โหลดไฟล์ จึงดูเหมือนไม่มีอะไรเกิดขึ้น)']],
   ['1.14.1','2026-11-11',['ราคาสืบ: กดเพิ่มรายการแล้วเด้งไปที่การ์ดของรายการนั้น (ขึ้นบนสุด ไฮไลต์ และวางเคอร์เซอร์ที่ช่องร้านของรายที่ 1) กรอกต่อได้ทันที · หน้าต่างเพิ่มรายการกรอกแค่ชื่อ หน่วย ชนิด · กด Enter เพื่อเพิ่มได้']],
@@ -5019,7 +5020,7 @@ function projSyncFromBoq(){
   d.commerce.forEach(e=>{if(selectedItems.some(x=>x.code===e.code))return;const m=(allData||[]).find(z=>z.code===e.code);if(m)selectedItems.push({...m,_auto:true});});
   d.wagesUsed.forEach(e=>{if(wSelectedItems.some(x=>x.code===e.code))return;const w=PDB.wage(e.code);if(w)wSelectedItems.push({...w,_idx:'auto-'+e.code,_auto:true});});
   d.comps.forEach(e=>{if(!e.id||cpSelectedItems.some(x=>x.compId===e.id))return;
-    cpSelectedItems.push({compId:e.id,comp:e.obj,total:e.total,_auto:true,snapshot:e.lines.map(l=>({itemName:l.name,qty:l.qty,unit:l.unit,price:l.price||0,province:l.src||''}))});});
+    cpSelectedItems.push({compId:e.id,comp:e.obj,total:+e.total||0,_auto:true,snapshot:e.lines.map(l=>({itemName:l.name,qty:+l.qty||0,unit:l.unit,price:+l.price||0,fixedPrice:null,province:l.src||''}))});});
   d.surveys.forEach(e=>{if(projSvHas(e.key))return;const it=(typeof sv!=='undefined'&&sv.items.find(x=>x.key===e.key));if(it)projSvUpsert(it);});
   saveActiveProjectData();
   try{renderSelected();wRenderSelected();cpRenderSelected();}catch(e){}
