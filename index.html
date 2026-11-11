@@ -319,6 +319,11 @@ table.main td.sm{font-size:11px;color:var(--text2);}
 .sv-stat{font-size:12px;color:var(--text3);}
 .sv-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:8px;overflow:hidden;}
 .sv-head{display:flex;gap:10px;align-items:center;justify-content:space-between;padding:11px 14px;cursor:pointer;}
+.sv-ck{display:flex;align-items:center;padding:4px 2px 4px 0;cursor:pointer;flex:0 0 auto;}
+.sv-ck input{width:17px;height:17px;cursor:pointer;accent-color:var(--accent);}
+.sv-ck input:disabled{cursor:not-allowed;opacity:.4;}
+.sv-card.sel{border-color:var(--accent);}
+.sv-selbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:12px;color:var(--text2);margin:2px 0 10px;}
 .sv-head:hover{background:var(--bg3);}
 .sv-name{font-size:14px;font-weight:600;line-height:1.35;}
 .sv-meta{font-size:11px;color:var(--text3);margin-top:2px;}
@@ -2893,6 +2898,7 @@ setTimeout(projLoadIntoApp, 0);
   <input type="text" id="sv-q" placeholder="ค้นหารายการในคลังราคาสืบ..." autocomplete="off" style="margin-bottom:0">
   <div class="sv-chips" id="sv-chips"></div>
   <div class="sv-chips" id="sv-cchips" style="margin-top:-6px"></div>
+  <div class="sv-selbar" id="sv-selbar"></div>
   <div id="sv-list"></div>
 </div>
 </div>
@@ -2920,7 +2926,7 @@ setTimeout(projLoadIntoApp, 0);
 <script src="lib/survey-v1.js"></script>
 <script>
 /* ===== ราคาสืบ — ใช้คลังกลางเดียวกับ UD-Total-Station (รูปแบบข้อมูลเดียวกัน, คีย์ = Survey.libKey(ชื่อ, หน่วย)) ===== */
-const sv={items:[],open:null,filter:'all',cat:'all',q:'',loaded:false,imgs:{},mode:'local',modeErr:'',focusQ:null};
+const sv={items:[],sel:new Set(),open:null,filter:'all',cat:'all',q:'',loaded:false,imgs:{},mode:'local',modeErr:'',focusQ:null};
 /* ชนิดรายการสืบ: mat=วัสดุ (ค่าเริ่มต้น) · eq=ครุภัณฑ์ · sp=ค่าใช้จ่ายพิเศษ — เก็บเป็นฟิลด์ cat ในรายการ (ขึ้นคลังกลางด้วย)
    และจำสำรองในเครื่อง ถ้าคลังกลางไม่เก็บฟิลด์นี้ชนิดก็ยังอยู่ในเครื่องนี้ */
 const SV_CATS={mat:'วัสดุ',eq:'ครุภัณฑ์',sp:'ค่าใช้จ่ายพิเศษ'};
@@ -3043,12 +3049,13 @@ function svRender(){
   const list=svVisible();
   svEl('sv-list').innerHTML=list.length?list.map(svCard).join(''):'<div style="padding:30px;text-align:center;color:var(--text3);font-size:13px">ไม่มีรายการ — กด "+ เพิ่มรายการสืบ" เพื่อเริ่มสืบ หรือรอโหลดคลัง</div>';
   if(sv.open){const it=sv.items.find(x=>x.key===sv.open);if(it)svHydrateImgs(it);}
-  svBanner();svMarkTarget();
+  svBanner();svMarkTarget();svSelBar();
 }
 function svCard(it){
   const s=Survey.summary(it),open=sv.open===it.key,age=Survey.ageDays(it.updated);
-  return `<div class="sv-card" data-k="${esc(it.key)}">
-    <div class="sv-head" data-toggle="1"><div><div class="sv-name">${esc(it.name)}<span class="sv-pill ${s.status}">${SV_ST[s.status]}</span>${it.cat&&it.cat!=='mat'?`<span class="sv-pill few" style="margin-left:4px">${SV_CATS[it.cat]}</span>`:''}${svWhereHtml(it)}</div>
+  const selOK=s.price!==null,isSel=selOK&&sv.sel.has(it.key);
+  return `<div class="sv-card${isSel?' sel':''}" data-k="${esc(it.key)}">
+    <div class="sv-head" data-toggle="1"><label class="sv-ck" data-selck="1" title="${selOK?'เลือกเพื่อออกรายงาน':'ยังไม่มีราคา — ออกรายงานไม่ได้'}"><input type="checkbox" data-sel="1"${isSel?' checked':''}${selOK?'':' disabled'}></label><div style="flex:1;min-width:0"><div class="sv-name">${esc(it.name)}<span class="sv-pill ${s.status}">${SV_ST[s.status]}</span>${it.cat&&it.cat!=='mat'?`<span class="sv-pill few" style="margin-left:4px">${SV_CATS[it.cat]}</span>`:''}${svWhereHtml(it)}</div>
     <div class="sv-meta">หน่วย ${esc(it.unit)} · ${s.n} ราย${age!==null?' · สืบเมื่อ '+age+' วันก่อน':''}${age>90?' <i class="ic ic-warn"></i> เกิน 90 วัน':''}${it.project?' · '+esc(it.project):''}${projSvHas(it.key)?' · <span style="color:var(--green)"><i class="ic ic-check"></i> อยู่ในโครงการ</span>':''}</div></div>
     <div class="sv-price">${s.price!==null?s.price.toLocaleString('th-TH',{minimumFractionDigits:2,maximumFractionDigits:2}):'—'}<div class="sv-meta" style="font-family:Sarabun">บาท/${esc(it.unit)} ไม่รวม VAT</div></div></div>
     ${open?svEditor(it,s):''}</div>`;
@@ -3212,6 +3219,8 @@ function svBind(){
     if(t.dataset.itdel){if(confirm('ลบ "'+it.name+'" ออกจากรายการนี้?\n(คลังกลางไม่ถูกลบ — ลบเฉพาะสำเนาในเครื่องนี้)')){await Survey.libDel(it.key);sv.items=sv.items.filter(x=>x!==it);sv.open=null;svRender();svLibStatus();}return;}
     if(t.dataset.imgdel){const q=it.quotes.find(x=>x.id===t.closest('[data-q]').dataset.q);if(q){q.imgs=q.imgs.filter(i=>i!==t.dataset.imgdel);svSave(it);svRender();}return;}
     if(t.dataset.img){const d=sv.imgs[t.dataset.img];if(d&&Survey.safeImg(d)){svEl('sv-bigimg').src=d;svEl('sv-imgmodal').style.display='flex';}return;}
+    if(t.dataset.sel){if(t.checked)sv.sel.add(it.key);else sv.sel.delete(it.key);t.closest('.sv-card').classList.toggle('sel',t.checked);svSelBar();return;}
+    if(t.closest('[data-selck]'))return;   // คลิกที่ช่องเลือก ไม่เปิด/ปิดการ์ด
     if(t.closest('[data-toggle]')){
       sv.open=sv.open===it.key?null:it.key;svRender();
       if(sv.open){const c=document.querySelector('.sv-card[data-k="'+CSS.escape(it.key)+'"]');if(c){svHint(c,it);c.scrollIntoView({block:'nearest',behavior:'smooth'});}}
@@ -3389,7 +3398,24 @@ function cpSvList(){
 }
 
 /* ===== รายงานราคาสืบ (PDF / Excel) — ออกเฉพาะรายการที่แสดงอยู่ตามตัวกรอง และมีราคาแล้ว ===== */
-function svReportItems(){return svVisible().filter(it=>Survey.summary(it).price!==null);}
+/* รายการที่จะออกรายงาน: ถ้าเลือกไว้ = เฉพาะที่เลือก (แม้ถูกตัวกรองซ่อนอยู่) · ไม่ได้เลือก = ทั้งหมดที่แสดงตามตัวกรอง — เฉพาะที่มีราคา */
+function svReportItems(){
+  const pr=it=>Survey.summary(it).price!==null;
+  return sv.sel.size?sv.items.filter(it=>sv.sel.has(it.key)&&pr(it)):svVisible().filter(pr);
+}
+function svSelBar(){
+  [...sv.sel].forEach(k=>{const it=sv.items.find(x=>x.key===k);if(!it||Survey.summary(it).price===null)sv.sel.delete(k);});
+  const n=sv.sel.size,vis=svVisible().filter(it=>Survey.summary(it).price!==null),all=vis.length&&vis.every(it=>sv.sel.has(it.key));
+  const bar=svEl('sv-selbar');
+  if(bar)bar.innerHTML=(n?`<b style="color:var(--text)">เลือกไว้ ${n} รายการ</b> — รายงาน PDF / Excel จะออกเฉพาะรายการที่เลือก`:`ยังไม่ได้เลือก — รายงาน PDF / Excel จะออกทุกรายการที่แสดงอยู่ (${vis.length} รายการที่มีราคา) · เลือกเฉพาะบางรายการได้ที่ช่องหน้ารายการ`)
+    +(vis.length&&!all?` <button class="btn btn-ghost" type="button" style="padding:3px 10px;font-size:12px" onclick="svSelAll()">เลือกทั้งหมดที่แสดงอยู่</button>`:'')
+    +(n?` <button class="btn btn-ghost" type="button" style="padding:3px 10px;font-size:12px" onclick="svSelClear()">ล้างการเลือก</button>`:'');
+  const c=svReportItems().length,lbl=n?` (${c} ที่เลือก)`:` (${c} รายการ)`;
+  if(svEl('sv-pdf'))svEl('sv-pdf').textContent='พิมพ์รายงาน PDF'+lbl;
+  if(svEl('sv-xls'))svEl('sv-xls').textContent='ส่งออก Excel'+lbl;
+}
+function svSelAll(){svVisible().forEach(it=>{if(Survey.summary(it).price!==null)sv.sel.add(it.key);});svRender();}
+function svSelClear(){sv.sel.clear();svRender();}
 function svFmt(n){return n===null||n===undefined||n===''?'':(+n).toLocaleString('th-TH',{minimumFractionDigits:2,maximumFractionDigits:2});}
 function svThaiDate(d){const t=d?new Date(d):new Date();if(isNaN(t))return esc(d||'');return t.toLocaleDateString('th-TH',{year:'numeric',month:'long',day:'numeric'});}
 async function svImgData(it,id){
@@ -3840,6 +3866,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   if(window.UDAuth)hook();else window.addEventListener('udauth-loaded',hook,{once:true});
 });
 const APP_CHANGELOG=[
+  ['1.16.0','2026-11-11',['ราคาสืบ: เลือกรายการเพื่อออกรายงานได้ (ช่องเลือกหน้าแต่ละรายการ · เลือกทั้งหมดที่แสดงอยู่ · ล้างการเลือก) — พิมพ์รายงาน PDF และส่งออก Excel ออกเฉพาะที่เลือก ถ้าไม่ได้เลือกจะออกทุกรายการที่แสดงตามตัวกรองเหมือนเดิม ปุ่มแสดงจำนวนรายการที่จะออก']],
   ['1.15.1','2026-11-11',['แก้รายงานสรุปโครงการ (พิมพ์ / PDF) ไม่เปิดหน้าต่างพิมพ์เมื่อโครงการมีวัสดุมวลรวมที่ผูกจาก BOQ (ข้อมูลบางช่องว่างทำให้สร้างรายงานล้มเงียบ ๆ) · การส่งออกที่ล้มเหลวจะแจ้งข้อความแทนการเงียบ']],
   ['1.15.0','2026-11-11',['Excel ตามแบบฟอร์ม ชีท "ที่มาของราคา": ตารางราคาสืบเพิ่มคอลัมน์ "ภาพหลักฐาน" แสดงภาพย่อของแต่ละราย (ไม่เกิน 2 ภาพ เกินแสดง +N ภาพ) ดึงจากคลังตอนส่งออก — คอลัมน์นี้มีเฉพาะเมื่อมีภาพ']],
   ['1.14.2','2026-11-11',['นำเข้า/ส่งออก: เลือก "รายงานสรุปโครงการ (พิมพ์ / PDF)" ร่วมกับตัวเลือกอื่น หน้าต่างพิมพ์จะเปิดก่อนทันที (เดิมถูกเบราว์เซอร์บล็อกเมื่อทำหลังดาวน์โหลดไฟล์ จึงดูเหมือนไม่มีอะไรเกิดขึ้น)']],
