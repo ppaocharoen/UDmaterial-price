@@ -2581,7 +2581,6 @@ async function projExportAllExcel(){
   const svItems=projSvList().filter(x=>Survey.summary(x).price!==null);
   const hasMat=selectedItems.length>0, hasWage=wSelectedItems.length>0, hasComp=cpSelectedItems.length>0, hasSv=svItems.length>0;
   if(!hasMat&&!hasWage&&!hasComp&&!hasSv){alert('ยังไม่มีรายการที่บันทึกไว้ในโครงการนี้');return;}
-  let svSh=null;
   try{
     await loadXLSXLib();
     const wb=XLSX.utils.book_new();
@@ -2637,12 +2636,12 @@ async function projExportAllExcel(){
     }
 
     if(hasSv){
-      svSh=svBuildSheets(svItems);const sh=svSh;
+      const sh=svBuildSheets(svItems,await svEvidence(svItems).catch(()=>null));
       XLSX.utils.book_append_sheet(wb,sh.sum,SV_SHEET_SUM);
       XLSX.utils.book_append_sheet(wb,sh.detail,SV_SHEET_DETAIL);
     }
     const p=projGetActive();
-    await svWriteXlsx(wb,xlsxFileName(p?p.name:'ทั้งหมด'),svSh);
+    XLSX.writeFile(wb,xlsxFileName(p?p.name:'ทั้งหมด'));
   }catch(e){alert('ออกไฟล์ Excel ไม่สำเร็จ: '+e.message);}
 }
 
@@ -2655,8 +2654,7 @@ async function projExportAllPDF(){
   const p=projGetActive();
   const projName=p?p.name:'ทั้งหมด';
   const dateStr=new Date().toLocaleDateString('th-TH',{year:'numeric',month:'long',day:'numeric'});
-  const svMaps=[];for(const it of svItems)svMaps.push(await svQThumbs(it,2).catch(()=>({})));
-  const svAny=svMaps.some(m=>Object.keys(m).length);
+  const svEv=hasSv?await svEvidence(svItems).catch(()=>null):null;
 
   let html=`<div class="pdf-hd">
     <div class="pdf-title">รายงานสรุปโครงการ: ${esc(projName)}</div>
@@ -2723,12 +2721,12 @@ async function projExportAllPDF(){
 
   if(hasSv){
     html+=`<div class="sel-title" style="margin:18px 0 8px">ราคาสืบ (${svItems.length} รายการ)</div>
-    <div class="cp-print-detail" style="display:block">${svItems.map((it,i)=>svBlockHtml(it,i,()=>[],svAny?svMaps[i]:null)).join('')}</div>
+    <div class="cp-print-detail" style="display:block">${svItems.map((it,i)=>svBlockHtml(it,i,q=>{const t=svEv?svEv.refTxt(it.key,q.id):'';return t?[t]:[];})).join('')}</div>
     <div style="font-size:9px;color:#555;margin-top:6px">* ราคาต่อหน่วย = (ราคาที่ร้านเสนอ ÷ 1.07 กรณีรวม VAT) ÷ ตัวคูณแปลงหน่วย · ราคาที่ใช้ = ต่ำสุดของทุกราย</div>`;
   }
 
   const container=document.getElementById('proj-print-all');
-  if(container){container.innerHTML=html;await svWaitImgs(container);}
+  if(container)container.innerHTML=html;
   document.body.classList.add('proj-printing');
   window.print();
 }
@@ -2883,6 +2881,7 @@ setTimeout(projLoadIntoApp, 0);
     <button class="btn btn-ghost" type="button" id="sv-refresh"><i class="ic ic-refresh"></i> โหลดคลังใหม่</button>
     <button class="btn btn-green" type="button" id="sv-pdf">พิมพ์รายงาน PDF</button>
     <button class="btn btn-green" type="button" id="sv-xls">ส่งออก Excel</button>
+    <button class="btn btn-green" type="button" id="sv-evpdf">พิมพ์ภาพหลักฐาน (PDF)</button>
     <button class="btn btn-ghost" type="button" id="sv-exp">ส่งออก .json</button>
     <button class="btn btn-ghost" type="button" id="sv-imp">นำเข้า .json</button>
     <input type="file" id="sv-impfile" accept=".json,application/json" style="display:none">
@@ -3268,6 +3267,7 @@ function svBind(){
   });
   svEl('sv-pdf').onclick=svPrint;
   svEl('sv-xls').onclick=svExportExcel;
+  svEl('sv-evpdf').onclick=()=>{const l=svReportItems();if(!l.length){svToast('ยังไม่มีรายการที่มีราคาสืบ');return;}svEvidencePrint(l,sv.sel.size?'เฉพาะรายการที่เลือก '+l.length+' รายการ':'บัญชีราคาสืบ '+l.length+' รายการ');};
   svEl('sv-imgmodal').onclick=()=>{svEl('sv-imgmodal').style.display='none';};
   /* เพิ่มรายการ */
   svEl('sv-new').onclick=()=>{svEl('sv-addbox').classList.toggle('on');svEl('sv-an').focus();};
@@ -3416,6 +3416,7 @@ function svSelBar(){
   const c=svReportItems().length,lbl=n?` (${c} ที่เลือก)`:` (${c} รายการ)`;
   if(svEl('sv-pdf'))svEl('sv-pdf').textContent='พิมพ์รายงาน PDF'+lbl;
   if(svEl('sv-xls'))svEl('sv-xls').textContent='ส่งออก Excel'+lbl;
+  if(svEl('sv-evpdf'))svEl('sv-evpdf').textContent='พิมพ์ภาพหลักฐาน (PDF)'+lbl;
 }
 function svSelAll(){svVisible().forEach(it=>{if(Survey.summary(it).price!==null)sv.sel.add(it.key);});svRender();}
 function svSelClear(){sv.sel.clear();svRender();}
@@ -3427,65 +3428,93 @@ async function svImgData(it,id){
   const d=v?await Survey.libImg(v).catch(()=>null):await Survey.imgGet(id);
   if(d)sv.imgs[id]=d;return d;
 }
-/* ภาพย่อหลักฐานสำหรับรายงาน (PDF / Excel ทุกแบบใช้ร่วมกัน): สูงไม่เกิน 60 กว้างไม่เกิน 76 px (เก็บละเอียด 2 เท่า) */
-function svThumb(d){return new Promise(res=>{const im=new Image();im.onload=()=>{
-  const H=60,W=76,w0=im.naturalWidth||1,h0=im.naturalHeight||1;let h=H,w=Math.round(w0*H/h0);if(w>W){w=W;h=Math.round(h0*W/w0);}
-  const c=document.createElement('canvas');c.width=w*2;c.height=h*2;const g=c.getContext('2d');g.fillStyle='#fff';g.fillRect(0,0,c.width,c.height);g.drawImage(im,0,0,c.width,c.height);
-  res({b64:c.toDataURL('image/jpeg',0.82),w,h});};im.onerror=()=>res(null);im.src=d;});}
-/* หารายการในคลังตามรหัส (สำเนาในโครงการเก็บแค่ตัวหนังสือ ภาพอยู่ในคลัง) */
+/* ===== ภาพหลักฐาน: เลขภาพใช้ร่วมกันทุกรายงาน =====
+ * เรียงรายการตามชื่อ → รายตามลำดับในรายงาน → ภาพตามลำดับที่แนบ แล้วนับ "ภาพที่ 1, 2, ..."
+ * รายงานราคา (PDF/Excel/ชีทที่มาของราคา) อ้างเลขภาพ · รายงานภาพหลักฐานแสดงภาพขนาดใหญ่ตามเลขเดียวกัน */
 async function svLibFind(key){
   const a=(typeof sv!=='undefined'&&sv.items||[]).find(x=>x.key===key);if(a)return a;
   const all=await Survey.libAll().catch(()=>[]);return all.find(x=>x.key===key)||null;
 }
-/* ภาพย่อของทุกรายในรายการหนึ่ง → {รหัสราย: {t:[ภาพย่อ], n:จำนวนภาพทั้งหมด}} · ไม่เกิน max ภาพต่อราย */
-async function svQThumbs(it,max){
-  max=max||2;let src=it;
-  if(!(it.quotes||[]).some(q=>(q.imgs||[]).length))src=(await svLibFind(it.key))||it;
-  const out={};
-  for(const q of src.quotes||[]){
-    const ids=q.imgs||[];if(!ids.length)continue;
-    const o=out[q.id]={n:ids.length,t:[]};
-    for(const id of ids.slice(0,max)){const d=await svImgData(src,id).catch(()=>null);if(!d||!Survey.safeImg(d))continue;const t=await svThumb(d);if(t)o.t.push(t);}
+async function svEvidence(items){
+  const seen=new Set(),list=(items||[]).filter(it=>it&&it.key&&!seen.has(it.key)&&seen.add(it.key))
+    .sort((a,b)=>String(a.name||'').localeCompare(String(b.name||''),'th'));
+  const figs=[],refs={};let n=0;
+  for(const it of list){
+    /* สำเนาในโครงการเก็บแค่ตัวหนังสือ → รหัสภาพอยู่ในคลัง */
+    const src=(it.quotes||[]).some(q=>(q.imgs||[]).length)?it:((await svLibFind(it.key))||it);
+    const byId={};(src.quotes||[]).forEach(q=>{byId[q.id]=q;});
+    for(const x of Survey.summary(it).list){
+      const sq=byId[x.q.id];const ids=(sq&&sq.imgs)||[];if(!ids.length)continue;
+      const r=(refs[it.key]=refs[it.key]||{})[x.q.id]=[];
+      ids.forEach(id=>{n++;r.push(n);figs.push({n,it:src,name:it.name,unit:it.unit,q:sq,up:x.up,id});});
+    }
   }
-  return out;
+  return {figs,refs,refTxt:(key,qid)=>{const a=(refs[key]||{})[qid]||[];return a.length?'ภาพที่ '+svNumRange(a):'';}};
+}
+function svNumRange(a){   /* [3,4,5,7] → "3–5, 7" */
+  const out=[];for(let i=0;i<a.length;i++){let j=i;while(j+1<a.length&&a[j+1]===a[j]+1)j++;out.push(j>i+1?a[i]+'–'+a[j]:(j===i+1?a[i]+', '+a[j]:String(a[i])));i=j;}return out.join(', ');
 }
 /* รอให้ภาพในพื้นที่พิมพ์โหลด/ถอดรหัสเสร็จก่อนเปิดหน้าต่างพิมพ์ (ไม่งั้นภาพที่ยังไม่เคยแสดงจะออกเป็นช่องว่าง) */
 async function svWaitImgs(el){
   const ims=[...el.querySelectorAll('img')];
   await Promise.race([Promise.all(ims.map(i=>(i.decode?i.decode():Promise.resolve()).catch(()=>{}))),new Promise(r=>setTimeout(r,8000))]);
 }
-function svBlockHtml(it,idx,refsFor,imgMap){   /* imgMap: {รหัสราย:{t,n}} → มีคอลัมน์ภาพหลักฐาน · null = ไม่มีคอลัมน์ */
+function svBlockHtml(it,idx,refsFor){   /* refsFor(ราย) → ข้อความอ้างอิงภาพ เช่น ['ภาพที่ 3–4'] */
   const s=Survey.summary(it);
   const rows=s.list.map((x,j)=>{
     const q=x.q,refs=refsFor(q);
     return `<tr${q.id===s.best.id?' style="font-weight:700;background:#f4faf6"':''}><td>${j+1}</td><td>${esc(q.shop||'')}${q.brand?' <span style="font-size:10px">(ยี่ห้อ '+esc(q.brand)+')</span>':''}<div style="font-size:9px;color:#666">${esc(Survey.CHANNEL[q.channel]||'')}${q.contact?' · '+esc(q.contact):''}</div></td>
       <td>${esc(q.date||'')}</td><td class="r">${svFmt(q.price)}</td><td>${esc(q.qunit||'')}</td><td class="r">${esc(q.factor||1)}</td><td>${q.vat?'รวม VAT':'ไม่รวม VAT'}</td>
-      <td class="r">${svFmt(x.up)}</td><td>${esc(q.note||'')}${refs.length?' ('+refs.join(', ')+')':''}</td>${imgMap?`<td style="white-space:nowrap">${svImgCell(imgMap[q.id])}</td>`:''}</tr>`;
+      <td class="r">${svFmt(x.up)}</td><td>${esc(q.note||'')}${refs.length?' ('+refs.join(', ')+')':''}</td></tr>`;
   }).join('');
   return `<div class="cp-item-block"><div class="cp-item-header">${idx+1}. ${esc(it.name)} <span style="font-weight:400">[หน่วย ${esc(it.unit)}]</span></div>
     <div class="cp-item-sub">${esc(Survey.srcText(it))}${s.n<Survey.MIN_Q?' · สืบได้ '+s.n+' ราย (ไม่ครบ '+Survey.MIN_Q+')'+(it.reason?' เหตุผล: '+esc(it.reason):''):''}</div>
-    <table class="cp-detail-tbl"><thead><tr><th>#</th><th>ร้าน / ช่องทาง</th><th>วันที่</th><th class="r">ราคาเสนอ</th><th>หน่วยร้าน</th><th class="r">ตัวคูณ</th><th>VAT</th><th class="r">บาท/${esc(it.unit)} ไม่รวม VAT</th><th>หมายเหตุ</th>${imgMap?'<th>ภาพหลักฐาน</th>':''}</tr></thead>
+    <table class="cp-detail-tbl"><thead><tr><th>#</th><th>ร้าน / ช่องทาง</th><th>วันที่</th><th class="r">ราคาเสนอ</th><th>หน่วยร้าน</th><th class="r">ตัวคูณ</th><th>VAT</th><th class="r">บาท/${esc(it.unit)} ไม่รวม VAT</th><th>หมายเหตุ</th></tr></thead>
     <tbody>${rows}</tbody>
-    <tfoot><tr class="total-row"><td colspan="7" style="text-align:right">ราคาที่ใช้ (ต่ำสุด)</td><td class="r mono">${svFmt(s.price)}</td><td></td>${imgMap?'<td></td>':''}</tr></tfoot></table></div>`;
-}
-function svImgCell(o){
-  if(!o||!o.t.length)return '<span style="color:#999">-</span>';
-  return o.t.map(t=>`<img src="${t.b64}" alt="" style="width:${Math.round(t.w*0.75)}px;height:${Math.round(t.h*0.75)}px;object-fit:contain;border:1px solid #ccc;margin:1px 2px 1px 0;vertical-align:middle">`).join('')+(o.n>o.t.length?`<span style="font-size:9px;color:#555"> +${o.n-o.t.length} ภาพ</span>`:'');
+    <tfoot><tr class="total-row"><td colspan="7" style="text-align:right">ราคาที่ใช้ (ต่ำสุด)</td><td class="r mono">${svFmt(s.price)}</td><td></td></tr></tfoot></table></div>`;
 }
 async function svPrint(){
   const list=svReportItems();
   if(!list.length){svToast('ยังไม่มีรายการที่มีราคาสืบให้ออกรายงาน');return;}
-  svToast('กำลังเตรียมรายงานและภาพหลักฐาน...');
-  const maps=[];for(const it of list)maps.push(await svQThumbs(it,2).catch(()=>({})));
-  const any=maps.some(m=>Object.keys(m).length);
-  const blocks=list.map((it,idx)=>svBlockHtml(it,idx,()=>[],any?maps[idx]:null));
+  svToast('กำลังเตรียมรายงาน...');
+  const ev=await svEvidence(list).catch(()=>null);
+  const blocks=list.map((it,idx)=>svBlockHtml(it,idx,q=>{const t=ev?ev.refTxt(it.key,q.id):'';return t?[t]:[];}));
   const filt={all:'ทั้งหมด',ok:'ครบ 3 ราย',few:'ไม่ครบ 3 ราย'}[sv.filter]||'';
   const html=`<div style="width:100%;max-width:188mm;box-sizing:border-box"><div class="pdf-hd"><div class="pdf-title">บัญชีราคาสืบวัสดุ</div>
     <div class="pdf-meta">UD-Cost Hub | ${list.length} รายการ${sv.sel.size?' (เฉพาะที่เลือก)':(filt?' ('+filt+')':'')} | วันที่พิมพ์: ${svThaiDate()}</div></div>
     ${blocks.join('')}
-    <div class="pdf-ft" style="font-size:9px;color:#555;margin-top:8px">* ราคาต่อหน่วย = (ราคาที่ร้านเสนอ ÷ 1.07 กรณีรวม VAT) ÷ ตัวคูณแปลงหน่วย · ราคาที่ใช้ = ต่ำสุดของรายที่สืบ${any?' · ภาพหลักฐานแสดงไม่เกิน 2 ภาพต่อราย':''}</div></div>`;
+    <div class="pdf-ft" style="font-size:9px;color:#555;margin-top:8px">* ราคาต่อหน่วย = (ราคาที่ร้านเสนอ ÷ 1.07 กรณีรวม VAT) ÷ ตัวคูณแปลงหน่วย · ราคาที่ใช้ = ต่ำสุดของรายที่สืบ${ev&&ev.figs.length?' · "ภาพที่ N" ดูใน "ภาพหลักฐาน (PDF)" ที่ออกจากรายการชุดเดียวกัน':''}</div></div>`;
   const container=document.getElementById('proj-print-all');
   if(!container){svToast('ไม่พบพื้นที่พิมพ์');return;}
+  container.innerHTML=html;
+  document.body.classList.add('proj-printing');
+  window.print();
+}
+/* ===== รายงานภาพหลักฐาน (PDF): ภาพขนาดใหญ่ หน้าละ 2 ภาพ — โหลดครบก่อนพิมพ์ แจ้งภาพที่โหลดไม่ได้ ===== */
+async function svEvidencePrint(items,title){
+  const ev=await svEvidence(items);
+  if(!ev.figs.length){alert('รายการที่เลือกไม่มีภาพหลักฐาน');return;}
+  const bad=[];
+  for(const [i,f] of ev.figs.entries()){
+    svToast(`กำลังโหลดภาพหลักฐาน ${i+1}/${ev.figs.length}...`,4000);
+    let d=null;
+    for(let t=0;t<2&&!d;t++){d=await svImgData(f.it,f.id).catch(()=>null);if(d&&!Survey.safeImg(d))d=null;}
+    if(d)f.d=d;
+    else{const ref=f.it.imgs&&f.it.imgs[f.id];f.err=ref?(sv.mode==='public'?'ต้องเข้าสู่ระบบก่อนจึงดูภาพในคลังกลางได้':'โหลดจากคลังกลางไม่สำเร็จ'):'ภาพยังไม่ขึ้นคลังกลาง (อยู่ในเครื่องที่บันทึกเท่านั้น)';bad.push(f);}
+  }
+  if(bad.length&&!confirm(`โหลดภาพไม่ได้ ${bad.length} จาก ${ev.figs.length} ภาพ:\n`+bad.slice(0,12).map(f=>`- ภาพที่ ${f.n} ${f.name} (${f.q.shop||'-'}): ${f.err}`).join('\n')+(bad.length>12?`\n...และอีก ${bad.length-12} ภาพ`:'')+'\n\nพิมพ์ต่อโดยเว้นช่องภาพเหล่านี้ไว้หรือไม่?'))return;
+  svToast('กำลังเตรียมหน้าพิมพ์...');
+  const fig=f=>`<div style="break-inside:avoid;page-break-inside:avoid;margin:0 0 6mm">
+      <div style="font-size:12px;font-weight:700">ภาพที่ ${f.n} — ${esc(f.name)} <span style="font-weight:400">[หน่วย ${esc(f.unit||'')}]</span></div>
+      <div style="font-size:10px;color:#444">${esc(f.q.shop||Survey.CHANNEL[f.q.channel]||'-')}${f.q.brand?' · ยี่ห้อ '+esc(f.q.brand):''} · ราคาเสนอ ${svFmt(f.q.price)} บาท/${esc(f.q.qunit||f.unit||'')}${f.q.vat?' (รวม VAT)':''} · ${esc(f.q.date||'')}${f.up!==null&&f.up!==undefined?' · คิดเป็น '+svFmt(f.up)+' บาท/'+esc(f.unit||'')+' ไม่รวม VAT':''}</div>
+      ${f.d?`<img src="${f.d}" alt="ภาพที่ ${f.n}" style="display:block;max-width:100%;max-height:108mm;margin:2mm auto 0;border:1px solid #bbb;object-fit:contain">`
+        :`<div style="height:40mm;margin-top:2mm;border:1px dashed #999;display:flex;align-items:center;justify-content:center;font-size:11px;color:#777">โหลดภาพไม่ได้ — ${esc(f.err||'')}</div>`}
+    </div>`;
+  const pages=[];for(let i=0;i<ev.figs.length;i+=2)pages.push(ev.figs.slice(i,i+2).map(fig).join(''));
+  const html=`<div style="width:100%;max-width:188mm;box-sizing:border-box"><div class="pdf-hd"><div class="pdf-title">ภาพหลักฐานการสืบราคา</div>
+    <div class="pdf-meta">UD-Cost Hub | ${esc(title||'')} | ${ev.figs.length} ภาพ | วันที่พิมพ์: ${svThaiDate()}</div></div>
+    ${pages.map((h,i)=>`<div${i<pages.length-1?' style="page-break-after:always;break-after:page"':''}>${h}</div>`).join('')}</div>`;
+  const container=document.getElementById('proj-print-all');if(!container)return;
   container.innerHTML=html;
   await svWaitImgs(container);
   document.body.classList.add('proj-printing');
@@ -3493,17 +3522,16 @@ async function svPrint(){
 }
 /* สร้างชีต Excel ราคาสืบ (สูตร) จากรายการที่มีราคา — ใช้ทั้งหน้าราคาสืบและรายงานโครงการ */
 const SV_SHEET_DETAIL='รายละเอียดการสืบ',SV_SHEET_SUM='สรุปราคาสืบ';
-function svBuildSheets(list){
-  const aoa=[],fcells=[],sumRows=[],qrows=[],hrows=[];
+function svBuildSheets(list,ev){   /* ev: ผลจาก svEvidence → คอลัมน์ L อ้างเลขภาพหลักฐาน */
+  const aoa=[],fcells=[],sumRows=[];
   list.forEach((it,idx)=>{
     const s=Survey.summary(it);
     aoa.push([`${idx+1}. ${it.name} [หน่วย ${it.unit}]`,'','','','','','','','']);
-    hrows.push(aoa.length+1);
-    aoa.push(['#','ร้าน / บริษัท','ช่องทาง','เบอร์ / ลิงก์','วันที่','ราคาที่เสนอ','หน่วยร้าน','ตัวคูณ (1 หน่วยร้าน = ? '+it.unit+')','VAT','บาท/'+it.unit+' ไม่รวม VAT','หมายเหตุ']);
+    aoa.push(['#','ร้าน / บริษัท','ช่องทาง','เบอร์ / ลิงก์','วันที่','ราคาที่เสนอ','หน่วยร้าน','ตัวคูณ (1 หน่วยร้าน = ? '+it.unit+')','VAT','บาท/'+it.unit+' ไม่รวม VAT','หมายเหตุ','ภาพหลักฐาน']);
     const first=aoa.length+1;
     s.list.forEach((x,j)=>{
-      const q=x.q,r=aoa.length+1;qrows.push({r,it,q});
-      aoa.push([j+1,q.shop||'',Survey.CHANNEL[q.channel]||'',q.contact||'',q.date||'',+q.price,q.qunit||'',+(q.factor||1),q.vat?'รวม VAT':'ไม่รวม VAT','',(q.brand?'ยี่ห้อ '+q.brand+(q.note?' · ':''):'')+(q.note||'')]);
+      const q=x.q,r=aoa.length+1;
+      aoa.push([j+1,q.shop||'',Survey.CHANNEL[q.channel]||'',q.contact||'',q.date||'',+q.price,q.qunit||'',+(q.factor||1),q.vat?'รวม VAT':'ไม่รวม VAT','',(q.brand?'ยี่ห้อ '+q.brand+(q.note?' · ':''):'')+(q.note||''),ev?ev.refTxt(it.key,q.id):'']);
       fcells.push({a:'J'+r,f:`ROUND(IF(I${r}="รวม VAT",F${r}/1.07,F${r})/H${r},2)`,v:x.up});
     });
     const last=aoa.length,tr=aoa.length+1;
@@ -3514,55 +3542,24 @@ function svBuildSheets(list){
   });
   const ws=XLSX.utils.aoa_to_sheet(aoa);
   fcells.forEach(c=>{ws[c.a]={t:'n',f:c.f,v:c.v,z:'#,##0.00'};});
-  ws['!cols']=[{wch:5},{wch:28},{wch:12},{wch:26},{wch:12},{wch:14},{wch:12},{wch:22},{wch:14},{wch:20},{wch:30}];
+  ws['!cols']=[{wch:5},{wch:28},{wch:12},{wch:26},{wch:12},{wch:14},{wch:12},{wch:22},{wch:14},{wch:20},{wch:30},{wch:16}];
   const sum=[['#','รายการวัสดุ','หน่วย','จำนวนราย','ราคาที่ใช้ (บาท/หน่วย ไม่รวม VAT)','สถานะ','วันที่สืบล่าสุด']];
   sumRows.forEach((o,i)=>sum.push([i+1,o.it.name,o.it.unit,o.s.n,'',SV_ST[o.s.status],o.upd]));
   const ws2=XLSX.utils.aoa_to_sheet(sum);
   sumRows.forEach((o,i)=>{ws2['E'+(i+2)]={t:'n',f:`'${SV_SHEET_DETAIL}'!J${o.tr}`,v:o.s.price,z:'#,##0.00'};});
   ws2['!cols']=[{wch:5},{wch:52},{wch:10},{wch:11},{wch:30},{wch:16},{wch:16}];
-  return {sum:ws2,detail:ws,qrows,hrows};
-}
-/* บันทึกไฟล์ Excel ที่สร้างด้วย SheetJS · ถ้ามีภาพหลักฐาน เปิดต่อด้วย ExcelJS เพื่อใส่ภาพย่อในคอลัมน์ L ของชีตรายละเอียดการสืบ
- * (SheetJS รุ่นฟรีใส่ภาพไม่ได้) — สูตรและข้อมูลเดิมคงอยู่ */
-async function svWriteXlsx(wb,name,sh){
-  const jobs=[];
-  if(sh&&sh.qrows&&sh.qrows.length){
-    const cache={};
-    for(const o of sh.qrows){
-      if(!cache[o.it.key])cache[o.it.key]=await svQThumbs(o.it,2).catch(()=>({}));
-      const m=cache[o.it.key][o.q.id];if(m&&m.t.length)jobs.push({r:o.r,m});
-    }
-  }
-  if(!jobs.length){XLSX.writeFile(wb,name);return;}
-  if(!window.ExcelJS)await bqLoadScript(BQ_EXCELJS.src,BQ_EXCELJS.sri);
-  const ew=new ExcelJS.Workbook();await ew.xlsx.load(XLSX.write(wb,{type:'array',bookType:'xlsx'}));
-  const ws=ew.getWorksheet(SV_SHEET_DETAIL);
-  ws.getColumn(12).width=26;
-  sh.hrows.forEach(r=>{const c=ws.getRow(r).getCell(12);c.value='ภาพหลักฐาน';});
-  const H=48;   // pt
-  jobs.forEach(j=>{
-    const row=ws.getRow(j.r);row.height=Math.max(row.height||15,H);
-    let x=4;const rowPx=H*96/72;
-    j.m.t.forEach(t=>{const id=ew.addImage({base64:t.b64,extension:'jpeg'});
-      ws.addImage(id,{tl:{nativeCol:11,nativeColOff:Math.round(x*9525),nativeRow:j.r-1,nativeRowOff:Math.round(Math.max(0,(rowPx-t.h)/2)*9525)},ext:{width:t.w,height:t.h},editAs:'oneCell'});x+=t.w+4;});
-    if(j.m.n>j.m.t.length){const c=row.getCell(12);c.value='+'+(j.m.n-j.m.t.length)+' ภาพ';c.alignment={horizontal:'right',vertical:'bottom'};}
-  });
-  /* ไฟล์จาก SheetJS ไม่มี defaultRowHeight → ExcelJS เขียน <sheetFormatPr> ขาดค่าที่ Excel บังคับ แล้ว Excel ต้อง "ซ่อมแซม" และทิ้งภาพ: ใส่ค่าให้ครบ */
-  ew.eachSheet(w=>{w.properties.defaultRowHeight=w.properties.defaultRowHeight||15;if(w.properties)w.properties.outlineProperties=undefined;});
-  const out=await ew.xlsx.writeBuffer();
-  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([out],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));a.download=name;
-  document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},1500);
+  return {sum:ws2,detail:ws};
 }
 async function svExportExcel(){
   const list=svReportItems();
   if(!list.length){svToast('ยังไม่มีรายการที่มีราคาสืบให้ส่งออก');return;}
   try{
     await loadXLSXLib();
-    const sh=svBuildSheets(list),wb=XLSX.utils.book_new();
+    const ev=await svEvidence(list).catch(()=>null);
+    const sh=svBuildSheets(list,ev),wb=XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb,sh.sum,SV_SHEET_SUM);
     XLSX.utils.book_append_sheet(wb,sh.detail,SV_SHEET_DETAIL);
-    svToast('กำลังสร้างไฟล์และใส่ภาพหลักฐาน...');
-    await svWriteXlsx(wb,xlsxFileName('ราคาสืบ'),sh);
+    XLSX.writeFile(wb,xlsxFileName('ราคาสืบ'));
   }catch(e){svToast('ออกไฟล์ Excel ไม่สำเร็จ: '+e.message);}
 }
 
@@ -3662,7 +3659,8 @@ function ioRender(){
     +ck('jsonlink','รวมความจำการผูกราคาไปในไฟล์โครงการด้วย','ให้เครื่องปลายทางเลือกราคาให้รายการชื่อเดิมอัตโนมัติ',{dis:!p,sub:1,on:1})
     +ck('linkjson','ความจำการผูกราคา (.json แยกไฟล์)','ส่งให้เพื่อนร่วมงานเฉพาะตัวช่วยผูกราคา ไม่มีข้อมูลโครงการ')
     +ck('xlsxsum','สรุปโครงการเป็น Excel','รายการวัสดุ ค่าแรง วัสดุมวลรวม ราคาสืบ ที่เก็บไว้ในโครงการ',{dis:!p})
-    +ck('pdf','รายงานสรุปโครงการ (พิมพ์ / PDF)','เปิดหน้าต่างพิมพ์ของเบราว์เซอร์ เลือก "บันทึกเป็น PDF" ได้',{dis:!p});
+    +ck('pdf','รายงานสรุปโครงการ (พิมพ์ / PDF)','เปิดหน้าต่างพิมพ์ของเบราว์เซอร์ เลือก "บันทึกเป็น PDF" ได้',{dis:!p})
+    +ck('evpdf','ภาพหลักฐานราคาสืบ (พิมพ์ / PDF)','ภาพขนาดใหญ่ หน้าละ 2 ภาพ — เลขภาพตรงกับที่อ้างในรายงานสรุปและชีทที่มาของราคา',{dis:!p||!projSvList().some(x=>Survey.summary(x).price!==null)});
   h+='<div style="margin:10px 0 0"><button class="btn btn-green" type="button" onclick="ioRunExport()"><i class="ic ic-export"></i> ส่งออกที่เลือก</button></div>';
   h+='<div class="io-sep"></div><div class="io-h">นำเข้า</div>';
   if(!io.kind){
@@ -3726,7 +3724,7 @@ function ioDoImport(){
 async function ioRunExport(){
   const on=[...document.querySelectorAll('#io-body [data-x]')].filter(e=>e.checked&&!e.disabled).map(e=>e.dataset.x);
   // พิมพ์/PDF ทำก่อนอย่างอื่น: เบราว์เซอร์เปิดหน้าต่างพิมพ์ได้เฉพาะทันทีหลังกดปุ่ม — ถ้าไปทำหลังดาวน์โหลดไฟล์ (ใช้เวลาหลายวินาที) จะถูกบล็อกเงียบ ๆ
-  const todo=on.filter(x=>x!=='jsonlink').sort((a,b)=>(b==='pdf')-(a==='pdf'));
+  const pri={pdf:0,evpdf:1},todo=on.filter(x=>x!=='jsonlink').sort((a,b)=>(pri[a]??9)-(pri[b]??9));
   if(!todo.length){alert('เลือกอย่างน้อย 1 อย่าง');return;}
   const wait=ms=>new Promise(r=>setTimeout(r,ms));
   ioClose();projSyncFromBoq();
@@ -3737,7 +3735,8 @@ async function ioRunExport(){
       else if(k==='linkjson')boqLinkExport();
       else if(k==='xlsxsum')await projExportAllExcel();
       else if(k==='pdf')await projExportAllPDF();
-    }catch(e){console.error(e);alert('ส่งออก "'+({xlsx:'Excel BOQ',json:'ไฟล์โครงการ',linkjson:'ความจำการผูกราคา',xlsxsum:'สรุปโครงการเป็น Excel',pdf:'รายงานสรุปโครงการ'}[k]||k)+'" ไม่สำเร็จ: '+(e&&e.message||e));}
+      else if(k==='evpdf'){const pp=projGetActive();await svEvidencePrint(projSvList().filter(x=>Survey.summary(x).price!==null),'โครงการ '+(pp?pp.name:''));}
+    }catch(e){console.error(e);alert('ส่งออก "'+({xlsx:'Excel BOQ',json:'ไฟล์โครงการ',linkjson:'ความจำการผูกราคา',xlsxsum:'สรุปโครงการเป็น Excel',pdf:'รายงานสรุปโครงการ',evpdf:'ภาพหลักฐานราคาสืบ'}[k]||k)+'" ไม่สำเร็จ: '+(e&&e.message||e));}
     await wait(500);
   }
 }
@@ -3925,6 +3924,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   if(window.UDAuth)hook();else window.addEventListener('udauth-loaded',hook,{once:true});
 });
 const APP_CHANGELOG=[
+  ['1.18.0','2026-11-11',['ภาพหลักฐานแยกเป็นรายงานของตัวเอง: "พิมพ์ภาพหลักฐาน (PDF)" ในหน้าราคาสืบ (ใช้การเลือกรายการเดียวกัน) และในหน้าต่างส่งออกของ BOQ — ภาพขนาดใหญ่ หน้าละ 2 ภาพ พร้อมคำบรรยาย โหลดครบก่อนพิมพ์ และแจ้งภาพที่โหลดไม่ได้พร้อมสาเหตุ · รายงานราคาทุกแบบ (PDF, Excel, ชีทที่มาของราคา) เลิกใส่ภาพย่อ เปลี่ยนเป็นเลขอ้างอิง "ภาพที่ N" ที่ตรงกับรายงานภาพหลักฐาน']],
   ['1.17.1','2026-11-11',['แก้ไฟล์ Excel ราคาสืบ/สรุปโครงการที่มีภาพหลักฐาน: Excel ฟ้องซ่อมแซมไฟล์และทิ้งภาพ (ขาดค่าความสูงแถวมาตรฐานในชีต)']],
   ['1.17.0','2026-11-11',['ภาพหลักฐานในทุกรายงานที่แสดงราคาสืบ: พิมพ์รายงาน PDF ราคาสืบ · รายงานสรุปโครงการ (PDF) · ส่งออก Excel ราคาสืบ · สรุปโครงการเป็น Excel — แสดงภาพย่อในคอลัมน์ "ภาพหลักฐาน" ไม่เกิน 2 ภาพต่อราย (เกินแสดง +N ภาพ) · ตัดภาคผนวกภาพท้ายรายงาน PDF ราคาสืบ · แก้ภาพไม่ขึ้นในรายงาน PDF ถ้ายังไม่เคยเปิดดูรายการนั้น (รอภาพโหลดเสร็จก่อนเปิดหน้าต่างพิมพ์)']],
   ['1.16.0','2026-11-11',['ราคาสืบ: เลือกรายการเพื่อออกรายงานได้ (ช่องเลือกหน้าแต่ละรายการ · เลือกทั้งหมดที่แสดงอยู่ · ล้างการเลือก) — พิมพ์รายงาน PDF และส่งออก Excel ออกเฉพาะที่เลือก ถ้าไม่ได้เลือกจะออกทุกรายการที่แสดงตามตัวกรองเหมือนเดิม ปุ่มแสดงจำนวนรายการที่จะออก']],
@@ -5135,27 +5135,11 @@ function boqFormData(b,T){
     sources:boqSourcesData(),
     expect:T.grand,pr4Text:T.pr4===null?'':BoqCalc.bahtText(T.pr4)};
 }
-/* ภาพหลักฐานของราคาสืบสำหรับชีท "ที่มาของราคา": ข้อมูลในโครงการเก็บแค่ตัวหนังสือ จึงดึงภาพจากคลัง (ในเครื่อง/คลังกลาง) ตามรหัสรายการ+รหัสราย
- * ย่อเป็นรูปเล็ก (สูงไม่เกิน 60 กว้างไม่เกิน 76 px) ไม่เกิน 2 ภาพต่อราย — ภาพที่เกินแสดงเป็น "+N ภาพ" */
-async function boqSvThumbs(S){
+/* ชีท "ที่มาของราคา": อ้างเลขภาพหลักฐาน — นับจากราคาสืบที่มีราคาในโครงการ ชุดเดียวกับรายงานสรุปโครงการ/ภาพหลักฐาน (PDF) */
+async function boqSvRefs(S){
   const list=(S&&S.surveys)||[];if(!list.length)return;
-  let lib=null;const libGet=async key=>{
-    const a=(typeof sv!=='undefined'&&sv.items||[]).find(x=>x.key===key);if(a)return a;
-    if(!lib)lib=await Survey.libAll().catch(()=>[]);return lib.find(x=>x.key===key)||null;};
-  const thumb=svThumb;
-  for(const v of list){
-    const it=await libGet(v.key);if(!it)continue;
-    for(const q of v.quotes||[]){
-      const lq=(it.quotes||[]).find(x=>x.id===q.qid);const ids=(lq&&lq.imgs)||[];if(!ids.length)continue;
-      q.imgN=ids.length;q.thumbs=[];
-      for(const id of ids.slice(0,2)){
-        let d=(typeof sv!=='undefined'&&sv.imgs&&sv.imgs[id])||null;
-        if(!d){const ref=it.imgs&&it.imgs[id];d=ref?await Survey.libImg(ref).catch(()=>null):await Survey.imgGet(id).catch(()=>null);}
-        if(!d||!Survey.safeImg(d))continue;
-        const t=await thumb(d);if(t)q.thumbs.push(t);
-      }
-    }
-  }
+  const ev=await svEvidence(projSvList().filter(x=>Survey.summary(x).price!==null));
+  list.forEach(v=>(v.quotes||[]).forEach(q=>{q.imgRef=ev.refTxt(v.key,q.qid);}));
 }
 async function boqExportXlsx(){
   const b=boqGet();if(!b)return;
@@ -5169,8 +5153,7 @@ async function boqExportXlsx(){
     if(!window.FormXlsx)await bqLoadScript('lib/formxlsx-v1.js');
     const buf=await (await fetch('lib/boq_form_template-v1.xlsx')).arrayBuffer();
     const fd=boqFormData(b,T);
-    if(btn)btn.textContent='กำลังเตรียมภาพหลักฐาน...';
-    try{await boqSvThumbs(fd.sources);}catch(e){console.warn('ไม่ใส่ภาพหลักฐาน',e);}
+    try{await boqSvRefs(fd.sources);}catch(e){console.warn('ไม่ใส่เลขภาพหลักฐาน',e);}
     if(btn)btn.textContent='กำลังสร้างไฟล์ Excel...';
     const o=await FormXlsx.build(window.ExcelJS,buf,fd);
     /* ปรับไฟล์ให้ Excel เปิดได้ไม่ถามกู้คืน: ตัดตัวแทนรูปในหัว/ท้ายกระดาษ (&G) ที่แม่แบบไม่มีรูปจริง + ช่วงตัดหน้าให้อยู่ในขอบเขต */
