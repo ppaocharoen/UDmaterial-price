@@ -2657,6 +2657,7 @@ async function projExportAllPDF(){
   const projName=p?p.name:'ทั้งหมด';
   const dateStr=new Date().toLocaleDateString('th-TH',{year:'numeric',month:'long',day:'numeric'});
   const svEv=hasSv?await svEvidence(svItems).catch(()=>null):null;
+  const svLk=svLinks();
 
   let html=`<div class="pdf-hd">
     <div class="pdf-title">รายงานสรุปโครงการ: ${esc(projName)}</div>
@@ -2723,7 +2724,7 @@ async function projExportAllPDF(){
 
   if(hasSv){
     html+=`<div class="sel-title" style="margin:18px 0 8px">ราคาสืบ (${svItems.length} รายการ)</div>
-    <div class="cp-print-detail" style="display:block">${svItems.map((it,i)=>svBlockHtml(it,i,q=>{const t=svEv?svEv.refTxt(it.key,q.id):'';return t?[t]:[];})).join('')}</div>
+    <div class="cp-print-detail" style="display:block">${svItems.map((it,i)=>svBlockHtml(it,i,q=>{const t=svEv?svEv.refTxt(it.key,q.id):'';return t?[t]:[];},svLk)).join('')}${svLk.html()}</div>
     <div style="font-size:9px;color:#555;margin-top:6px">* ราคาต่อหน่วย = (ราคาที่ร้านเสนอ ÷ 1.07 กรณีรวม VAT) ÷ ตัวคูณแปลงหน่วย · ราคาที่ใช้ = ต่ำสุดของทุกราย</div>`;
   }
 
@@ -3645,13 +3646,39 @@ async function svWaitImgs(el){
   const ims=[...el.querySelectorAll('img')];
   await Promise.race([Promise.all(ims.map(i=>(i.decode?i.decode():Promise.resolve()).catch(()=>{}))),new Promise(r=>setTimeout(r,8000))]);
 }
-function svBlockHtml(it,idx,refsFor){   /* refsFor(ราย) → ข้อความอ้างอิงภาพ เช่น ['ภาพที่ 3–4'] */
+/* ===== ลิงก์อ้างอิงในรายงาน PDF: ในตารางแสดง [L1] ชื่อเว็บ (กดได้) · ลิงก์เต็มรวมไว้ท้ายรายงาน ลิงก์ซ้ำใช้เลขเดียว ===== */
+function svLinks(){
+  const list=[],byUrl={};
+  const host=u=>{try{return new URL(u).hostname.replace(/^www\./,'');}catch(e){return u.slice(0,30);}};
+  const reg=(u,use)=>{let o=byUrl[u];if(!o){o=byUrl[u]={n:list.length+1,url:u,uses:[]};list.push(o);}if(use&&!o.uses.includes(use))o.uses.push(use);return o;};
+  return {
+    /* ข้อความที่อาจมีลิงก์ → HTML ที่ลิงก์ถูกย่อเป็น [Ln] ชื่อเว็บ */
+    cite(text,use){
+      const t=String(text||'');if(!t)return '';
+      const re=/\b(https?:\/\/[^\s<>"']+|www\.[^\s<>"']+)/gi;let out='',last=0,m;
+      while((m=re.exec(t))){
+        let u=m[0].replace(/[),.;]+$/,'');const full=/^https?:/i.test(u)?u:'https://'+u;
+        out+=esc(t.slice(last,m.index));
+        const o=reg(full,use);out+=`<a href="${esc(full)}" target="_blank" rel="noopener" style="color:#1a56a8;text-decoration:none">[L${o.n}] ${esc(host(full))}</a>`;
+        last=m.index+u.length;
+      }
+      return out+esc(t.slice(last));
+    },
+    html(){
+      if(!list.length)return '';
+      return `<div style="margin-top:12px;break-inside:auto"><div class="cp-item-header">เอกสารอ้างอิง (ลิงก์)</div>
+        <table class="cp-detail-tbl" style="table-layout:fixed;width:100%"><colgroup><col style="width:9mm"><col><col style="width:62mm"></colgroup>
+        <thead><tr><th>เลข</th><th>ลิงก์</th><th>ใช้กับ</th></tr></thead><tbody>${list.map(o=>`<tr><td>L${o.n}</td><td style="word-break:break-all;font-size:9px"><a href="${esc(o.url)}" target="_blank" rel="noopener" style="color:#1a56a8">${esc((()=>{try{return decodeURI(o.url);}catch(e){return o.url;}})())}</a></td><td style="font-size:9px">${esc(o.uses.join(' · '))}</td></tr>`).join('')}</tbody></table></div>`;
+    }
+  };
+}
+function svBlockHtml(it,idx,refsFor,lk){   /* refsFor(ราย) → ข้อความอ้างอิงภาพ เช่น ['ภาพที่ 3–4'] · lk = svLinks() ย่อลิงก์ */
   const s=Survey.summary(it);
   const rows=s.list.map((x,j)=>{
     const q=x.q,refs=refsFor(q);
-    return `<tr${q.id===s.best.id?' style="font-weight:700;background:#f4faf6"':''}><td>${j+1}</td><td>${esc(q.shop||'')}${q.brand?' <span style="font-size:10px">(ยี่ห้อ '+esc(q.brand)+')</span>':''}<div style="font-size:9px;color:#666">${esc(Survey.CHANNEL[q.channel]||'')}${q.contact?' · '+esc(q.contact):''}</div></td>
+    return `<tr${q.id===s.best.id?' style="font-weight:700;background:#f4faf6"':''}><td>${j+1}</td><td>${esc(q.shop||'')}${q.brand?' <span style="font-size:10px">(ยี่ห้อ '+esc(q.brand)+')</span>':''}<div style="font-size:9px;color:#666">${esc(Survey.CHANNEL[q.channel]||'')}${q.contact?' · '+(lk?lk.cite(q.contact,it.name+' — '+(q.shop||Survey.CHANNEL[q.channel]||'')):esc(q.contact)):''}</div></td>
       <td>${esc(q.date||'')}</td><td class="r">${svFmt(q.price)}</td><td>${esc(q.qunit||'')}</td><td class="r">${esc(q.factor||1)}</td><td>${q.vat?'รวม VAT':'ไม่รวม VAT'}</td>
-      <td class="r">${svFmt(x.up)}</td><td>${esc(q.note||'')}${refs.length?' ('+refs.join(', ')+')':''}</td></tr>`;
+      <td class="r">${svFmt(x.up)}</td><td>${lk?lk.cite(q.note,it.name+' — '+(q.shop||'')):esc(q.note||'')}${refs.length?' ('+refs.join(', ')+')':''}</td></tr>`;
   }).join('');
   return `<div class="cp-item-block"><div class="cp-item-header">${idx+1}. ${esc(it.name)} <span style="font-weight:400">[หน่วย ${esc(it.unit)}]</span></div>
     <div class="cp-item-sub">${esc(Survey.srcText(it))}${s.n<Survey.MIN_Q?' · สืบได้ '+s.n+' ราย (ไม่ครบ '+Survey.MIN_Q+')'+(it.reason?' เหตุผล: '+esc(it.reason):''):''}</div>
@@ -3664,11 +3691,13 @@ async function svPrint(){
   if(!list.length){svToast('ยังไม่มีรายการที่มีราคาสืบให้ออกรายงาน');return;}
   svToast('กำลังเตรียมรายงาน...');
   const ev=await svEvidence(list).catch(()=>null);
-  const blocks=list.map((it,idx)=>svBlockHtml(it,idx,q=>{const t=ev?ev.refTxt(it.key,q.id):'';return t?[t]:[];}));
+  const lk=svLinks();
+  const blocks=list.map((it,idx)=>svBlockHtml(it,idx,q=>{const t=ev?ev.refTxt(it.key,q.id):'';return t?[t]:[];},lk));
   const filt={all:'ทั้งหมด',ok:'ครบ 3 ราย',few:'ไม่ครบ 3 ราย'}[sv.filter]||'';
   const html=`<div style="width:100%;max-width:188mm;box-sizing:border-box"><div class="pdf-hd"><div class="pdf-title">บัญชีราคาสืบวัสดุ</div>
     <div class="pdf-meta">UD-Cost Hub | ${list.length} รายการ${sv.sel.size?' (เฉพาะที่เลือก)':(filt?' ('+filt+')':'')} | วันที่พิมพ์: ${svThaiDate()}</div></div>
     ${blocks.join('')}
+    ${lk.html()}
     <div class="pdf-ft" style="font-size:9px;color:#555;margin-top:8px">* ราคาต่อหน่วย = (ราคาที่ร้านเสนอ ÷ 1.07 กรณีรวม VAT) ÷ ตัวคูณแปลงหน่วย · ราคาที่ใช้ = ต่ำสุดของรายที่สืบ${ev&&ev.figs.length?' · "ภาพที่ N" ดูใน "ภาพหลักฐาน (PDF)" ที่ออกจากรายการชุดเดียวกัน':''}</div></div>`;
   const container=document.getElementById('proj-print-all');
   if(!container){svToast('ไม่พบพื้นที่พิมพ์');return;}
@@ -4111,6 +4140,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   if(window.UDAuth)hook();else window.addEventListener('udauth-loaded',hook,{once:true});
 });
 const APP_CHANGELOG=[
+  ['1.21.1','2026-11-12',['รายงาน PDF ราคาสืบ และรายงานสรุปโครงการ: ลิงก์ในช่องทางติดต่อ/หมายเหตุย่อเป็น "[L1] ชื่อเว็บ" (กดได้) และรวมลิงก์เต็มไว้ท้ายรายงานในตาราง "เอกสารอ้างอิง (ลิงก์)" พร้อมบอกว่าใช้กับรายการ/ร้านใด']],
   ['1.21.0','2026-11-12',['BOQ: เพิ่มประเภทงาน "ประมาณราคาจ้างซ่อมแซม" — ไม่ใช้ Factor F เลือกได้ว่าจะคิดภาษีมูลค่าเพิ่ม 7% หรือไม่ (ปัดเศษเหมือนประมาณราคา ไม่มี ปร.2/ปร.3) · Excel ตามแบบฟอร์มออก ปร.1, ปร.1 (ก) (คอลัมน์ภาษีมูลค่าเพิ่มแทน Factor F) และ ปร.4 (แบบสรุปประมาณราคาค่าซ่อมแซม)']],
   ['1.20.0','2026-11-12',['วัสดุมวลรวมที่สร้างเอง: สร้าง แก้ไข คัดลอกจากมวลรวมที่มีอยู่ (เช่นเติมปริมาณที่ขาด) อยู่หมวด 12 งานอื่นๆ รหัส U-1, U-2, ... ใช้ร่วมกันทั้งทีมผ่านคลังกลาง (สร้าง/แก้ไขได้เฉพาะบัญชีที่อนุมัติ ลบได้เฉพาะผู้ดูแลระบบ) · แต่ละบรรทัดเลือกที่มาราคาได้: ราคาพาณิชย์ (ค้นหาชื่อ/รหัส) ราคาคงที่ มวลรวมอื่น หรือเลือกตอนใช้ใน BOQ · มีราคาตัวอย่างระหว่างแก้ไข · ใช้ได้ทุกที่เหมือนมวลรวมมาตรฐาน และแก้แล้วทุกโครงการเปลี่ยนตาม']],
   ['1.19.0','2026-11-12',['BOQ วัสดุมวลรวม: บรรทัดที่ข้อมูลไม่ระบุปริมาณ (× ?) มีช่องกรอกปริมาณเอง (ใช้เฉพาะโครงการนั้น) · สถานะแยก "ยังไม่มีราคา" กับ "ยังไม่มีปริมาณ" ให้ตรงสาเหตุ (เดิมนับรวมเป็นขาดราคา)']],
