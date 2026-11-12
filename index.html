@@ -1509,6 +1509,7 @@ async function loadCompData(){
     compLoaded=true;
     buildCompDropdowns();
     cpCheckCodes();
+    cuLoad();
   }catch(e){
     const ca=document.getElementById('cp-calc-area');
     const d=document.createElement('div');
@@ -1802,6 +1803,7 @@ function renderCalc(compId){
 
   cpCalcTotal(compId);
   cpSvLabels();
+  cuCalcBar(compId);
 }
 
 function cpCalcTotal(compId){
@@ -2783,6 +2785,7 @@ setTimeout(projLoadIntoApp, 0);
   </div>
   <div id="cp-search-list"></div>
 
+  <div id="cu-bar" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:-8px 0 16px;font-size:12px;color:var(--text2)"></div>
   <!-- แถบเตือนรหัสพาณิชย์ที่ไม่มีราคา -->
   <div id="cp-code-alert"></div>
 
@@ -3428,6 +3431,189 @@ async function svImgData(it,id){
   const d=v?await Survey.libImg(v).catch(()=>null):await Survey.imgGet(id);
   if(d)sv.imgs[id]=d;return d;
 }
+
+/* ===== วัสดุมวลรวมที่สร้างเอง =====
+ * เก็บในคลังกลาง (ชีต comps ผ่านสคริปต์คลังราคาสืบ) ใช้ร่วมกันทั้งทีม · อยู่หมวด 12 งานอื่นๆ · รหัส U-1, U-2, ...
+ * แปลงเป็นข้อมูลแบบเดียวกับมวลรวมมาตรฐาน (compList/compItems/matRef) จึงใช้ได้ทุกที่: แท็บมวลรวม BOQ มวลรวมซ้อน รายงาน
+ * แก้ไขแล้วทุกโครงการที่ใช้อยู่เปลี่ยนตาม (อ้างด้วยรหัส) */
+let cuComps=[];const cu={ed:null};
+const CU_SRC={mat:'ราคาพาณิชย์',fixed:'ราคาคงที่',comp:'มวลรวมอื่น',none:'เลือกตอนใช้ใน BOQ'};
+function cuCanWrite(){return !!(Survey.remote()&&(Survey.cfg().team||(authSt.user&&authSt.access&&authSt.access.status==='approved'&&['editor','admin'].includes(authSt.access.role))));}
+function cuCanDel(){return !!(Survey.remote()&&(Survey.cfg().team||(authSt.user&&authSt.access&&authSt.access.status==='approved'&&authSt.access.role==='admin')));}
+function cuToItems(c){
+  const comp={id:c.id,group:'12',sub:c.id,name:c.name,unit:c.unit,custom:true,by:c.by||'',updated:c.updated||''};
+  const items=(c.lines||[]).map((l,i)=>{
+    const it={compId:c.id,seq:String(i+1),itemCode:'',itemName:l.name,qty:l.qty===null||l.qty===undefined||l.qty===''?null:+l.qty,unit:l.unit||'',commodityCode:'',userInput:'',fixedPrice:null};
+    if(l.src==='mat')it.commodityCode=String(l.code||'');
+    if(l.src==='fixed'&&l.price!==null&&l.price!==undefined&&l.price!=='')it.fixedPrice=+l.price;
+    if(l.src==='comp'&&l.comp){it.itemCode='U:'+c.id+':'+i;matRefMap[it.itemCode]={name:'',unit:l.unit||'',commodityCode:'',compRef:l.comp};}
+    return it;
+  });
+  return {comp,items};
+}
+function cuMerge(list){
+  cuComps=(list||[]).slice().sort((a,b)=>(+String(a.id).slice(2)||0)-(+String(b.id).slice(2)||0));
+  for(let i=compList.length-1;i>=0;i--)if(compList[i].custom)compList.splice(i,1);
+  for(let i=compItems.length-1;i>=0;i--)if(/^U-/.test(String(compItems[i].compId)))compItems.splice(i,1);
+  Object.keys(matRefMap).forEach(k=>{if(k.startsWith('U:'))delete matRefMap[k];});
+  cuComps.forEach(c=>{const x=cuToItems(c);compList.push(x.comp);x.items.forEach(it=>compItems.push(it));});
+  PDB.compList=compList;PDB.compItems=compItems;PDB.matRef=matRefMap;
+}
+async function cuLoad(){
+  try{if(Survey.remote())cuMerge(await Survey.compList());}catch(e){console.warn('โหลดวัสดุมวลรวมที่สร้างเองไม่สำเร็จ',e);}
+  cuRefreshUI();
+}
+function cuRefreshUI(){
+  if(!compLoaded)return;
+  const cat=document.getElementById('cp-cat'),it=document.getElementById('cp-item'),cv=cat&&cat.value,iv=it&&it.value;
+  buildCompDropdowns();
+  if(cat&&cv){cat.value=cv;cpOnCatChange();if(iv&&compList.some(x=>x.id===iv)){it.value=iv;}}
+  if(typeof currentCalcId!=='undefined'&&currentCalcId&&compList.some(x=>x.id===currentCalcId))renderCalc(currentCalcId);
+  else if(typeof currentCalcId!=='undefined'&&currentCalcId&&/^U-/.test(currentCalcId))document.getElementById('cp-calc-area').innerHTML='';
+  cuBar();
+  try{if(document.getElementById('page-boq')&&document.getElementById('page-boq').classList.contains('active')&&typeof boqRender==='function')boqRender();}catch(e){}
+}
+function cuBar(){
+  const el=document.getElementById('cu-bar');if(!el)return;
+  const ok=cuCanWrite();
+  el.innerHTML=`<button class="btn btn-ghost" type="button" style="padding:5px 12px;font-size:12px" ${ok?'':'disabled'} onclick="cuOpen()">+ สร้างวัสดุมวลรวมเอง</button>`
+    +`<span>${cuComps.length?'มีวัสดุมวลรวมที่ทีมสร้างเอง '+cuComps.length+' รายการ (หมวด 12 งานอื่นๆ รหัสขึ้นต้น U-)':'สร้างวัสดุมวลรวมเองได้ จะอยู่หมวด 12 งานอื่นๆ และใช้ร่วมกันทั้งทีม'}${ok?'':' — ต้องเข้าสู่ระบบด้วยบัญชีที่ผู้ดูแลอนุมัติแล้ว'}</span>`;
+}
+function cuCalcBar(compId){
+  const c=compList.find(x=>x.id===compId),area=document.getElementById('cp-calc-area');if(!c||!area)return;
+  const w=cuCanWrite(),d=document.createElement('div');
+  d.style.cssText='display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:0 0 10px;font-size:12px;color:var(--text2)';
+  const b=(t,fn,extra)=>`<button class="btn btn-ghost" type="button" style="padding:4px 10px;font-size:12px;${extra||''}" ${w?'':'disabled'} onclick="${fn}">${t}</button>`;
+  d.innerHTML=c.custom
+    ?`<span><b style="color:var(--text)">${esc(c.id)}</b> สร้างเองโดยทีม${c.by?' · แก้ไขล่าสุดโดย '+esc(String(c.by).replace(/\s*<[^>]*>$/,'')):''}${c.updated?' · '+esc(String(c.updated).slice(0,10)):''}</span>`
+      +b('แก้ไข',`cuOpen('${esc(c.id)}')`)+b('คัดลอกเป็นรายการใหม่',`cuOpen(null,'${esc(c.id)}')`)
+      +(cuCanDel()?`<button class="btn btn-ghost" type="button" style="padding:4px 10px;font-size:12px;color:var(--red)" onclick="cuDel('${esc(c.id)}')">ลบ</button>`:'')
+    :`<span>ต้องการปรับปริมาณหรือที่มาราคา?</span>`+b('คัดลอกไปสร้างเป็นวัสดุมวลรวมเอง',`cuOpen(null,'${esc(c.id)}')`);
+  area.insertBefore(d,area.firstChild);
+}
+/* บรรทัดจากมวลรวมที่มีอยู่ (มาตรฐานหรือสร้างเอง) → รูปแบบของตัวแก้ไข */
+function cuLinesFrom(compId){
+  const cc=cuComps.find(x=>x.id===compId);if(cc)return JSON.parse(JSON.stringify(cc.lines||[]));
+  return compItems.filter(d=>d.compId===compId).map(it=>{
+    const l={name:it.itemName||'',qty:it.qty,unit:it.unit||'',src:'none'};
+    if(it.fixedPrice!==null&&it.fixedPrice!==undefined){l.src='fixed';l.price=it.fixedPrice;return l;}
+    const sc=resolveCompRef(it);if(sc){l.src='comp';l.comp=sc.sub||sc.id;return l;}
+    const codes=PDB.itemCodes(it);if(codes.length){l.src='mat';l.code=codes.join(',');}
+    return l;
+  });
+}
+function cuOpen(id,fromId){
+  if(!cuCanWrite()){alert('ต้องเข้าสู่ระบบด้วยบัญชีที่ผู้ดูแลอนุมัติแล้ว จึงสร้างหรือแก้ไขวัสดุมวลรวมได้');return;}
+  const cur=id?cuComps.find(x=>x.id===id):null,src=fromId?compList.find(x=>x.id===fromId):null;
+  cu.ed=cur?{id:cur.id,base:cur.updated,name:cur.name,unit:cur.unit,lines:JSON.parse(JSON.stringify(cur.lines||[]))}
+    :{id:null,base:'',name:src?src.name+' (ปรับปรุง)':'',unit:src?src.unit:'',lines:src?cuLinesFrom(src.id):[{name:'',qty:'',unit:'',src:'mat'}]};
+  document.getElementById('cu-title').textContent=cur?'แก้ไขวัสดุมวลรวม '+cur.id:(src?'สร้างวัสดุมวลรวมเอง (คัดลอกจาก '+(src.sub||src.id)+')':'สร้างวัสดุมวลรวมเอง');
+  document.getElementById('cu-err').textContent='';
+  document.getElementById('cu-modal').style.display='flex';
+  cuRender();
+}
+function cuClose(){document.getElementById('cu-modal').style.display='none';cu.ed=null;}
+/* ราคาตัวอย่างระหว่างแก้ไข: ใส่เป็นมวลรวมชั่วคราวแล้วคิดด้วยตัวคำนวณจริง */
+function cuPreview(){
+  const e=cu.ed,tid='U-PREVIEW';
+  const x=cuToItems({id:tid,name:e.name,unit:e.unit,lines:e.lines});
+  compList.push(x.comp);x.items.forEach(it=>compItems.push(it));
+  let r=null;try{r=PDB.compPrice(tid,{partial:true});}catch(err){}
+  for(let i=compList.length-1;i>=0;i--)if(compList[i].id===tid)compList.splice(i,1);
+  for(let i=compItems.length-1;i>=0;i--)if(compItems[i].compId===tid)compItems.splice(i,1);
+  Object.keys(matRefMap).forEach(k=>{if(k.startsWith('U:'+tid+':'))delete matRefMap[k];});
+  return r;
+}
+function cuRender(){
+  const e=cu.ed;if(!e)return;const pv=cuPreview(),L=(pv&&pv.lines)||[];
+  const compOpts=v=>'<option value="">— เลือก —</option>'+compList.filter(c=>c.id!==e.id).map(c=>`<option value="${esc(c.sub||c.id)}"${(c.sub||c.id)===v?' selected':''}>${esc((c.sub||c.id)+' '+c.name)} (${esc(c.unit)})</option>`).join('');
+  const rows=e.lines.map((l,i)=>{
+    const ln=L[i]||{},src=l.src||'none';
+    let val='';
+    if(src==='mat'){const d=(typeof allData!=='undefined'?allData:[]).find(x=>String(l.code||'').split(',')[0].trim()===x.code);
+      val=`<input class="bq-in" data-cu="code" data-i="${i}" value="${esc(l.code||'')}" placeholder="พิมพ์ชื่อหรือรหัสเพื่อค้นหา" autocomplete="off" style="width:100%">`
+        +(d?`<div style="font-size:11px;color:var(--text3);margin-top:2px">${esc(d.name)} · ${bqF2(d.price)} บาท/${esc(d.unit)}</div>`:'')
+        +`<div data-cures="${i}"></div>`;}
+    else if(src==='fixed')val=`<input class="bq-in n" type="number" step="any" min="0" data-cu="price" data-i="${i}" value="${esc(l.price??'')}" placeholder="บาท/${esc(l.unit||'หน่วย')}" style="width:120px">`;
+    else if(src==='comp')val=`<select class="bq-in" data-cu="comp" data-i="${i}" style="width:100%">${compOpts(l.comp||'')}</select>`;
+    else val='<span style="color:var(--text3);font-size:12px">เลือกราคาพาณิชย์ ราคาสืบ หรือมวลรวมอื่น ตอนใช้ใน BOQ</span>';
+    const pr=ln.unitPrice!==null&&ln.unitPrice!==undefined?bqF2(ln.unitPrice):'—',am=ln.amount!==null&&ln.amount!==undefined?bqF2(ln.amount):'—';
+    const warn=(ln.warnings||[]).includes('unit_conversion_failed')?'<div class="bq-warn" style="font-size:11px">แปลงหน่วยราคาพาณิชย์เป็น '+esc(l.unit)+' ไม่ได้</div>':((ln.warnings||[]).includes('sub_comp_unit_mismatch')?'<div class="bq-warn" style="font-size:11px">หน่วยมวลรวมไม่ตรง</div>':'');
+    return `<tr>
+      <td style="color:var(--text3)">${i+1}</td>
+      <td><input class="bq-in" data-cu="name" data-i="${i}" value="${esc(l.name||'')}" placeholder="ชื่อวัสดุ" style="width:100%"></td>
+      <td><input class="bq-in n" type="number" step="any" min="0" data-cu="qty" data-i="${i}" value="${esc(l.qty??'')}" placeholder="?" style="width:80px"></td>
+      <td><input class="bq-in" data-cu="unit" data-i="${i}" value="${esc(l.unit||'')}" placeholder="หน่วย" style="width:70px"></td>
+      <td><select class="bq-in" data-cu="src" data-i="${i}">${Object.entries(CU_SRC).map(([k,v])=>`<option value="${k}"${k===src?' selected':''}>${v}</option>`).join('')}</select></td>
+      <td style="min-width:220px">${val}${warn}</td>
+      <td class="r mono" style="white-space:nowrap">${pr}</td><td class="r mono" style="white-space:nowrap">${am}</td>
+      <td><span class="bq-lnk" style="color:var(--red)" data-cudel="${i}" title="ลบบรรทัด">×</span></td></tr>`;
+  }).join('');
+  const tot=pv&&pv.raw!==null&&pv.raw!==undefined?bqF2(pv.raw):'—',miss=pv?pv.missing.length:0;
+  document.getElementById('cu-body').innerHTML=`
+    <div style="display:grid;grid-template-columns:2fr 1fr 1.2fr;gap:10px;margin-bottom:12px">
+      <label style="font-size:12px;color:var(--text2)">ชื่อวัสดุมวลรวม<input class="bq-in" data-cuh="name" value="${esc(e.name)}" style="width:100%;margin-top:3px"></label>
+      <label style="font-size:12px;color:var(--text2)">หน่วย (ราคาต่อ 1 หน่วยนี้)<input class="bq-in" data-cuh="unit" value="${esc(e.unit)}" placeholder="เช่น ตร.ม." style="width:100%;margin-top:3px"></label>
+      <div style="font-size:12px;color:var(--text2)">หมวด<div style="margin-top:7px;color:var(--text)">${esc(COMP_GROUPS['12'])}</div></div>
+    </div>
+    <table class="cp-detail-tbl" style="width:100%"><thead><tr><th>#</th><th>วัสดุ</th><th>ปริมาณต่อ 1 ${esc(e.unit||'หน่วย')}</th><th>หน่วย</th><th>ที่มาราคา</th><th>รหัส / ราคา / มวลรวม</th><th class="r">ราคาต่อหน่วย</th><th class="r">จำนวนเงิน</th><th></th></tr></thead>
+    <tbody>${rows}</tbody>
+    <tfoot><tr><td colspan="7" style="text-align:right">รวมต่อ 1 ${esc(e.unit||'หน่วย')}${miss?' <span class="bq-warn">(ยังคิดไม่ครบ '+miss+' บรรทัด — ขาดราคาหรือปริมาณ)</span>':''}</td><td class="r mono"><b>${tot}</b></td><td></td></tr></tfoot></table>
+    <div style="margin-top:8px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+      <span class="bq-lnk" onclick="cuAddLine()">+ เพิ่มบรรทัดวัสดุ</span>
+      <span style="font-size:12px;color:var(--text3)">คัดลอกบรรทัดจากมวลรวมอื่นมาต่อท้าย:</span>
+      <select class="bq-in" id="cu-copy" style="max-width:360px"><option value="">— เลือกมวลรวม —</option>${compList.filter(c=>c.id!==e.id).map(c=>`<option value="${esc(c.id)}">${esc((c.sub||c.id)+' '+c.name)}</option>`).join('')}</select>
+      <span class="bq-lnk" onclick="cuCopyLines()">คัดลอก</span>
+    </div>
+    <div style="font-size:11px;color:var(--text3);margin-top:8px">ราคาพาณิชย์ปรับตามเดือนเอง · บรรทัดที่ "เลือกตอนใช้ใน BOQ" หรือยังไม่มีปริมาณ ใช้ใน BOQ ได้ ระบบจะให้เลือกราคา/กรอกปริมาณตอนนั้น · บันทึกแล้วทุกโครงการที่ใช้มวลรวมนี้จะเปลี่ยนตาม</div>`;
+}
+function cuAddLine(){cu.ed.lines.push({name:'',qty:'',unit:'',src:'mat'});cuRender();}
+function cuCopyLines(){const v=document.getElementById('cu-copy').value;if(!v)return;cu.ed.lines=cu.ed.lines.filter(l=>l.name||l.code||l.price||l.comp).concat(cuLinesFrom(v));cuRender();}
+document.addEventListener('DOMContentLoaded',()=>{
+  const body=document.getElementById('cu-body');if(!body)return;
+  body.addEventListener('input',ev=>{
+    const t=ev.target,e=cu.ed;if(!e)return;
+    if(t.dataset.cuh){e[t.dataset.cuh]=t.value;return;}
+    const f=t.dataset.cu,i=+t.dataset.i;if(!f||!e.lines[i])return;
+    const l=e.lines[i];
+    if(f==='qty'||f==='price')l[f]=t.value===''?'':+t.value;else l[f]=t.value;
+    if(f==='code'){
+      const q=t.value.trim(),box=body.querySelector('[data-cures="'+i+'"]');if(!box)return;
+      if(q.length<2||/^[0-9,\s]+$/.test(q)){box.innerHTML='';return;}
+      const res=smFilter(typeof allData!=='undefined'?allData:[],q,d=>[{text:d.name,weight:8},{text:d.code,weight:4}],8);
+      box.innerHTML=res.length?'<div class="sl-card" style="margin-top:4px">'+res.map(d=>`<div class="sl-row" data-cupick="${i}" data-code="${esc(d.code)}" data-unit="${esc(d.unit)}"><div style="flex:1"><div class="sl-name" style="font-size:12px">${esc(d.name)}</div><div class="sl-meta">${esc(d.code)} · ${bqF2(d.price)} บาท/${esc(d.unit)}</div></div></div>`).join('')+'</div>':'<div style="font-size:11px;color:var(--text3)">ไม่พบ</div>';
+    }
+  });
+  body.addEventListener('change',ev=>{const t=ev.target;if(t.dataset.cuh==='unit'||(t.dataset.cu&&t.dataset.cu!=='code'&&t.dataset.cu!=='name'))cuRender();else if(t.dataset.cu==='code'&&/^[0-9,\s]+$/.test(t.value.trim()))cuRender();});
+  body.addEventListener('click',ev=>{
+    const pk=ev.target.closest('[data-cupick]');
+    if(pk){const l=cu.ed.lines[+pk.dataset.cupick];l.code=pk.dataset.code;if(!l.unit)l.unit=pk.dataset.unit;if(!l.name){const d=allData.find(x=>x.code===pk.dataset.code);if(d)l.name=d.name.slice(0,80);}cuRender();return;}
+    const dl=ev.target.closest('[data-cudel]');if(dl){cu.ed.lines.splice(+dl.dataset.cudel,1);if(!cu.ed.lines.length)cu.ed.lines.push({name:'',qty:'',unit:'',src:'mat'});cuRender();}
+  });
+});
+async function cuSave(){
+  const e=cu.ed,err=document.getElementById('cu-err');if(!e)return;err.textContent='';
+  const lines=e.lines.filter(l=>String(l.name||'').trim()).map(l=>{const o={name:String(l.name).trim(),qty:l.qty===''?null:l.qty,unit:String(l.unit||'').trim(),src:l.src||'none'};
+    if(o.src==='mat')o.code=String(l.code||'').trim();if(o.src==='fixed')o.price=l.price===''?null:l.price;if(o.src==='comp')o.comp=l.comp||'';return o;});
+  if(!String(e.name).trim()||!String(e.unit).trim()){err.textContent='ต้องใส่ชื่อและหน่วยของวัสดุมวลรวม';return;}
+  if(!lines.length){err.textContent='ต้องมีรายการวัสดุอย่างน้อย 1 บรรทัด';return;}
+  const btn=document.getElementById('cu-save');btn.disabled=true;btn.textContent='กำลังบันทึก...';
+  try{
+    const c=await Survey.compPut(e.id,{name:String(e.name).trim(),unit:String(e.unit).trim(),lines,base:e.base});
+    const i=cuComps.findIndex(x=>x.id===c.id);if(i>=0)cuComps[i]=c;else cuComps.push(c);
+    cuMerge(cuComps);cuClose();
+    const cat=document.getElementById('cp-cat');buildCompDropdowns();if(cat){cat.value='12';cpOnCatChange();const it=document.getElementById('cp-item');it.value=c.id;}
+    renderCalc(c.id);cuBar();
+    try{if(document.getElementById('page-boq').classList.contains('active'))boqRender();}catch(x){}
+  }catch(x){err.textContent='บันทึกไม่สำเร็จ: '+(x&&x.message||x);}
+  finally{btn.disabled=false;btn.textContent='บันทึกเข้าคลังกลาง';}
+}
+async function cuDel(id){
+  if(!confirm('ลบวัสดุมวลรวม '+id+' ออกจากคลังกลางใช่หรือไม่\nโครงการที่ใช้อยู่จะคิดราคารายการนี้ไม่ได้ (กู้คืนได้จากชีต comps_deleted)'))return;
+  try{await Survey.compDel(id);cuMerge(cuComps.filter(x=>x.id!==id));document.getElementById('cp-calc-area').innerHTML='';cuRefreshUI();}
+  catch(x){alert('ลบไม่สำเร็จ: '+(x&&x.message||x));}
+}
+
 /* ===== ภาพหลักฐาน: เลขภาพใช้ร่วมกันทุกรายงาน =====
  * เรียงรายการตามชื่อ → รายตามลำดับในรายงาน → ภาพตามลำดับที่แนบ แล้วนับ "ภาพที่ 1, 2, ..."
  * รายงานราคา (PDF/Excel/ชีทที่มาของราคา) อ้างเลขภาพ · รายงานภาพหลักฐานแสดงภาพขนาดใหญ่ตามเลขเดียวกัน */
@@ -3764,6 +3950,7 @@ let authUid='',cloudKey='';
 function authRender(st){
   if(st){authSt=st;const nu=(st.user&&st.user.uid)||'';if(st.ready&&nu!==authUid){const first=authUid==='';authUid=nu;if((!first||nu)&&typeof sv!=='undefined'&&sv.loaded&&typeof svLoad==='function')svLoad(true);}
     if(st.ready&&!nu&&typeof sv!=='undefined'&&sv.loaded&&sv.mode==='noteam'&&typeof svLoad==='function')svLoad(true);}
+  if(st&&typeof cuBar==='function'){try{cuBar();if(compLoaded&&typeof currentCalcId!=='undefined'&&currentCalcId)renderCalc(currentCalcId);}catch(e){}}
   if(st){const ck=cloudOn()?authUid:'';if(ck!==cloudKey){cloudKey=ck;if(ck)cloudSync(false);}}
   const b=document.getElementById('auth-btn'),m=document.getElementById('auth-menu');if(!b)return;
   const u=authSt.user;
@@ -3924,6 +4111,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   if(window.UDAuth)hook();else window.addEventListener('udauth-loaded',hook,{once:true});
 });
 const APP_CHANGELOG=[
+  ['1.20.0','2026-11-12',['วัสดุมวลรวมที่สร้างเอง: สร้าง แก้ไข คัดลอกจากมวลรวมที่มีอยู่ (เช่นเติมปริมาณที่ขาด) อยู่หมวด 12 งานอื่นๆ รหัส U-1, U-2, ... ใช้ร่วมกันทั้งทีมผ่านคลังกลาง (สร้าง/แก้ไขได้เฉพาะบัญชีที่อนุมัติ ลบได้เฉพาะผู้ดูแลระบบ) · แต่ละบรรทัดเลือกที่มาราคาได้: ราคาพาณิชย์ (ค้นหาชื่อ/รหัส) ราคาคงที่ มวลรวมอื่น หรือเลือกตอนใช้ใน BOQ · มีราคาตัวอย่างระหว่างแก้ไข · ใช้ได้ทุกที่เหมือนมวลรวมมาตรฐาน และแก้แล้วทุกโครงการเปลี่ยนตาม']],
   ['1.19.0','2026-11-12',['BOQ วัสดุมวลรวม: บรรทัดที่ข้อมูลไม่ระบุปริมาณ (× ?) มีช่องกรอกปริมาณเอง (ใช้เฉพาะโครงการนั้น) · สถานะแยก "ยังไม่มีราคา" กับ "ยังไม่มีปริมาณ" ให้ตรงสาเหตุ (เดิมนับรวมเป็นขาดราคา)']],
   ['1.18.0','2026-11-11',['ภาพหลักฐานแยกเป็นรายงานของตัวเอง: "พิมพ์ภาพหลักฐาน (PDF)" ในหน้าราคาสืบ (ใช้การเลือกรายการเดียวกัน) และในหน้าต่างส่งออกของ BOQ — ภาพขนาดใหญ่ หน้าละ 2 ภาพ พร้อมคำบรรยาย โหลดครบก่อนพิมพ์ และแจ้งภาพที่โหลดไม่ได้พร้อมสาเหตุ · รายงานราคาทุกแบบ (PDF, Excel, ชีทที่มาของราคา) เลิกใส่ภาพย่อ เปลี่ยนเป็นเลขอ้างอิง "ภาพที่ N" ที่ตรงกับรายงานภาพหลักฐาน']],
   ['1.17.1','2026-11-11',['แก้ไฟล์ Excel ราคาสืบ/สรุปโครงการที่มีภาพหลักฐาน: Excel ฟ้องซ่อมแซมไฟล์และทิ้งภาพ (ขาดค่าความสูงแถวมาตรฐานในชีต)']],
@@ -4010,6 +4198,17 @@ svBind();
     </div>
     <div id="auadm-sum" style="padding:8px 16px;font-size:12px;color:var(--text2)"></div>
     <div id="auadm-body" style="padding:0 16px 14px;overflow:auto;max-height:60vh"></div>
+  </div>
+</div>
+<div class="modal-overlay" id="cu-modal" style="display:none">
+  <div class="modal-box" style="max-width:1040px;width:96vw">
+    <div class="modal-hd"><div class="modal-title" id="cu-title">สร้างวัสดุมวลรวมเอง</div><span class="modal-close" onclick="cuClose()">×</span></div>
+    <div id="cu-body" style="padding:14px 16px;overflow:auto;max-height:72vh"></div>
+    <div style="padding:10px 16px;border-top:1px solid var(--border);display:flex;gap:8px;align-items:center">
+      <span id="cu-err" style="color:var(--red);flex:1;font-size:12px"></span>
+      <button class="btn btn-ghost" type="button" onclick="cuClose()">ยกเลิก</button>
+      <button class="btn btn-green" type="button" id="cu-save" onclick="cuSave()">บันทึกเข้าคลังกลาง</button>
+    </div>
   </div>
 </div>
 <div class="modal-overlay" id="ver-modal" style="display:none">

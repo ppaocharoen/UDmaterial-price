@@ -29,6 +29,9 @@ const HEAD = ['key', 'name', 'unit', 'quotes', 'reason', 'updated', 'project', '
 const IMG_MAX = 2.8e6, IMG_PER_PUT = 10, IMG_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 const FAIL_MAX = 20, FAIL_WIN = 600;   // เดาผิดได้ 20 ครั้ง / 10 นาที
 const FB_KEY = 'AIzaSyBCu-4j-j0CUzeghcifinApGAjdZoYBgAI', FB_PROJECT = 'ud-cost-hub-88a5a';   // ค่าสาธารณะของโปรเจกต์ Firebase (ความปลอดภัยอยู่ที่การตรวจ token + กฎ Firestore)
+/** วัสดุมวลรวมที่ผู้ใช้สร้างเอง (ใช้ร่วมกันทั้งทีม) — ชีต comps · ลบแล้วย้ายไป comps_deleted */
+const COMPS = 'comps', COMPS_TRASH = 'comps_deleted', CHEAD = ['id', 'name', 'unit', 'group', 'lines', 'updated', 'by', 'created'];
+const CLINES_MAX = 60;
 const LOG = 'log', USER_TTL = 120;   // ผลตรวจผู้ใช้เก็บในแคช 2 นาที (อนุมัติ/ถอนสิทธิ์มีผลภายใน 2 นาที)
 
 function props_() { return PropertiesService.getScriptProperties(); }
@@ -38,6 +41,7 @@ function ss_() {
 }
 function tab_(name) {
   const ss = ss_(); let sh = ss.getSheetByName(name);
+  if (!sh && (name === COMPS || name === COMPS_TRASH)) { sh = ss.insertSheet(name); sh.appendRow(name === COMPS_TRASH ? CHEAD.concat(['deleted_at']) : CHEAD); sh.setFrozenRows(1); sh.getRange('A:I').setNumberFormat('@'); return sh; }
   if (!sh) { sh = ss.insertSheet(name); sh.appendRow(name === TRASH ? HEAD.concat(['deleted_at']) : HEAD); sh.setFrozenRows(1); sh.getRange('A:L').setNumberFormat('@'); }
   else if (name === SHEET && sh.getLastColumn() < HEAD.length) { sh.getRange(1, 1, 1, HEAD.length).setValues([HEAD]); sh.getRange('A:K').setNumberFormat('@'); }   // เพิ่มคอลัมน์ใหม่ให้ชีตเดิม
   return sh;
@@ -131,6 +135,26 @@ function log_(act, key, who) {
 
 function doGet() { return out_({ ok: true, app: 'ud-survey-lib', note: 'ใช้ POST (รหัสทีม หรือ token ล็อกอิน)' }); }
 
+function crows_(sh) {
+  const v = (sh || tab_(COMPS)).getDataRange().getValues(); v.shift();
+  const un = s => String(s).replace(/^'/, '');
+  return v.map((r, i) => ({ row: i + 2, r })).filter(x => x.r[0]).map(({ row, r }) => ({ row, id: un(r[0]), name: un(r[1]), unit: un(r[2]), group: un(r[3]) || '12', lines: JSON.parse(r[4] || '[]'), updated: un(r[5]), by: un(r[6]), created: un(r[7]) }));
+}
+/** ตรวจ/ทำความสะอาดบรรทัดวัสดุของมวลรวม: {name, qty, unit, src: mat|fixed|comp|none, code, price, comp} */
+function clines_(a) {
+  if (!Array.isArray(a) || !a.length) throw new Error('ต้องมีรายการวัสดุอย่างน้อย 1 บรรทัด');
+  if (a.length > CLINES_MAX) throw new Error('รายการวัสดุเกิน ' + CLINES_MAX + ' บรรทัด');
+  const num = v => (v === '' || v === null || v === undefined || !isFinite(+v)) ? null : +v;
+  return a.map(l => {
+    const src = ['mat', 'fixed', 'comp', 'none'].indexOf(l && l.src) >= 0 ? l.src : 'none';
+    const o = { name: String(l.name || '').slice(0, 200), qty: num(l.qty), unit: String(l.unit || '').slice(0, 40), src };
+    if (!o.name) throw new Error('บรรทัดวัสดุต้องมีชื่อ');
+    if (src === 'mat') o.code = String(l.code || '').replace(/[^0-9A-Za-z,\s-]/g, '').slice(0, 80);
+    if (src === 'fixed') o.price = num(l.price);
+    if (src === 'comp') o.comp = String(l.comp || '').slice(0, 40);
+    return o;
+  });
+}
 function doPost(e) {
   let b;
   try { b = JSON.parse(e.postData.contents); } catch (err) { return out_({ ok: false, error: 'คำขอไม่ถูกต้อง' }); }
@@ -141,10 +165,11 @@ function doPost(e) {
     if (!u) return out_({ ok: false, error: 'การล็อกอินหมดอายุหรือไม่ถูกต้อง กรุณาเข้าสู่ระบบใหม่', auth: true });
     ctx = { kind: 'user', user: u, who: by_(u) };
   }
-  const isWrite = ['put', 'del', 'alias'].indexOf(b.action) >= 0;
-  if (ctx.kind === 'anon' && b.action !== 'list' && b.action !== 'whoami') return out_({ ok: false, error: 'ต้องเข้าสู่ระบบก่อน', auth: true });
+  const isWrite = ['put', 'del', 'alias', 'cput', 'cdel'].indexOf(b.action) >= 0;
+  if (ctx.kind === 'anon' && ['list', 'whoami', 'clist'].indexOf(b.action) < 0) return out_({ ok: false, error: 'ต้องเข้าสู่ระบบก่อน', auth: true });
   if (ctx.kind === 'user' && isWrite) {
-    if (b.action === 'del' ? !canDel_(ctx.user) : !canWrite_(ctx.user)) return out_({ ok: false, error: b.action === 'del' ? 'เฉพาะผู้ดูแลระบบที่ลบรายการได้' : 'บัญชีนี้ยังไม่ได้รับอนุมัติให้แก้ไขคลังกลาง กรุณาติดต่อผู้ดูแลระบบ', auth: true, status: ctx.user.status });
+    const isDel = b.action === 'del' || b.action === 'cdel';
+    if (isDel ? !canDel_(ctx.user) : !canWrite_(ctx.user)) return out_({ ok: false, error: isDel ? 'เฉพาะผู้ดูแลระบบที่ลบรายการได้' : 'บัญชีนี้ยังไม่ได้รับอนุมัติให้แก้ไขคลังกลาง กรุณาติดต่อผู้ดูแลระบบ', auth: true, status: ctx.user.status });
   }
   try {
     if (b.action === 'whoami') return out_({ ok: true, kind: ctx.kind, user: ctx.user ? { email: ctx.user.email, name: ctx.user.name, status: ctx.user.status, role: ctx.user.role } : null });
@@ -157,6 +182,29 @@ function doPost(e) {
       let inLib = false; const ps = f.getParents(); while (ps.hasNext()) if (ps.next().getId() === fid) inLib = true;
       if (!inLib) return out_({ ok: false, error: 'ไม่ใช่ภาพในคลัง' });
       return out_({ ok: true, data: 'data:' + f.getMimeType() + ';base64,' + Utilities.base64Encode(f.getBlob().getBytes()) });
+    }
+    if (b.action === 'clist') return out_({ ok: true, comps: crows_().map(x => { delete x.row; return x; }) });
+    if (b.action === 'cput' || b.action === 'cdel') {
+      const lock = LockService.getScriptLock(); lock.waitLock(20000);
+      try {
+        const sh = tab_(COMPS), all = crows_(sh), cur = b.id ? all.find(x => x.id === b.id) : null;
+        if (b.action === 'cdel') {
+          if (cur) { const r = sh.getRange(cur.row, 1, 1, CHEAD.length).getValues()[0]; tab_(COMPS_TRASH).appendRow(r.concat([new Date().toISOString()])); sh.deleteRow(cur.row); }
+          log_('cdel', b.id, ctx.who); return out_({ ok: true });
+        }
+        const c = b.comp || {};
+        if (b.id && !cur) return out_({ ok: false, error: 'ไม่พบวัสดุมวลรวม ' + b.id + ' (อาจถูกลบไปแล้ว)' });
+        if (cur && cur.updated && c.base && String(cur.updated) !== String(c.base)) return out_({ ok: false, error: 'มีผู้แก้ไขวัสดุมวลรวมนี้หลังจากที่คุณเปิด กรุณาโหลดใหม่แล้วแก้อีกครั้ง', comp: cur });
+        const name = String(c.name || '').trim().slice(0, 300), unit = String(c.unit || '').trim().slice(0, 40);
+        if (!name || !unit) return out_({ ok: false, error: 'ต้องมีชื่อและหน่วย' });
+        const lines = clines_(c.lines);
+        const id = cur ? cur.id : 'U-' + (all.concat(crows_(tab_(COMPS_TRASH))).reduce((m, x) => Math.max(m, +(String(x.id).match(/^U-(\d+)$/) || [0, 0])[1]), 0) + 1);   // ไม่ใช้รหัสของรายการที่ลบไปแล้วซ้ำ (โครงการเดิมอาจอ้างอยู่)
+        const now = new Date().toISOString();
+        const row = [txt_(id), txt_(name), txt_(unit), '12', JSON.stringify(lines), now, txt_(ctx.who || ''), cur ? txt_(cur.created) : now];
+        if (cur) sh.getRange(cur.row, 1, 1, row.length).setValues([row]); else sh.appendRow(row);
+        log_(cur ? 'cedit' : 'cadd', id, ctx.who);
+        return out_({ ok: true, comp: { id, name, unit, group: '12', lines, updated: now, by: ctx.who || '', created: cur ? cur.created : now } });
+      } finally { lock.releaseLock(); }
     }
     if (['put', 'del', 'alias'].indexOf(b.action) < 0) return out_({ ok: false, error: 'unknown action' });
     const lock = LockService.getScriptLock(); lock.waitLock(20000);
