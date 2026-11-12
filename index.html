@@ -4111,6 +4111,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   if(window.UDAuth)hook();else window.addEventListener('udauth-loaded',hook,{once:true});
 });
 const APP_CHANGELOG=[
+  ['1.21.0','2026-11-12',['BOQ: เพิ่มประเภทงาน "ประมาณราคาจ้างซ่อมแซม" — ไม่ใช้ Factor F เลือกได้ว่าจะคิดภาษีมูลค่าเพิ่ม 7% หรือไม่ (ปัดเศษเหมือนประมาณราคา ไม่มี ปร.2/ปร.3) · Excel ตามแบบฟอร์มออก ปร.1, ปร.1 (ก) (คอลัมน์ภาษีมูลค่าเพิ่มแทน Factor F) และ ปร.4 (แบบสรุปประมาณราคาค่าซ่อมแซม)']],
   ['1.20.0','2026-11-12',['วัสดุมวลรวมที่สร้างเอง: สร้าง แก้ไข คัดลอกจากมวลรวมที่มีอยู่ (เช่นเติมปริมาณที่ขาด) อยู่หมวด 12 งานอื่นๆ รหัส U-1, U-2, ... ใช้ร่วมกันทั้งทีมผ่านคลังกลาง (สร้าง/แก้ไขได้เฉพาะบัญชีที่อนุมัติ ลบได้เฉพาะผู้ดูแลระบบ) · แต่ละบรรทัดเลือกที่มาราคาได้: ราคาพาณิชย์ (ค้นหาชื่อ/รหัส) ราคาคงที่ มวลรวมอื่น หรือเลือกตอนใช้ใน BOQ · มีราคาตัวอย่างระหว่างแก้ไข · ใช้ได้ทุกที่เหมือนมวลรวมมาตรฐาน และแก้แล้วทุกโครงการเปลี่ยนตาม']],
   ['1.19.0','2026-11-12',['BOQ วัสดุมวลรวม: บรรทัดที่ข้อมูลไม่ระบุปริมาณ (× ?) มีช่องกรอกปริมาณเอง (ใช้เฉพาะโครงการนั้น) · สถานะแยก "ยังไม่มีราคา" กับ "ยังไม่มีปริมาณ" ให้ตรงสาเหตุ (เดิมนับรวมเป็นขาดราคา)']],
   ['1.18.0','2026-11-11',['ภาพหลักฐานแยกเป็นรายงานของตัวเอง: "พิมพ์ภาพหลักฐาน (PDF)" ในหน้าราคาสืบ (ใช้การเลือกรายการเดียวกัน) และในหน้าต่างส่งออกของ BOQ — ภาพขนาดใหญ่ หน้าละ 2 ภาพ พร้อมคำบรรยาย โหลดครบก่อนพิมพ์ และแจ้งภาพที่โหลดไม่ได้พร้อมสาเหตุ · รายงานราคาทุกแบบ (PDF, Excel, ชีทที่มาของราคา) เลิกใส่ภาพย่อ เปลี่ยนเป็นเลขอ้างอิง "ภาพที่ N" ที่ตรงกับรายงานภาพหลักฐาน']],
@@ -4392,10 +4393,12 @@ function boqCompute(b){
   const secs=secCodes.map(c=>({c,n:(b.groups.find(g=>g.code===c)||{}).name||('หมวด '+c),
     cost:r2(pr.filter(r=>String(r.group_code).split('.')[0]===c).reduce((a,r)=>a+(r.total||0),0))}));
   const cost=r2(secs.reduce((a,s)=>a+s.cost,0));
-  const ff=cost>0?FactorF.compute(cost,{advance:+fc.advance||0,retention:+fc.retention||0,loanShare:(+fc.loanPct||0)/100}):{F:null,detail:[]};
-  secs.forEach(s=>{s.build=ff.F?r2(s.cost*ff.F):null;});
-  const build=ff.F?r2(secs.reduce((a,s)=>a+s.build,0)):null;
-  const est=(b.info.mode||'estimate')==='estimate';
+  /* งานจ้างซ่อมแซม: ไม่ใช้ Factor F — ค่าซ่อมแซม = ค่างานต้นทุน + ภาษีมูลค่าเพิ่ม 7% (ปัดรายหมวด) หรือไม่คิดภาษี */
+  const repair=b.info.mode==='repair',vat=repair&&b.info.vat!=='0';
+  const ff=repair?{F:null,detail:[]}:(cost>0?FactorF.compute(cost,{advance:+fc.advance||0,retention:+fc.retention||0,loanShare:(+fc.loanPct||0)/100}):{F:null,detail:[]});
+  secs.forEach(s=>{s.vat=repair&&vat?r2(s.cost*0.07):0;s.build=repair?(cost>0?r2(s.cost+s.vat):null):(ff.F?r2(s.cost*ff.F):null);});
+  const build=repair?(cost>0?r2(secs.reduce((a,s)=>a+s.build,0)):null):(ff.F?r2(secs.reduce((a,s)=>a+s.build,0)):null);
+  const est=b.info.mode!=='central';
   /* ปร.2 ครุภัณฑ์ (คูณจากค่าที่พิมพ์ 2 ตำแหน่ง, VAT 7% ปัดรายแถว) · ปร.3 ค่าใช้จ่ายพิเศษ */
   /* ราคาที่ผูกกับราคาสืบ: อัปเดตตามราคาสืบล่าสุดทุกครั้ง (เก็บสำเนาล่าสุดไว้ใน b.pr2/pr3 ด้วย เผื่อโหลดคลังไม่ได้) */
   (b.pr2||[]).forEach(x=>{
@@ -4409,12 +4412,12 @@ function boqCompute(b){
   const p2=(b.pr2||[]).map(boqPr2Row);
   const sum2=k=>r2(p2.reduce((a,c)=>a+c[k],0));
   const eq=sum2('eq'),eqV=sum2('eqVat'),ins=sum2('inst'),insV=sum2('instVat');
-  const eqTotal=r2(eq+eqV+ins+insV),sp=r2((b.pr3||[]).reduce((a,x)=>a+r2(+x.amount||0),0));
+  const eqTotal=repair?0:r2(eq+eqV+ins+insV),sp=repair?0:r2((b.pr3||[]).reduce((a,x)=>a+r2(+x.amount||0),0));   /* งานซ่อมแซมไม่มี ปร.2 / ปร.3 */
   const has=build!==null||eqTotal>0||sp>0;
   const grand=has?r2((build||0)+eqTotal+sp):null;
   const rt=+b.info.roundTo>0?+b.info.roundTo:1000;
   const pr4=grand===null?null:(est?Math.floor(grand/rt+1e-9)*rt:grand);
-  return {pr,byKey,secs,cost,ff,build,p2,eq,eqV,ins,insV,eqTotal,sp,grand,pr4,est,noPrice:pr.filter(r=>(r.warns||[]).some(w=>/ยังไม่มี(ราคา|ค่าวัสดุ|ค่าแรง)/.test(w))).length};
+  return {pr,byKey,secs,cost,ff,build,p2,eq,eqV,ins,insV,eqTotal,sp,grand,pr4,est,repair,vat,vatSum:r2(secs.reduce((a,s)=>a+(s.vat||0),0)),noPrice:pr.filter(r=>(r.warns||[]).some(w=>/ยังไม่มี(ราคา|ค่าวัสดุ|ค่าแรง)/.test(w))).length};
 }
 /* ---------- แสดงผล ---------- */
 function boqOpen(){
@@ -4429,11 +4432,12 @@ function boqRender(){
   const inp=(k,l,t)=>`<label>${l}<input class="bq-in" ${t?'type="'+t+'"':''} data-bi="${k}" value="${esc(i[k]||'')}"></label>`;
   let h=`<div class="bq-card"><div class="bq-grid">
       ${inp('name','โครงการงานก่อสร้าง')}${inp('location','สถานที่ก่อสร้าง')}${inp('agency','หน่วยงานเจ้าของโครงการ')}${inp('date','ประมาณราคาเมื่อวันที่','date')}${inp('drawing_no','แบบเลขที่')}${inp('estimator',i.mode==='central'?'ประธานกรรมการ':'ผู้ประมาณราคา (ชื่อที่พิมพ์ท้ายแบบ)')}${inp('estimatorPos',(i.mode==='central'?'ตำแหน่งประธานกรรมการ':'ตำแหน่งผู้ประมาณราคา')+' (ไม่บังคับ)')}${i.mode==='central'?Array.from({length:Math.max(2,(i.members||[]).length)},(_,k)=>`<label>กรรมการคนที่ ${k+1}${k>=2?' <span class="bq-lnk" style="color:var(--red)" onclick="boqDelMember(${k})">ลบ</span>':''}<input class="bq-in" data-bm="${k}" value="${esc((i.members||[])[k]||'')}"></label><label>ตำแหน่งกรรมการคนที่ ${k+1} (ไม่บังคับ)<input class="bq-in" data-bp="${k}" value="${esc((i.memberPos||[])[k]||'')}"></label>`).join('')+'<div style="display:flex;align-items:flex-end"><button class="btn btn-ghost" type="button" onclick="boqAddMember()">+ เพิ่มกรรมการ</button></div>':''}
-      <label>ประเภทงาน<select class="bq-in" data-bi="mode"><option value="estimate"${i.mode!=='central'?' selected':''}>ประมาณราคา (ปร.4 ปัดลง)</option><option value="central"${i.mode==='central'?' selected':''}>กำหนดราคากลาง</option></select></label>
+      <label>ประเภทงาน<select class="bq-in" data-bi="mode"><option value="estimate"${i.mode!=='central'&&i.mode!=='repair'?' selected':''}>ประมาณราคา (ปร.4 ปัดลง)</option><option value="central"${i.mode==='central'?' selected':''}>กำหนดราคากลาง</option><option value="repair"${i.mode==='repair'?' selected':''}>ประมาณราคาจ้างซ่อมแซม (ไม่ใช้ Factor F)</option></select></label>
       ${i.mode==='central'?'':`<label>ปร.4 ปัดลงที่หลัก<select class="bq-in" data-bi="roundTo">${[[10000,'หลักหมื่น'],[1000,'หลักพัน'],[100,'หลักร้อย'],[10,'หลักสิบ'],[1,'หลักหน่วย (ตัดสตางค์)']].map(([v,l])=>`<option value="${v}"${(+i.roundTo||1000)===v?' selected':''}>${l}</option>`).join('')}</select></label>`}
+      ${i.mode==='repair'?`<label>ภาษีมูลค่าเพิ่ม<select class="bq-in" data-bi="vat"><option value="1"${i.vat!=='0'?' selected':''}>คิดภาษีมูลค่าเพิ่ม 7%</option><option value="0"${i.vat==='0'?' selected':''}>ไม่คิดภาษีมูลค่าเพิ่ม</option></select></label>`:`
       <label>เงินล่วงหน้าจ่าย (%)<select class="bq-in" data-bf="advance">${[0,5,10,15].map(v=>`<option value="${v}"${+fc.advance===v?' selected':''}>${v}</option>`).join('')}</select></label>
       <label>เงินประกันผลงานหัก (%)<select class="bq-in" data-bf="retention">${[0,5,10].map(v=>`<option value="${v}"${+fc.retention===v?' selected':''}>${v}</option>`).join('')}</select></label>
-      <label>สัดส่วนเงินกู้ (%) <span style="font-size:10px">(0 = ไม่ใช้เงินกู้)</span><input class="bq-in n" type="number" min="0" max="100" step="any" data-bf="loanPct" value="${esc(fc.loanPct||0)}"></label>
+      <label>สัดส่วนเงินกู้ (%) <span style="font-size:10px">(0 = ไม่ใช้เงินกู้)</span><input class="bq-in n" type="number" min="0" max="100" step="any" data-bf="loanPct" value="${esc(fc.loanPct||0)}"></label>`}
     </div>${boqMeName()&&(i.estimator!==boqMeName()||(i.estimatorPos||'')!==boqMePos())?`<div style="margin-top:8px;font-size:12px;color:var(--text3)"><button class="btn btn-ghost" type="button" style="padding:3px 10px;font-size:12px" onclick="boqUseMe()">ใช้ชื่อและตำแหน่งของฉัน</button> ${esc(boqMeName())}${boqMePos()?' · '+esc(boqMePos()):''} (จากข้อมูลผู้ใช้ — แก้ไขช่องด้านบนเป็นชื่ออื่นได้)</div>`:''}</div>
     <div class="sv-bar"><button class="btn btn-green" type="button" onclick="boqAddGroup()">+ เพิ่มหมวด</button>
       <button class="btn btn-green" type="button" onclick="ioOpen()"><i class="ic ic-export"></i> นำเข้า / ส่งออก</button>
@@ -4456,7 +4460,7 @@ function boqRender(){
     });
     h+=`</tbody></table></div>`;
   }
-  h+=boqPr23Html(b);
+  if(b.info.mode!=='repair')h+=boqPr23Html(b);
   h+=`<div class="bq-card" style="margin-top:14px" id="bq-sumbox"></div>`;
   body.innerHTML=h;
   boqUpdateNumbers();
@@ -4614,7 +4618,17 @@ function boqSugHtml(r){
 function boqUpdateSummary(T){
   const box=bqEl('bq-sumbox');if(!box)return;
   const b=boqGet();
-  const rows=T.secs.map(s=>`<tr><td>${esc(s.c)} ${esc(s.n)}</td><td class="r">${bqF2(s.cost)}</td><td class="r">${s.build===null?'—':bqF2(s.build)}</td></tr>`).join('');
+  const rows=T.secs.map(s=>`<tr><td>${esc(s.c)} ${esc(s.n)}</td><td class="r">${bqF2(s.cost)}</td>${T.repair?`<td class="r">${T.vat?bqF2(s.vat):'-'}</td>`:''}<td class="r">${s.build===null?'—':bqF2(s.build)}</td></tr>`).join('');
+  if(T.repair){
+    box.innerHTML=`<div style="font-size:15px;font-weight:700;margin-bottom:8px">สรุปงานจ้างซ่อมแซม (ปร.1 → ปร.1(ก) → ปร.4)</div>
+    <table class="bq-sum"><thead><tr><td style="color:var(--text3);font-size:11px">หมวด</td><td class="r" style="color:var(--text3);font-size:11px">ค่างานต้นทุน (ปร.1)</td><td class="r" style="color:var(--text3);font-size:11px">ภาษีมูลค่าเพิ่ม ${T.vat?'7%':'(ไม่คิด)'}</td><td class="r" style="color:var(--text3);font-size:11px">ค่าซ่อมแซม (ปร.1 ก)</td></tr></thead><tbody>${rows||'<tr><td colspan="4" style="color:var(--text3)">ยังไม่มีรายการ</td></tr>'}
+    <tr class="t"><td>รวม</td><td class="r">${bqF2(T.cost)}</td><td class="r">${T.vat?bqF2(T.vatSum):'-'}</td><td class="r">${T.build===null?'—':bqF2(T.build)}</td></tr></tbody></table>
+    <div style="margin-top:12px">ประมาณราคาค่าซ่อมแซม (ปร.4) คิดเพียง: <span class="bq-big">${T.pr4===null?'—':bqF2(T.pr4)}</span> บาท
+      ${T.pr4===null?'':'<div style="font-size:12px;color:var(--text3);margin-top:3px">('+esc(BoqCalc.bahtText(T.pr4))+')</div>'}</div>
+    ${T.noPrice?`<div class="bq-warn" style="margin-top:8px;font-size:12px"><i class="ic ic-warn"></i> ยังมี ${T.noPrice} รายการที่ไม่มีราคา — ผูกราคาหรือกรอกเอง</div>`:''}
+    <div style="margin-top:12px"><button class="btn btn-green" type="button" onclick="boqExportXlsx()"><i class="ic ic-export"></i> ส่งออก Excel ตามแบบฟอร์ม (ปร.1 · ปร.1(ก) · ปร.4)</button></div>`;
+    return;
+  }
   box.innerHTML=`<div style="font-size:15px;font-weight:700;margin-bottom:8px">สรุป (ปร.1 → ปร.1(ก) → ปร.4)</div>
     <table class="bq-sum"><thead><tr><td style="color:var(--text3);font-size:11px">หมวด</td><td class="r" style="color:var(--text3);font-size:11px">ค่างานต้นทุน (ปร.1)</td><td class="r" style="color:var(--text3);font-size:11px">× Factor F = ค่าก่อสร้าง (ปร.1 ก)</td></tr></thead><tbody>${rows||'<tr><td colspan="3" style="color:var(--text3)">ยังไม่มีรายการ</td></tr>'}
     <tr class="t"><td>รวมค่างานต้นทุน</td><td class="r">${bqF2(T.cost)}</td><td class="r">${T.build===null?'—':bqF2(T.build)}</td></tr></tbody></table>
@@ -4661,7 +4675,7 @@ function boqBind(){
   });
   body.addEventListener('input',e=>{
     const b=boqGet();if(!b)return;const t=e.target;
-    if(t.dataset.bi){b.info[t.dataset.bi]=t.value;boqSaveSoon();if(t.dataset.bi==='mode'||t.dataset.bi==='roundTo')boqUpdateNumbers();if(t.dataset.bi==='mode')boqRender();return;}
+    if(t.dataset.bi){b.info[t.dataset.bi]=t.value;boqSaveSoon();if(t.dataset.bi==='mode'||t.dataset.bi==='roundTo'||t.dataset.bi==='vat')boqUpdateNumbers();if(t.dataset.bi==='mode')boqRender();return;}
     if(t.dataset.bf){b.factor[t.dataset.bf]=t.value===''?0:+t.value;boqSaveSoon();boqUpdateNumbers();return;}
     if(t.dataset.area){const tr=t.closest('tr[data-k]'),rw=tr&&b.rows.find(x=>x.key===tr.dataset.k);if(rw&&rw.lab){rw.lab.area=t.value===''?'':+t.value;boqSaveSoon();boqUpdateNumbers();const ct=tr.querySelector('[data-c="areat"]');if(ct)ct.textContent='';}return;}
     if(t.dataset.note){const tr=t.closest('tr[data-k]'),rw=tr&&b.rows.find(x=>x.key===tr.dataset.k),o=rw&&(t.dataset.note==='lab'?rw.lab:rw.mat);if(o){o.note=t.value;boqSaveSoon();}return;}
@@ -5330,7 +5344,7 @@ function projSyncFromBoq(){
   try{renderSelected();wRenderSelected();cpRenderSelected();}catch(e){}
 }
 function boqFormData(b,T){
-  const i=b.info,est=(i.mode||'estimate')==='estimate',top=c=>String(c).split('.')[0];
+  const i=b.info,est=i.mode!=='central',repair=i.mode==='repair',top=c=>String(c).split('.')[0];
   const rows=T.pr.filter(r=>String(r.name||'').trim());
   const secCodes=[...new Set(rows.map(r=>top(r.group_code)))].sort(boqCodeCmp);
   const gName=c=>(b.groups.find(g=>g.code===c)||{}).name||'';
@@ -5342,12 +5356,12 @@ function boqFormData(b,T){
   const fc=b.factor||{};
   const people=est?[{role:'ผู้ประมาณราคา',name:i.estimator||'',pos:(i.estimatorPos||'').trim()}]
     :[{role:'ประธานกรรมการ',name:i.estimator||'',pos:(i.estimatorPos||'').trim()}].concat(Array.from({length:Math.max(2,(i.members||[]).length)},(_,k)=>({role:'กรรมการ',name:(i.members||[])[k]||'',pos:((i.memberPos||[])[k]||'').trim()})));
-  return {mode:est?'estimate':'central',roundTo:+i.roundTo>0?+i.roundTo:1000,
+  return {mode:repair?'repair':(est?'estimate':'central'),vat:repair?i.vat!=='0':undefined,roundTo:+i.roundTo>0?+i.roundTo:1000,
     project:{name:i.name||'',location:i.location||'',agency:i.agency||'',drawing_no:i.drawing_no||'',calc_date:i.date||''},
     people,sections,
     factor:{F:T.ff.F,advance:+fc.advance||0,retention:+fc.retention||0,loanShare:(+fc.loanPct||0)/100,table:FactorF.TABLES['adv'+(+fc.advance||0)+'_ret'+(+fc.retention||0)]||[]},
-    pr2:(b.pr2||[]).map(x=>({name:x.name,qty:+x.qty||0,unit:x.unit,price:+x.price||0,install:+x.install||0})),
-    pr3:(b.pr3||[]).map(x=>({name:x.name,qty:+x.qty||0,unit:x.unit,amount:+x.amount||0,note:x.note})),
+    pr2:(repair?[]:b.pr2||[]).map(x=>({name:x.name,qty:+x.qty||0,unit:x.unit,price:+x.price||0,install:+x.install||0})),
+    pr3:(repair?[]:b.pr3||[]).map(x=>({name:x.name,qty:+x.qty||0,unit:x.unit,amount:+x.amount||0,note:x.note})),
     sources:boqSourcesData(),
     expect:T.grand,pr4Text:T.pr4===null?'':BoqCalc.bahtText(T.pr4)};
 }
@@ -5361,7 +5375,7 @@ async function boqExportXlsx(){
   const b=boqGet();if(!b)return;
   const T=boqCompute(b);
   if(!b.rows.length&&!b.pr2.length&&!b.pr3.length){alert('ยังไม่มีรายการ');return;}
-  if(!T.ff.F){alert('ยังไม่มีค่างานต้นทุน (ปร.1) — ผูกราคาให้รายการก่อน จึงจะคิด Factor F และส่งออกได้');return;}
+  if(T.repair?!(T.cost>0):!T.ff.F){alert('ยังไม่มีค่างานต้นทุน (ปร.1) — ผูกราคาให้รายการก่อน'+(T.repair?'':' จึงจะคิด Factor F')+' และส่งออกได้');return;}
   if(T.noPrice&&!confirm('ยังมี '+T.noPrice+' รายการที่ไม่มีราคา (จะออกเป็นช่องว่าง/0) ส่งออกต่อหรือไม่?'))return;
   const btn=document.querySelector('#bq-sumbox .btn-green'),old=btn?btn.textContent:'';if(btn){btn.disabled=true;btn.textContent='กำลังสร้างไฟล์ Excel...';}
   try{
@@ -5391,7 +5405,7 @@ async function boqExportXlsx(){
     if(wmImg){try{const w=await XlsxWm.add(window.JSZip,out,wmImg);if(w.count)out=w;}catch(e){console.warn('ใส่ลายน้ำไม่สำเร็จ ใช้ไฟล์ไม่มีลายน้ำ',e);}}
     const a=document.createElement('a');
     a.href=URL.createObjectURL(new Blob([out],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));
-    a.download=((b.info.mode||'estimate')==='central'?'ราคากลาง_':'ประมาณราคา_')+(b.info.name||'โครงการ').replace(/[\\/:*?"<>|]+/g,' ').slice(0,60)+'.xlsx';
+    a.download=(b.info.mode==='central'?'ราคากลาง_':(b.info.mode==='repair'?'ประมาณราคาซ่อมแซม_':'ประมาณราคา_'))+(b.info.name||'โครงการ').replace(/[\\/:*?"<>|]+/g,' ').slice(0,60)+'.xlsx';
     a.click();setTimeout(()=>URL.revokeObjectURL(a.href),4000);
   }catch(e){console.error(e);alert('ส่งออก Excel ไม่สำเร็จ: '+e.message);}
   finally{if(btn){btn.disabled=false;btn.textContent=old;}}
