@@ -3924,6 +3924,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   if(window.UDAuth)hook();else window.addEventListener('udauth-loaded',hook,{once:true});
 });
 const APP_CHANGELOG=[
+  ['1.19.0','2026-11-12',['BOQ วัสดุมวลรวม: บรรทัดที่ข้อมูลไม่ระบุปริมาณ (× ?) มีช่องกรอกปริมาณเอง (ใช้เฉพาะโครงการนั้น) · สถานะแยก "ยังไม่มีราคา" กับ "ยังไม่มีปริมาณ" ให้ตรงสาเหตุ (เดิมนับรวมเป็นขาดราคา)']],
   ['1.18.0','2026-11-11',['ภาพหลักฐานแยกเป็นรายงานของตัวเอง: "พิมพ์ภาพหลักฐาน (PDF)" ในหน้าราคาสืบ (ใช้การเลือกรายการเดียวกัน) และในหน้าต่างส่งออกของ BOQ — ภาพขนาดใหญ่ หน้าละ 2 ภาพ พร้อมคำบรรยาย โหลดครบก่อนพิมพ์ และแจ้งภาพที่โหลดไม่ได้พร้อมสาเหตุ · รายงานราคาทุกแบบ (PDF, Excel, ชีทที่มาของราคา) เลิกใส่ภาพย่อ เปลี่ยนเป็นเลขอ้างอิง "ภาพที่ N" ที่ตรงกับรายงานภาพหลักฐาน']],
   ['1.17.1','2026-11-11',['แก้ไฟล์ Excel ราคาสืบ/สรุปโครงการที่มีภาพหลักฐาน: Excel ฟ้องซ่อมแซมไฟล์และทิ้งภาพ (ขาดค่าความสูงแถวมาตรฐานในชีต)']],
   ['1.17.0','2026-11-11',['ภาพหลักฐานในทุกรายงานที่แสดงราคาสืบ: พิมพ์รายงาน PDF ราคาสืบ · รายงานสรุปโครงการ (PDF) · ส่งออก Excel ราคาสืบ · สรุปโครงการเป็น Excel — แสดงภาพย่อในคอลัมน์ "ภาพหลักฐาน" ไม่เกิน 2 ภาพต่อราย (เกินแสดง +N ภาพ) · ตัดภาคผนวกภาพท้ายรายงาน PDF ราคาสืบ · แก้ภาพไม่ขึ้นในรายงาน PDF ถ้ายังไม่เคยเปิดดูรายการนั้น (รอภาพโหลดเสร็จก่อนเปิดหน้าต่างพิมพ์)']],
@@ -4071,7 +4072,9 @@ const boqNewKey=()=>'r'+Date.now().toString(36)+Math.random().toString(36).slice
 /* แถวของโครงการ → รูปแบบที่ BoqCalc.priceRows รับ */
 /* ราคาของบรรทัดที่ขาดในวัสดุมวลรวม: ราคาสืบที่ผูกไว้ (svlines: index→key รายการสืบ) ก่อน, รองลงมาคือราคาที่เคยกรอกเอง (prices) */
 /* ขอบเขตการผูก: แถว BOQ (m) เอง หรือมวลรวมซ้อน (m.sub[รหัส] = {lines}) — เก็บการผูกของมวลรวมที่ซ้อนอยู่ในรายการย่อยแยกต่างหาก */
-function boqScope(m,code){const s=(m.sub||{})[code]||{};return {kind:'comp',code,lines:s.lines||{},svlines:s.svlines||{},prices:s.prices||{},accept:s.accept};}
+function boqScope(m,code){const s=(m.sub||{})[code]||{};return {kind:'comp',code,lines:s.lines||{},svlines:s.svlines||{},prices:s.prices||{},qty:s.qty||{},accept:s.accept};}
+/* ปริมาณที่ผู้ใช้กรอกให้บรรทัดที่ข้อมูลมวลรวมไม่ระบุ ("× ?") — {index: ปริมาณ} */
+function boqCmpQty(sc){const o={};Object.entries((sc&&sc.qty)||{}).forEach(([k,v])=>{if(v!==''&&v!==null&&isFinite(+v)&&+v>0)o[k]=+v;});return Object.keys(o).length?o:undefined;}
 function boqScopeW(m,code){m.sub=m.sub||{};m.sub[code]=m.sub[code]||{lines:{}};m.sub[code].lines=m.sub[code].lines||{};return m.sub[code];}
 function boqCmpLines(m){
   if(!m||m.kind!=='comp'||typeof compLoaded==='undefined'||!compLoaded)return [];
@@ -4089,7 +4092,7 @@ function boqCmpState(sc,root,depth){
   if(typeof compLoaded==='undefined'||!compLoaded)return null;
   const c=compList.find(x=>x.sub===sc.code);if(!c)return null;
   const prices=boqCmpPrices(sc,root||sc,depth||0);
-  const pp=PDB.compPrice(c.id,{prices:Object.keys(prices).length?prices:undefined,partial:true});if(!pp)return null;
+  const pp=PDB.compPrice(c.id,{prices:Object.keys(prices).length?prices:undefined,qty:boqCmpQty(sc),partial:true});if(!pp)return null;
   const acc=!pp.complete&&Array.isArray(sc.accept)&&sc.accept.join(',')===pp.missing.join(',');
   return {c,pp,complete:pp.complete,missing:pp.missing,acc,stale:!pp.complete&&!acc&&Array.isArray(sc.accept)&&sc.accept.length>0};
 }
@@ -4154,7 +4157,7 @@ function boqCalcInput(b){
     const m=r.mat||{kind:''},l=r.lab||{kind:''};
     const ref={kind:(m.kind==='mat'||m.kind==='comp')?m.kind:'user'};
     if(ref.kind!=='user')ref.code=m.code;
-    if(m.kind==='comp'){const cp=boqCmpPrices(m);if(Object.keys(cp).length)ref.prices=cp;const st=boqCmpState(m,m,0);if(st&&st.acc)ref.partial=true;}
+    if(m.kind==='comp'){const cp=boqCmpPrices(m);if(Object.keys(cp).length)ref.prices=cp;const cq=boqCmpQty(m);if(cq)ref.qty=cq;const st=boqCmpState(m,m,0);if(st&&st.acc)ref.partial=true;}
     if(l.kind==='wage'){ref.wage_code=l.code;if(boqLabAreaApplies(r)){const ar=boqLabArea(r);if(ar>0){ref.wages=[{code:l.code,per:'area'}];ref.area=ar;}}}
     ref.chk=true;if(l.kind==='none')ref.lab_none=true;
     if(l.kind==='pctmat'&&l.pct!==''&&l.pct!==undefined)ref.lab_pct=(+l.pct||0)/100;
@@ -4269,12 +4272,15 @@ function boqCmpPanel(r){
 function boqCmpBlock(m,sc,depth){
   const all=boqCmpLines(sc);if(!all.length)return '';
   const pr=sc.prices||{},sub=sc===m?'':sc.code;
-  const st=boqCmpState(sc,m,depth),nMiss=st?st.missing.length:all.filter(l=>(l.warnings||[]).includes('missing_price')&&!boqCmpLink(sc,l.index)&&pr[l.index]===undefined).length;
+  const st=boqCmpState(sc,m,depth),uq=boqCmpQty(sc)||{},noQ=l=>l.qty===null&&uq[l.index]===undefined;
+  const nMiss=st?st.missing.length:all.filter(l=>(l.warnings||[]).includes('missing_price')&&!boqCmpLink(sc,l.index)&&pr[l.index]===undefined).length;
+  const nQ=st?st.missing.filter(i=>{const l=all.find(x=>x.index===i);return l&&noQ(l);}).length:all.filter(noQ).length,nP=Math.max(0,nMiss-nQ);
+  const missTxt=[nP?'ยังไม่มีราคา '+nP+' รายการ':'',nQ?'ยังไม่มีปริมาณ '+nQ+' รายการ':''].filter(Boolean).join(' · ');
   const dk=bq.curKey+'|'+sc.code,open=!(st&&st.acc)||(bq.openD&&bq.openD[dk]);
   let stat;
   if(!nMiss)stat=' <span style="color:#34d399">(ราคาครบ)</span>';
-  else if(st&&st.acc)stat=' <span style="color:var(--amber)"><i class="ic ic-warn"></i> ยอมรับราคาไม่ครบ (ขาด '+nMiss+' รายการ) = '+bqF2(st.pp.price)+'</span> <span class="bq-lnk" style="color:var(--red)" data-act="cmpacc0" data-s="'+esc(sub)+'">ยกเลิกการยอมรับ</span>';
-  else stat=' <span class="bq-warn">(ยังไม่มีราคา '+nMiss+' รายการ)</span>'+(st&&st.pp.price?' <span style="color:var(--text2)">ราคาชั่วคราว '+bqF2(st.pp.price)+' — ยังไม่รวมในยอด</span> <span class="bq-lnk" data-act="cmpacc" data-s="'+esc(sub)+'">ยอมรับราคานี้ (ขาด '+nMiss+')</span>':'')+(st&&st.stale?' <span class="bq-warn">รายการที่ขาดเปลี่ยนไป กรุณายืนยันใหม่</span>':'');
+  else if(st&&st.acc)stat=' <span style="color:var(--amber)"><i class="ic ic-warn"></i> ยอมรับราคาไม่ครบ ('+missTxt.replace(/ยังไม่มี/g,'ขาด')+') = '+bqF2(st.pp.price)+'</span> <span class="bq-lnk" style="color:var(--red)" data-act="cmpacc0" data-s="'+esc(sub)+'">ยกเลิกการยอมรับ</span>';
+  else stat=' <span class="bq-warn">('+missTxt+')</span>'+(st&&st.pp.price?' <span style="color:var(--text2)">ราคาชั่วคราว '+bqF2(st.pp.price)+' — ยังไม่รวมในยอด</span> <span class="bq-lnk" data-act="cmpacc" data-s="'+esc(sub)+'">ยอมรับราคานี้ (ขาด '+nMiss+')</span>':'')+(st&&st.stale?' <span class="bq-warn">รายการที่ขาดเปลี่ยนไป กรุณายืนยันใหม่</span>':'');
   return '<details class="bq-cmp" data-dk="'+esc(dk)+'"'+(st&&st.acc?' data-acc="1"':'')+(open?' open':'')+'><summary style="font-weight:600;margin-bottom:3px;cursor:pointer">รายการวัสดุในมวลรวม '+esc(sc.code)+stat+(depth||!open?'':' — เลือกราคาพาณิชย์ ราคาสืบ หรือมวลรวมอื่นให้รายการใดก็ได้')+'</summary>'
     +all.map(l=>{
       const x=boqCmpLineInfo(sc,l,m,depth),lk=boqCmpLink(sc,l.index),has=!!lk,miss=(l.warnings||[]).includes('missing_price');
@@ -4285,7 +4291,9 @@ function boqCmpBlock(m,sc,depth){
       else if(!miss)st='<span style="color:var(--text2)">'+({'commerce':'พาณิชย์'+(l.province?' '+esc(l.province):''),'commerce-fallback':'พาณิชย์ (รหัสสำรอง)','fixed':'ราคาคงที่','sub-comp':'ส่วนผสม '+esc(l.subComp||''),'user':'กรอกเอง'}[l.source]||esc(l.source||''))+' '+bqF2(l.unitPrice)+' บาท/'+esc(l.unit)+'</span>';
       else st='<span class="bq-warn">ยังไม่มีราคา</span>';
       const nest=has&&lk.kind==='comp'&&depth<3?boqCmpBlock(m,boqScope(m,lk.code),depth+1):'';
-      return '<div><div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap"><span>'+esc(l.name)+' <span style="color:var(--text3)">× '+esc(l.qty===null?'?':l.qty)+' '+esc(l.unit)+'</span></span> '+st
+      const qtyH=l.qty!==null?'<span style="color:var(--text3)">× '+esc(l.qty)+' '+esc(l.unit)+'</span>'
+        :'<span style="color:var(--text3)">× </span><input class="bq-in n" type="number" step="any" min="0" data-cqty="1" data-s="'+esc(sub)+'" data-i="'+l.index+'" value="'+esc(uq[l.index]!==undefined?uq[l.index]:'')+'" placeholder="ปริมาณ" title="ข้อมูลมวลรวมไม่ระบุปริมาณบรรทัดนี้ — กรอกปริมาณต่อ 1 '+esc((compList.find(x=>x.sub===sc.code)||{}).unit||'หน่วย')+' (ใช้เฉพาะโครงการนี้)" style="width:78px;padding:2px 6px'+(uq[l.index]===undefined?';border-color:var(--amber)':'')+'"> <span style="color:var(--text3)">'+esc(l.unit)+'</span>'+(uq[l.index]===undefined?' <span class="bq-warn">ยังไม่มีปริมาณ</span>':'');
+      return '<div><div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap"><span>'+esc(l.name)+' '+qtyH+'</span> '+st
         +' <span class="bq-lnk" data-act="cmpsv" data-s="'+esc(sub)+'" data-i="'+l.index+'" data-n="'+esc(l.name)+'" data-u="'+esc(l.unit)+'">'+(has?'เปลี่ยน':(miss?'เลือกราคา':'เปลี่ยนที่มาราคา'))+'</span>'
         +(has||pr[l.index]!==undefined?' <span class="bq-lnk" style="color:var(--red)" data-act="cmpunsv" data-s="'+esc(sub)+'" data-i="'+l.index+'">เลิกผูก</span>':'')+'</div>'
         +(nest?'<div style="margin:3px 0 4px 14px;padding-left:8px;border-left:2px solid var(--border)">'+nest+'</div>':'')+'</div>';
@@ -4443,6 +4451,15 @@ function boqAddMember(){const b=boqGet();if(!b)return;b.info.members=b.info.memb
 function boqDelMember(k){const b=boqGet();if(!b||!b.info.members)return;b.info.members.splice(k,1);if(b.info.memberPos)b.info.memberPos.splice(k,1);boqSave();boqRender();}
 function boqBind(){
   const body=bqEl('bq-body');
+  /* ปริมาณบรรทัดมวลรวมที่เป็น "?" — บันทึกแล้ววาดใหม่เพื่ออัปเดตสถานะ/ราคา */
+  body.addEventListener('change',e=>{
+    const t=e.target;if(!t.dataset||!t.dataset.cqty)return;
+    const b=boqGet();if(!b)return;const tr=t.closest('[data-k]'),r=tr&&b.rows.find(x=>x.key===tr.dataset.k);
+    if(!r||!r.mat||r.mat.kind!=='comp')return;
+    const o=t.dataset.s?boqScopeW(r.mat,t.dataset.s):r.mat;o.qty=o.qty||{};
+    if(t.value===''||!(+t.value>0))delete o.qty[t.dataset.i];else o.qty[t.dataset.i]=+t.value;
+    boqSave();boqRender();
+  });
   body.addEventListener('input',e=>{
     const b=boqGet();if(!b)return;const t=e.target;
     if(t.dataset.bi){b.info[t.dataset.bi]=t.value;boqSaveSoon();if(t.dataset.bi==='mode'||t.dataset.bi==='roundTo')boqUpdateNumbers();if(t.dataset.bi==='mode')boqRender();return;}
@@ -5057,7 +5074,7 @@ function boqSourcesData(){
   const addComp=(m,sc,depth,who)=>{
     if(!ready)return;const c=compList.find(x=>x.sub===sc.code);if(!c)return;
     if(cmp[c.sub]){push(cmp[c.sub].used,who);return;}
-    const prices=boqCmpPrices(sc,m,depth),stx=boqCmpState(sc,m,depth),res=PDB.compPrice(c.id,{prices:Object.keys(prices).length?prices:undefined,partial:!!(stx&&stx.acc)});if(!res)return;
+    const prices=boqCmpPrices(sc,m,depth),stx=boqCmpState(sc,m,depth),res=PDB.compPrice(c.id,{prices:Object.keys(prices).length?prices:undefined,qty:boqCmpQty(sc),partial:!!(stx&&stx.acc)});if(!res)return;
     const e=cmp[c.sub]={id:c.id,sub:c.sub,obj:c,partial:!!res.partial,missing:res.partial?res.missing.length:0,title:(c.sub+' '+c.name).trim()+(res.partial?' (ราคาไม่ครบ — ผู้ใช้ยอมรับ ขาด '+res.missing.length+' รายการ)':''),unit:c.unit||'หน่วย',total:res.price,used:[who],lines:[]};
     res.lines.forEach(ln=>{
       const lk=boqCmpLink(sc,ln.index),x=lk?boqCmpLineInfo(sc,ln,m,depth):null;
