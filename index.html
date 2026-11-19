@@ -2883,6 +2883,7 @@ setTimeout(projLoadIntoApp, 0);
     <button class="btn btn-amber" type="button" id="sv-new">+ เพิ่มรายการสืบ</button>
     <button class="btn btn-ghost" type="button" id="sv-libcfg"><i class="ic ic-gear"></i> ตั้งค่าคลังกลาง</button>
     <button class="btn btn-ghost" type="button" id="sv-refresh"><i class="ic ic-refresh"></i> โหลดคลังใหม่</button>
+    <button class="btn btn-ghost" type="button" id="sv-dup" style="display:none" title="รายการในคลังกลางที่เป็นสำเนาของรายการอื่น (เกิดจาก UD Total Station รุ่นก่อน 6.51) — เฉพาะผู้ดูแลระบบ">หารายการซ้ำ</button>
     <button class="btn btn-green" type="button" id="sv-pdf">พิมพ์รายงาน PDF</button>
     <button class="btn btn-green" type="button" id="sv-xls">ส่งออก Excel</button>
     <button class="btn btn-green" type="button" id="sv-evpdf">พิมพ์ภาพหลักฐาน (PDF)</button>
@@ -2925,6 +2926,18 @@ setTimeout(projLoadIntoApp, 0);
       </div>
       <div class="sv-msg" id="sv-mmsg"></div>
     </div>
+  </div>
+</div>
+<!-- MODAL: ล้างรายการซ้ำในคลังกลาง (ผู้ดูแลระบบ) -->
+<div class="modal-overlay" id="sv-dupmodal" style="display:none">
+  <div class="modal-box" style="max-width:860px;max-height:88vh">
+    <div class="modal-hd"><div class="modal-title">รายการซ้ำในคลังกลาง</div><span class="modal-close" id="sv-dupclose">×</span></div>
+    <div style="padding:10px 18px;font-size:12px;color:var(--text3)">รายการที่ราคาทุกรายคัดลอกมาจากรายการอื่นในคลัง (UD Total Station รุ่นก่อน 6.51 ดึงราคาจากคลังแล้วบันทึกเป็นรายการใหม่ตามชื่อแถว BOQ) ·
+      กด "รวม" = จำชื่อนี้เป็นชื่ออื่นของต้นฉบับ (โครงการต่อไปจับคู่ให้เอง) แล้วลบรายการซ้ำ · รายการที่สืบเพิ่มเองบางราย ระบบย้ายรายนั้นไปไว้ที่ต้นฉบับก่อนลบ ·
+      ลบแล้วกู้คืนได้จากชีต deleted ในไฟล์ UD คลังราคาสืบ</div>
+    <div id="sv-duplist" style="padding:0 18px 10px;overflow:auto;flex:1"></div>
+    <div style="padding:10px 18px;border-top:1px solid var(--border);display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <button class="btn btn-amber" type="button" id="sv-dupgo">รวมรายการที่เลือก</button><span id="sv-dupmsg" style="font-size:12px;color:var(--text2)"></span></div>
   </div>
 </div>
 <div id="sv-toast"></div>
@@ -2973,16 +2986,20 @@ async function svLoad(force){
     if(mode==='central'||mode==='pending'||mode==='public'){
       const cen=(await Survey.libAll(force))||[],byKey={};
       cen.forEach(x=>{byKey[x.key]=Object.assign(svNorm(x),{_where:'central'});});
+      const gone={};Survey.libDeleted().forEach(d=>{if(d&&d.key&&(d.at||'')>(gone[d.key]||''))gone[d.key]=d.at||'';});
       loc.forEach(x=>{const k=x.key||Survey.libKey(x.name,x.unit),c=byKey[k];
+        if(!c&&gone[k]!==undefined&&(x.updated||'')<=gone[k]){Survey.libDel(k);return;}   /* ถูกลบจากคลังกลางแล้ว — ล้างสำเนาเก่าในเครื่อง ไม่ส่งขึ้นคลังซ้ำ */
         if(!c)byKey[k]=Object.assign(svNorm(x),{_where:'local'});                       /* มีแต่ในเครื่อง — ยังไม่ขึ้นคลังกลาง */
         else if((x.updated||'')>(c.updated||''))byKey[k]=Object.assign(svNorm(x),{_where:'local'});});   /* ในเครื่องใหม่กว่าคลังกลาง */
       sv.items=Object.values(byKey);
     }else sv.items=loc.map(x=>Object.assign(svNorm(x),{_where:'local'}));
-    sv.loaded=true;svLibStatus();
+    sv.loaded=true;svLibStatus();svEl('sv-dup').style.display=svCanDel()?'':'none';
     if(typeof cpSvLabels==='function'&&document.querySelector('[id^="cp-sv-"]'))setTimeout(cpSvLabels,0);
   }catch(e){svStatus('โหลดคลังไม่ได้: '+e.message,true);}
   svRender();
 }
+/* ลบจากคลังกลางได้: รหัสทีม หรือบัญชีผู้ดูแลระบบ (สคริปต์ตรวจซ้ำอีกชั้น) */
+function svCanDel(){return sv.mode==='central'&&(!!Survey.cfg().team||!!(sv.who&&sv.who.role==='admin'));}
 const svHasPrice=it=>(it.quotes||[]).some(q=>+q.price>0);
 function svPending(){return sv.items.filter(it=>sv.mode==='central'&&svHasPrice(it)&&it._where!=='central');}
 function svWhereHtml(it){
@@ -3141,6 +3158,55 @@ async function svHydrateImgs(it){
   }
 }
 /* บันทึกเข้าคลัง (หน่วงเวลา 800 ms — เหมือน Total Station; บันทึกเมื่อมีรายที่กรอกราคาแล้วเท่านั้น) */
+/* ---------- ล้างรายการซ้ำในคลังกลาง (สำเนาที่ Total Station รุ่นเก่าสร้าง) ---------- */
+const svDup={list:[]};
+function svDupFind(){
+  const cen=sv.items.filter(x=>x._where==='central');
+  return cen.map(x=>{const o=Survey.libOrigin(cen,x);return o?{x,o}:null;}).filter(Boolean)
+    .filter(d=>d.o.orig.key!==d.x.key).sort((a,b)=>a.o.orig.name.localeCompare(b.o.orig.name,'th')||a.x.name.localeCompare(b.x.name,'th'));
+}
+function svDupOpen(){
+  svDup.list=svDupFind();svEl('sv-dupmsg').textContent='';
+  const L=svDup.list,el=svEl('sv-duplist');
+  if(!L.length){el.innerHTML='<div style="padding:24px;text-align:center;color:var(--text3)">ไม่พบรายการซ้ำ</div>';}
+  else el.innerHTML='<table class="ps-tbl" style="font-size:12.5px"><thead><tr><th style="width:28px"></th><th>รายการซ้ำ (จะลบ)</th><th>ต้นฉบับ (เก็บไว้)</th><th>หมายเหตุ</th></tr></thead><tbody>'+L.map((d,i)=>{
+    const own=(d.x.quotes||[]).filter(q=>+q.price>0&&!/จากคลัง/.test(q.note||'')).length,ok=d.o.sameUnit||d.o.how==='copy';
+    const note=[d.o.how==='partial'?'สืบเพิ่มเอง '+own+' ราย — ย้ายไปที่ต้นฉบับ':'คัดลอกมาทั้งหมด',d.o.sameUnit?'':'หน่วยต่างกัน'+(d.o.how==='partial'?' — ตรวจเอง':'')].filter(Boolean).join(' · ');
+    return `<tr><td><input type="checkbox" data-dup="${i}"${ok?'':' disabled'}${ok&&d.o.sameUnit&&d.o.how==='copy'?' checked':''}></td>
+      <td>${esc(d.x.name)} <span style="color:var(--text3)">[${esc(d.x.unit)}] · ${(d.x.quotes||[]).length} ราย${d.x.project?' · '+esc(d.x.project):''}</span></td>
+      <td>${esc(d.o.orig.name)} <span style="color:var(--text3)">[${esc(d.o.orig.unit)}] · ${(d.o.orig.quotes||[]).length} ราย</span></td>
+      <td style="color:${d.o.sameUnit&&d.o.how==='copy'?'var(--text3)':'var(--amber)'}">${esc(note)}</td></tr>`;}).join('')+'</tbody></table>';
+  svEl('sv-dupgo').disabled=!L.length;
+  svEl('sv-dupmodal').style.display='flex';
+}
+async function svDupGo(){
+  const pick=[...document.querySelectorAll('#sv-duplist [data-dup]:checked')].map(c=>svDup.list[+c.dataset.dup]);
+  if(!pick.length){svEl('sv-dupmsg').textContent='ยังไม่ได้เลือกรายการ';return;}
+  if(!confirm('รวม '+pick.length+' รายการเข้าต้นฉบับ แล้วลบรายการซ้ำออกจากคลังกลาง?\n(กู้คืนได้จากชีต deleted)'))return;
+  const btn=svEl('sv-dupgo');btn.disabled=true;let ok=0,bad=0,last='';
+  for(const d of pick){
+    svEl('sv-dupmsg').textContent='กำลังรวม '+(ok+bad+1)+'/'+pick.length+' — '+d.x.name;
+    try{
+      const orig=d.o.orig;
+      if(d.o.how==='partial'&&d.o.sameUnit){   /* ย้ายรายที่สืบเพิ่มเอง (พร้อมภาพหลักฐาน) ไปไว้ที่ต้นฉบับ */
+        const sig=new Set((orig.quotes||[]).map(Survey.quoteSig));
+        const own=(d.x.quotes||[]).filter(q=>+q.price>0&&!/จากคลัง/.test(q.note||'')&&!sig.has(Survey.quoteSig(q)));
+        if(own.length){
+          const imgs={};for(const q of own)for(const id of (q.imgs||[])){const v=(d.x.imgs||{})[id];const data=v?await Survey.libImg(v).catch(()=>null):(sv.imgs[id]||null);if(data)imgs[id]=data;}
+          await Survey.libPut(orig.key,{key:orig.key,name:orig.name,unit:orig.unit,quotes:(orig.quotes||[]).concat(own),reason:orig.reason||'',imgs,updated:new Date().toISOString(),project:orig.project||'',ref:orig.ref||'',cat:orig.cat||'mat'});
+        }
+      }
+      if(d.o.sameUnit){
+        await Survey.libAlias(orig.key,d.x.name,d.x.unit);
+        for(const a of (d.x.aliases||[]))await Survey.libAliasNk(orig.key,a);
+      }
+      await Survey.libRemove(d.x.key);ok++;
+    }catch(er){bad++;last=er.message;}
+  }
+  btn.disabled=false;
+  svEl('sv-dupmsg').textContent=bad?`รวมสำเร็จ ${ok} · ไม่สำเร็จ ${bad} (${last})`:`รวมแล้ว ${ok} รายการ`;
+  await svLoad(true);svDupOpen();svEl('sv-dupmsg').textContent=bad?`รวมสำเร็จ ${ok} · ไม่สำเร็จ ${bad} (${last})`:`รวมแล้ว ${ok} รายการ`;
+}
 function svSave(it){
   it.updated=new Date().toISOString();
   clearTimeout(svSave._t[it.key]);
@@ -3222,7 +3288,11 @@ function svBind(){
     if(t.dataset.qedit){const q=it.quotes.find(x=>x.id===t.closest('[data-q]').dataset.q);if(q){q.done=false;svRender();}return;}
     if(t.dataset.pjadd||t.dataset.pjupd){if(projSvUpsert(it)){svToast(t.dataset.pjadd?'เพิ่มเข้าโครงการแล้ว':'อัปเดตสำเนาในโครงการแล้ว');svRender();}else svToast('ต้องมีราคาสืบอย่างน้อย 1 ราย และเลือกโครงการก่อน');return;}
     if(t.dataset.pjrm){projSvRemove(it.key);svToast('นำออกจากโครงการแล้ว');svRender();return;}
-    if(t.dataset.itdel){if(confirm('ลบ "'+it.name+'" ออกจากรายการนี้?\n(คลังกลางไม่ถูกลบ — ลบเฉพาะสำเนาในเครื่องนี้)')){await Survey.libDel(it.key);sv.items=sv.items.filter(x=>x!==it);sv.open=null;svRender();svLibStatus();}return;}
+    if(t.dataset.itdel){
+      const cen=it._where==='central'&&svCanDel();
+      if(!confirm(cen?'ลบ "'+it.name+'" ออกจากคลังกลาง?\nทุกคนจะไม่เห็นรายการนี้อีก (กู้คืนได้จากชีต deleted ในไฟล์ UD คลังราคาสืบ) · โครงการที่เคยใช้ราคานี้ยังเก็บสำเนาของตัวเองไว้':'ลบ "'+it.name+'" ออกจากรายการนี้?\n(คลังกลางไม่ถูกลบ — ลบเฉพาะสำเนาในเครื่องนี้'+(sv.mode==='central'?' · ลบจากคลังกลางได้เฉพาะผู้ดูแลระบบ':'')+')'))return;
+      try{if(cen)await Survey.libRemove(it.key);else await Survey.libDel(it.key);}catch(er){svToast('{warn} ลบไม่สำเร็จ: '+er.message,6000);return;}
+      sv.items=sv.items.filter(x=>x!==it);sv.open=null;svRender();svLibStatus();if(cen)svToast('{ok} ลบออกจากคลังกลางแล้ว');return;}
     if(t.dataset.imgdel){const q=it.quotes.find(x=>x.id===t.closest('[data-q]').dataset.q);if(q){q.imgs=q.imgs.filter(i=>i!==t.dataset.imgdel);svSave(it);svRender();}return;}
     if(t.dataset.img){const d=sv.imgs[t.dataset.img];if(d&&Survey.safeImg(d)){svEl('sv-bigimg').src=d;svEl('sv-imgmodal').style.display='flex';}return;}
     if(t.dataset.sel){if(t.checked)sv.sel.add(it.key);else sv.sel.delete(it.key);t.closest('.sv-card').classList.toggle('sel',t.checked);svSelBar();return;}
@@ -3256,6 +3326,9 @@ function svBind(){
   svEl('sv-cchips').addEventListener('click',e=>{const k=e.target.dataset.cchip;if(k){sv.cat=k;svRender();}});
   svEl('sv-q').addEventListener('input',e=>{sv.q=e.target.value;svRender();});
   svEl('sv-refresh').onclick=()=>svLoad(true);
+  svEl('sv-dup').onclick=svDupOpen;svEl('sv-dupgo').onclick=svDupGo;
+  svEl('sv-dupclose').onclick=()=>{svEl('sv-dupmodal').style.display='none';};
+  svEl('sv-dupmodal').addEventListener('click',e=>{if(e.target.id==='sv-dupmodal')svEl('sv-dupmodal').style.display='none';});
   svEl('sv-banner').addEventListener('click',e=>{const a=e.target.dataset.bact;if(a==='cfg')svEl('sv-libcfg').click();else if(a==='retry')svLoad(true);else if(a==='push')svPushPending();});
   svEl('sv-list').addEventListener('focusin',e=>{const q=e.target.closest('[data-q]');if(q){sv.focusQ=q.dataset.q;svMarkTarget();}});
   svEl('sv-list').addEventListener('click',e=>{const q=e.target.closest('[data-q]');if(q){sv.focusQ=q.dataset.q;svMarkTarget();}});
@@ -4140,6 +4213,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   if(window.UDAuth)hook();else window.addEventListener('udauth-loaded',hook,{once:true});
 });
 const APP_CHANGELOG=[
+  ['1.22.0','2026-11-19',['ราคาสืบ: ผู้ดูแลระบบลบรายการออกจากคลังกลางได้ (กู้คืนได้จากชีต deleted) · ปุ่ม "หารายการซ้ำ" รวมรายการที่ถูกคัดลอกซ้ำในคลัง (จาก UD Total Station รุ่นก่อน) เข้าต้นฉบับ — จำชื่อเป็นชื่ออื่นของต้นฉบับแล้วลบตัวซ้ำ · รายการที่ถูกลบจากคลังกลางแล้วไม่ถูกส่งขึ้นซ้ำจากสำเนาเก่าในเครื่อง']],
   ['1.21.2','2026-11-18',['ระบบ: ไฟล์คิดราคา BOQ ราคาสืบ ส่งออก Excel และบัญชีผู้ใช้ ใช้ชุดเดียวกับ UD Total Station (ผลคำนวณเหมือนเดิม)']],
   ['1.21.1','2026-11-12',['รายงาน PDF ราคาสืบ และรายงานสรุปโครงการ: ลิงก์ในช่องทางติดต่อ/หมายเหตุย่อเป็น "[L1] ชื่อเว็บ" (กดได้) และรวมลิงก์เต็มไว้ท้ายรายงานในตาราง "เอกสารอ้างอิง (ลิงก์)" พร้อมบอกว่าใช้กับรายการ/ร้านใด']],
   ['1.21.0','2026-11-12',['BOQ: เพิ่มประเภทงาน "ประมาณราคาจ้างซ่อมแซม" — ไม่ใช้ Factor F เลือกได้ว่าจะคิดภาษีมูลค่าเพิ่ม 7% หรือไม่ (ปัดเศษเหมือนประมาณราคา ไม่มี ปร.2/ปร.3) · Excel ตามแบบฟอร์มออก ปร.1, ปร.1 (ก) (คอลัมน์ภาษีมูลค่าเพิ่มแทน Factor F) และ ปร.4 (แบบสรุปประมาณราคาค่าซ่อมแซม)']],

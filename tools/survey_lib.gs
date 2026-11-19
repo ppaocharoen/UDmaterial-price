@@ -75,6 +75,12 @@ function rows_(sh) {
   const un = s => String(s).replace(/^'/, '');
   return v.map((r, i) => ({ row: i + 2, r })).filter(x => x.r[0]).map(({ row, r }) => ({ row, key: un(r[0]), name: un(r[1]), unit: un(r[2]), quotes: JSON.parse(r[3] || '[]'), reason: un(r[4]), updated: un(r[5]), project: un(r[6]), by: un(r[7]), imgs: JSON.parse(r[8] || '{}'), ref: un(r[9] || ''), aliases: JSON.parse(r[10] || '[]') }));
 }
+/** รายการที่ลบไปแล้ว [{key, at}] — ให้เว็บล้างสำเนาเก่าในเครื่อง ไม่ส่งขึ้นคลังซ้ำ (ชีต deleted: คอลัมน์ HEAD + เวลาที่ลบ) */
+function trashKeys_() {
+  const ss = ss_(), sh = ss.getSheetByName(TRASH); if (!sh || sh.getLastRow() < 2) return [];
+  const v = sh.getRange(2, 1, sh.getLastRow() - 1, HEAD.length + 1).getValues(), un = s => String(s).replace(/^'/, '');
+  return v.filter(r => r[0]).map(r => ({ key: un(r[0]), at: r[HEAD.length] instanceof Date ? r[HEAD.length].toISOString() : String(r[HEAD.length] || '') })).slice(-2000);
+}
 function same_(a, b) {   // เทียบแบบเวลาคงที่
   a = String(a); b = String(b); let d = a.length ^ b.length;
   for (let i = 0; i < Math.max(a.length, b.length); i++) d |= (a.charCodeAt(i) || 0) ^ (b.charCodeAt(i) || 0);
@@ -174,7 +180,7 @@ function doPost(e) {
   try {
     if (b.action === 'whoami') return out_({ ok: true, kind: ctx.kind, user: ctx.user ? { email: ctx.user.email, name: ctx.user.name, status: ctx.user.status, role: ctx.user.role } : null });
     if (b.action === 'ping') return out_({ ok: true, name: ss_().getName() });
-    if (b.action === 'list') return out_({ ok: true, items: rows_().map(x => { delete x.row; return ctx.kind === 'anon' ? pub_(x) : x; }), view: ctx.kind === 'anon' ? 'public' : 'full' });
+    if (b.action === 'list') return out_({ ok: true, items: rows_().map(x => { delete x.row; return ctx.kind === 'anon' ? pub_(x) : x; }), view: ctx.kind === 'anon' ? 'public' : 'full', deleted: trashKeys_() });
     if (b.action === 'img') {   // คืนภาพเป็น data URL — เฉพาะไฟล์ในโฟลเดอร์คลัง
       const ref = imgRef_(b.file);
       if (ref.store !== store_()) return out_({ ok: false, error: 'ภาพอยู่ที่เก็บ "' + ref.store + '" ไม่ใช่ที่เก็บนี้' });
