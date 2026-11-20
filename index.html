@@ -3160,11 +3160,7 @@ async function svHydrateImgs(it){
 /* บันทึกเข้าคลัง (หน่วงเวลา 800 ms — เหมือน Total Station; บันทึกเมื่อมีรายที่กรอกราคาแล้วเท่านั้น) */
 /* ---------- ล้างรายการซ้ำในคลังกลาง (สำเนาที่ Total Station รุ่นเก่าสร้าง) ---------- */
 const svDup={list:[]};
-function svDupFind(){
-  const cen=sv.items.filter(x=>x._where==='central');
-  return cen.map(x=>{const o=Survey.libOrigin(cen,x);return o?{x,o}:null;}).filter(Boolean)
-    .filter(d=>d.o.orig.key!==d.x.key).sort((a,b)=>a.o.orig.name.localeCompare(b.o.orig.name,'th')||a.x.name.localeCompare(b.x.name,'th'));
-}
+function svDupFind(){return Survey.libDupFind(sv.items.filter(x=>x._where==='central'));}   /* ตรรกะอยู่ใน survey-v1.js (ใช้ร่วม Total Station) */
 function svDupOpen(){
   svDup.list=svDupFind();svEl('sv-dupmsg').textContent='';
   const L=svDup.list,el=svEl('sv-duplist');
@@ -3187,20 +3183,7 @@ async function svDupGo(){
   for(const d of pick){
     svEl('sv-dupmsg').textContent='กำลังรวม '+(ok+bad+1)+'/'+pick.length+' — '+d.x.name;
     try{
-      const orig=d.o.orig;
-      if(d.o.how==='partial'&&d.o.sameUnit){   /* ย้ายรายที่สืบเพิ่มเอง (พร้อมภาพหลักฐาน) ไปไว้ที่ต้นฉบับ */
-        const sig=new Set((orig.quotes||[]).map(Survey.quoteSig));
-        const own=(d.x.quotes||[]).filter(q=>+q.price>0&&!/จากคลัง/.test(q.note||'')&&!sig.has(Survey.quoteSig(q)));
-        if(own.length){
-          const imgs={};for(const q of own)for(const id of (q.imgs||[])){const v=(d.x.imgs||{})[id];const data=v?await Survey.libImg(v).catch(()=>null):(sv.imgs[id]||null);if(data)imgs[id]=data;}
-          await Survey.libPut(orig.key,{key:orig.key,name:orig.name,unit:orig.unit,quotes:(orig.quotes||[]).concat(own),reason:orig.reason||'',imgs,updated:new Date().toISOString(),project:orig.project||'',ref:orig.ref||'',cat:orig.cat||'mat'});
-        }
-      }
-      if(d.o.sameUnit){
-        await Survey.libAlias(orig.key,d.x.name,d.x.unit);
-        for(const a of (d.x.aliases||[]))await Survey.libAliasNk(orig.key,a);
-      }
-      await Survey.libRemove(d.x.key);ok++;
+      await Survey.libDupMerge(d,id=>sv.imgs[id]||null);ok++;
     }catch(er){bad++;last=er.message;}
   }
   btn.disabled=false;
@@ -4213,6 +4196,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   if(window.UDAuth)hook();else window.addEventListener('udauth-loaded',hook,{once:true});
 });
 const APP_CHANGELOG=[
+  ['1.22.2','2026-11-20',['ราคาสืบ: ตรรกะหารายการซ้ำ/รวมเข้าต้นฉบับย้ายไป survey-v1.js (libDupFind / libDupMerge) ใช้ร่วมกับ UD Total Station — ผลเหมือนเดิม']],
   ['1.22.1','2026-11-20',['ราคาสืบ: ชนิดรายการ (วัสดุ/ครุภัณฑ์/ค่าใช้จ่ายพิเศษ) บันทึกขึ้นคลังกลางแล้ว — เครื่องอื่นและ UD Total Station เห็นชนิดเดียวกัน (เดิมจำไว้เฉพาะเครื่อง)']],
   ['1.22.0','2026-11-19',['ราคาสืบ: ผู้ดูแลระบบลบรายการออกจากคลังกลางได้ (กู้คืนได้จากชีต deleted) · ปุ่ม "หารายการซ้ำ" รวมรายการที่ถูกคัดลอกซ้ำในคลัง (จาก UD Total Station รุ่นก่อน) เข้าต้นฉบับ — จำชื่อเป็นชื่ออื่นของต้นฉบับแล้วลบตัวซ้ำ · รายการที่ถูกลบจากคลังกลางแล้วไม่ถูกส่งขึ้นซ้ำจากสำเนาเก่าในเครื่อง']],
   ['1.21.2','2026-11-18',['ระบบ: ไฟล์คิดราคา BOQ ราคาสืบ ส่งออก Excel และบัญชีผู้ใช้ ใช้ชุดเดียวกับ UD Total Station (ผลคำนวณเหมือนเดิม)']],
