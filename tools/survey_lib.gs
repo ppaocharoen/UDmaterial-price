@@ -25,7 +25,10 @@
  */
 const SHEET = 'library', TRASH = 'deleted', FOLDER = 'UD Survey Images';
 const SHEET_ID = '';   // ว่างไว้ได้: ใช้ชีตที่ setup() สร้าง (เก็บ id ใน Script properties)
-const HEAD = ['key', 'name', 'unit', 'quotes', 'reason', 'updated', 'project', 'by', 'imgs', 'ref', 'aliases'];   // ref = รหัสพาณิชย์/รหัสแถวมาตรฐาน · aliases = ชื่ออื่นที่ผูกไว้
+const HEAD = ['key', 'name', 'unit', 'quotes', 'reason', 'updated', 'project', 'by', 'imgs', 'ref', 'aliases', 'cat'];   // ref = รหัสพาณิชย์/รหัสแถวมาตรฐาน · aliases = ชื่ออื่นที่ผูกไว้ · cat = ชนิด mat/eq/sp (ว่าง = วัสดุ)
+const TRASH_AT = 11;   // ชีต deleted: เวลาที่ลบอยู่คอลัมน์ที่ 12 เสมอ (ต่อจาก aliases) — คอลัมน์ที่เพิ่มทีหลัง (cat) ต่อท้ายเวลาที่ลบ
+const CATS = ['mat', 'eq', 'sp'];
+function trashRow_(r) { return r.slice(0, TRASH_AT).concat([new Date().toISOString()], r.slice(TRASH_AT)); }
 const IMG_MAX = 2.8e6, IMG_PER_PUT = 10, IMG_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 const FAIL_MAX = 20, FAIL_WIN = 600;   // เดาผิดได้ 20 ครั้ง / 10 นาที
 const FB_KEY = 'AIzaSyBCu-4j-j0CUzeghcifinApGAjdZoYBgAI', FB_PROJECT = 'ud-cost-hub-88a5a';   // ค่าสาธารณะของโปรเจกต์ Firebase (ความปลอดภัยอยู่ที่การตรวจ token + กฎ Firestore)
@@ -42,8 +45,8 @@ function ss_() {
 function tab_(name) {
   const ss = ss_(); let sh = ss.getSheetByName(name);
   if (!sh && (name === COMPS || name === COMPS_TRASH)) { sh = ss.insertSheet(name); sh.appendRow(name === COMPS_TRASH ? CHEAD.concat(['deleted_at']) : CHEAD); sh.setFrozenRows(1); sh.getRange('A:I').setNumberFormat('@'); return sh; }
-  if (!sh) { sh = ss.insertSheet(name); sh.appendRow(name === TRASH ? HEAD.concat(['deleted_at']) : HEAD); sh.setFrozenRows(1); sh.getRange('A:L').setNumberFormat('@'); }
-  else if (name === SHEET && sh.getLastColumn() < HEAD.length) { sh.getRange(1, 1, 1, HEAD.length).setValues([HEAD]); sh.getRange('A:K').setNumberFormat('@'); }   // เพิ่มคอลัมน์ใหม่ให้ชีตเดิม
+  if (!sh) { sh = ss.insertSheet(name); sh.appendRow(name === TRASH ? trashRow_(HEAD).map((h, i) => i === TRASH_AT ? 'deleted_at' : h) : HEAD); sh.setFrozenRows(1); sh.getRange('A:M').setNumberFormat('@'); }
+  else if (name === SHEET && sh.getLastColumn() < HEAD.length) { sh.getRange(1, 1, 1, HEAD.length).setValues([HEAD]); sh.getRange('A:L').setNumberFormat('@'); }   // เพิ่มคอลัมน์ใหม่ให้ชีตเดิม
   return sh;
 }
 /** ที่เก็บภาพของสคริปต์นี้: Script property STORE (ว่าง = 'main' = แบบเดิม ค่าภาพเป็นรหัสไฟล์เปล่า ๆ)
@@ -73,13 +76,13 @@ function txt_(v) { const s = String(v == null ? '' : v); return /^[=+\-@\t\r]/.t
 function rows_(sh) {
   const v = (sh || tab_(SHEET)).getDataRange().getValues(); v.shift();
   const un = s => String(s).replace(/^'/, '');
-  return v.map((r, i) => ({ row: i + 2, r })).filter(x => x.r[0]).map(({ row, r }) => ({ row, key: un(r[0]), name: un(r[1]), unit: un(r[2]), quotes: JSON.parse(r[3] || '[]'), reason: un(r[4]), updated: un(r[5]), project: un(r[6]), by: un(r[7]), imgs: JSON.parse(r[8] || '{}'), ref: un(r[9] || ''), aliases: JSON.parse(r[10] || '[]') }));
+  return v.map((r, i) => ({ row: i + 2, r })).filter(x => x.r[0]).map(({ row, r }) => ({ row, key: un(r[0]), name: un(r[1]), unit: un(r[2]), quotes: JSON.parse(r[3] || '[]'), reason: un(r[4]), updated: un(r[5]), project: un(r[6]), by: un(r[7]), imgs: JSON.parse(r[8] || '{}'), ref: un(r[9] || ''), aliases: JSON.parse(r[10] || '[]'), cat: CATS.indexOf(un(r[11] || '')) >= 0 ? un(r[11]) : '' }));
 }
 /** รายการที่ลบไปแล้ว [{key, at}] — ให้เว็บล้างสำเนาเก่าในเครื่อง ไม่ส่งขึ้นคลังซ้ำ (ชีต deleted: คอลัมน์ HEAD + เวลาที่ลบ) */
 function trashKeys_() {
   const ss = ss_(), sh = ss.getSheetByName(TRASH); if (!sh || sh.getLastRow() < 2) return [];
-  const v = sh.getRange(2, 1, sh.getLastRow() - 1, HEAD.length + 1).getValues(), un = s => String(s).replace(/^'/, '');
-  return v.filter(r => r[0]).map(r => ({ key: un(r[0]), at: r[HEAD.length] instanceof Date ? r[HEAD.length].toISOString() : String(r[HEAD.length] || '') })).slice(-2000);
+  const v = sh.getRange(2, 1, sh.getLastRow() - 1, TRASH_AT + 1).getValues(), un = s => String(s).replace(/^'/, '');
+  return v.filter(r => r[0]).map(r => ({ key: un(r[0]), at: r[TRASH_AT] instanceof Date ? r[TRASH_AT].toISOString() : String(r[TRASH_AT] || '') })).slice(-2000);
 }
 function same_(a, b) {   // เทียบแบบเวลาคงที่
   a = String(a); b = String(b); let d = a.length ^ b.length;
@@ -128,7 +131,7 @@ const canDel_ = u => u.status === 'approved' && u.role === 'admin';
 const by_ = u => (u.name || u.email) + (u.position ? ' (' + u.position + (u.agency ? ', ' + u.agency : '') + ')' : (u.agency ? ' (' + u.agency + ')' : '')) + ' <' + u.email + '>';
 /** มุมมองสาธารณะ (ไม่ล็อกอิน): ราคาและจำนวนราย ไม่มีชื่อร้าน/ช่องทางติดต่อ/หมายเหตุ/ภาพ/ผู้บันทึก */
 function pub_(x) {
-  return { key: x.key, name: x.name, unit: x.unit, reason: '', updated: x.updated, project: '', by: '', imgs: {}, ref: x.ref, aliases: x.aliases,
+  return { key: x.key, name: x.name, unit: x.unit, reason: '', updated: x.updated, project: '', by: '', imgs: {}, ref: x.ref, aliases: x.aliases, cat: x.cat,
     quotes: (x.quotes || []).map(q => ({ id: q.id, channel: q.channel, date: q.date, price: q.price, qunit: q.qunit, factor: q.factor, vat: q.vat })) };
 }
 function log_(act, key, who) {
@@ -217,7 +220,7 @@ function doPost(e) {
     try {
       const sh = tab_(SHEET), cur = rows_(sh).find(x => x.key === b.key);
       if (b.action === 'del') {   // ย้ายไปชีต deleted (กู้คืนได้)
-        if (cur) { const r = sh.getRange(cur.row, 1, 1, HEAD.length).getValues()[0]; tab_(TRASH).appendRow(r.concat([new Date().toISOString()])); sh.deleteRow(cur.row); }
+        if (cur) { const r = sh.getRange(cur.row, 1, 1, HEAD.length).getValues()[0]; tab_(TRASH).appendRow(trashRow_(r)); sh.deleteRow(cur.row); }
         log_('del', b.key, ctx.who); return out_({ ok: true });
       }
       if (b.action === 'alias') {   // จำชื่ออื่นของรายการ (ไม่เปลี่ยนวันที่สืบ)
@@ -239,7 +242,7 @@ function doPost(e) {
         if (!/^[A-Za-z0-9_-]{1,60}$/.test(id)) return out_({ ok: false, error: 'id ภาพไม่ถูกต้อง' });
         { const fileId = fd.createFile(Utilities.newBlob(Utilities.base64Decode(m[2]), m[1], id + '.jpg')).getId(); imgs[id] = store_() === 'main' ? fileId : store_() + ':' + fileId; }   // ไม่แชร์ลิงก์ (ส่วนตัว)
       }
-      const row = [txt_(b.key), txt_(it.name), txt_(it.unit), JSON.stringify(it.quotes || []), txt_(it.reason), txt_(it.updated || new Date().toISOString()), txt_(it.project), txt_(it.by), JSON.stringify(imgs), txt_(String(it.ref || '').slice(0, 120)), JSON.stringify(Array.from(new Set((cur ? cur.aliases : []).concat(Array.isArray(it.aliases) ? it.aliases.map(a => String(a).slice(0, 300)) : []))).slice(-50))];
+      const row = [txt_(b.key), txt_(it.name), txt_(it.unit), JSON.stringify(it.quotes || []), txt_(it.reason), txt_(it.updated || new Date().toISOString()), txt_(it.project), txt_(it.by), JSON.stringify(imgs), txt_(String(it.ref || '').slice(0, 120)), JSON.stringify(Array.from(new Set((cur ? cur.aliases : []).concat(Array.isArray(it.aliases) ? it.aliases.map(a => String(a).slice(0, 300)) : []))).slice(-50)), CATS.indexOf(it.cat) >= 0 ? it.cat : (cur ? cur.cat : '')];   // เว็บรุ่นเดิมไม่ส่ง cat → คงค่าเดิม
       if (cur) sh.getRange(cur.row, 1, 1, row.length).setValues([row]); else sh.appendRow(row);
       log_(cur ? 'edit' : 'add', b.key, ctx.who);
       return out_({ ok: true, imgs });
