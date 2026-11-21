@@ -3678,25 +3678,12 @@ async function svLibFind(key){
   const a=(typeof sv!=='undefined'&&sv.items||[]).find(x=>x.key===key);if(a)return a;
   const all=await Survey.libAll().catch(()=>[]);return all.find(x=>x.key===key)||null;
 }
-async function svEvidence(items){
-  const seen=new Set(),list=(items||[]).filter(it=>it&&it.key&&!seen.has(it.key)&&seen.add(it.key))
-    .sort((a,b)=>String(a.name||'').localeCompare(String(b.name||''),'th'));
-  const figs=[],refs={};let n=0;
-  for(const it of list){
-    /* สำเนาในโครงการเก็บแค่ตัวหนังสือ → รหัสภาพอยู่ในคลัง */
-    const src=(it.quotes||[]).some(q=>(q.imgs||[]).length)?it:((await svLibFind(it.key))||it);
-    const byId={};(src.quotes||[]).forEach(q=>{byId[q.id]=q;});
-    for(const x of Survey.summary(it).list){
-      const sq=byId[x.q.id];const ids=(sq&&sq.imgs)||[];if(!ids.length)continue;
-      const r=(refs[it.key]=refs[it.key]||{})[x.q.id]=[];
-      ids.forEach(id=>{n++;r.push(n);figs.push({n,it:src,name:it.name,unit:it.unit,q:sq,up:x.up,id});});
-    }
-  }
-  return {figs,refs,refTxt:(key,qid)=>{const a=(refs[key]||{})[qid]||[];return a.length?'ภาพที่ '+svNumRange(a):'';}};
+async function svEvidence(items){   /* เลขภาพ: Survey.evNumber (ใช้ร่วม Total Station) — สำเนาในโครงการเก็บแค่ตัวหนังสือ → รหัสภาพอยู่ในคลัง */
+  const src={};
+  for(const it of (items||[]))if(it&&it.key&&!src[it.key])src[it.key]=(it.quotes||[]).some(q=>(q.imgs||[]).length)?it:((await svLibFind(it.key))||it);
+  return Survey.evNumber(items,{src:it=>src[it.key]});
 }
-function svNumRange(a){   /* [3,4,5,7] → "3–5, 7" */
-  const out=[];for(let i=0;i<a.length;i++){let j=i;while(j+1<a.length&&a[j+1]===a[j]+1)j++;out.push(j>i+1?a[i]+'–'+a[j]:(j===i+1?a[i]+', '+a[j]:String(a[i])));i=j;}return out.join(', ');
-}
+const svNumRange=a=>Survey.numRange(a);
 /* รอให้ภาพในพื้นที่พิมพ์โหลด/ถอดรหัสเสร็จก่อนเปิดหน้าต่างพิมพ์ (ไม่งั้นภาพที่ยังไม่เคยแสดงจะออกเป็นช่องว่าง) */
 async function svWaitImgs(el){
   const ims=[...el.querySelectorAll('img')];
@@ -3793,33 +3780,10 @@ async function svEvidencePrint(items,title){
 }
 /* สร้างชีต Excel ราคาสืบ (สูตร) จากรายการที่มีราคา — ใช้ทั้งหน้าราคาสืบและรายงานโครงการ */
 const SV_SHEET_DETAIL='รายละเอียดการสืบ',SV_SHEET_SUM='สรุปราคาสืบ';
-function svBuildSheets(list,ev){   /* ev: ผลจาก svEvidence → คอลัมน์ L อ้างเลขภาพหลักฐาน */
-  const aoa=[],fcells=[],sumRows=[];
-  list.forEach((it,idx)=>{
-    const s=Survey.summary(it);
-    aoa.push([`${idx+1}. ${it.name} [หน่วย ${it.unit}]`,'','','','','','','','']);
-    aoa.push(['#','ร้าน / บริษัท','ช่องทาง','เบอร์ / ลิงก์','วันที่','ราคาที่เสนอ','หน่วยร้าน','ตัวคูณ (1 หน่วยร้าน = ? '+it.unit+')','VAT','บาท/'+it.unit+' ไม่รวม VAT','หมายเหตุ','ภาพหลักฐาน']);
-    const first=aoa.length+1;
-    s.list.forEach((x,j)=>{
-      const q=x.q,r=aoa.length+1;
-      aoa.push([j+1,q.shop||'',Survey.CHANNEL[q.channel]||'',q.contact||'',q.date||'',+q.price,q.qunit||'',+(q.factor||1),q.vat?'รวม VAT':'ไม่รวม VAT','',(q.brand?'ยี่ห้อ '+q.brand+(q.note?' · ':''):'')+(q.note||''),ev?ev.refTxt(it.key,q.id):'']);
-      fcells.push({a:'J'+r,f:`ROUND(IF(I${r}="รวม VAT",F${r}/1.07,F${r})/H${r},2)`,v:x.up});
-    });
-    const last=aoa.length,tr=aoa.length+1;
-    aoa.push(['','','','','','','','','ราคาที่ใช้ (ต่ำสุด)','', s.n<Survey.MIN_Q?`สืบได้ ${s.n} ราย (ไม่ครบ ${Survey.MIN_Q})${it.reason?' — '+it.reason:''}`:'']);
-    fcells.push({a:'J'+tr,f:`MIN(J${first}:J${last})`,v:s.price});
-    aoa.push([]);
-    sumRows.push({it,s,tr,upd:it.updated?String(it.updated).slice(0,10):''});
-  });
-  const ws=XLSX.utils.aoa_to_sheet(aoa);
-  fcells.forEach(c=>{ws[c.a]={t:'n',f:c.f,v:c.v,z:'#,##0.00'};});
-  ws['!cols']=[{wch:5},{wch:28},{wch:12},{wch:26},{wch:12},{wch:14},{wch:12},{wch:22},{wch:14},{wch:20},{wch:30},{wch:16}];
-  const sum=[['#','รายการวัสดุ','หน่วย','จำนวนราย','ราคาที่ใช้ (บาท/หน่วย ไม่รวม VAT)','สถานะ','วันที่สืบล่าสุด']];
-  sumRows.forEach((o,i)=>sum.push([i+1,o.it.name,o.it.unit,o.s.n,'',SV_ST[o.s.status],o.upd]));
-  const ws2=XLSX.utils.aoa_to_sheet(sum);
-  sumRows.forEach((o,i)=>{ws2['E'+(i+2)]={t:'n',f:`'${SV_SHEET_DETAIL}'!J${o.tr}`,v:o.s.price,z:'#,##0.00'};});
-  ws2['!cols']=[{wch:5},{wch:52},{wch:10},{wch:11},{wch:30},{wch:16},{wch:16}];
-  return {sum:ws2,detail:ws};
+function svBuildSheets(list,ev){   /* ev: ผลจาก svEvidence → คอลัมน์ L อ้างเลขภาพหลักฐาน · ข้อมูลชีตจาก Survey.sheetData (ใช้ร่วม Total Station) */
+  const d=Survey.sheetData(list,ev?ev.refTxt:null);
+  const mk=o=>{const ws=XLSX.utils.aoa_to_sheet(o.aoa);Object.entries(o.f).forEach(([a,c])=>{ws[a]={t:'n',f:c.f,v:c.v,z:'#,##0.00'};});ws['!cols']=o.cols.map(w=>({wch:w}));return ws;};
+  return {sum:mk(d.sum),detail:mk(d.detail)};
 }
 async function svExportExcel(){
   const list=svReportItems();
@@ -4196,6 +4160,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   if(window.UDAuth)hook();else window.addEventListener('udauth-loaded',hook,{once:true});
 });
 const APP_CHANGELOG=[
+  ['1.22.3','2026-11-21',['ราคาสืบ: เลขภาพหลักฐานและข้อมูล Excel ราคาสืบย้ายไป survey-v1.js (evNumber / sheetData) ใช้ร่วมกับ UD Total Station — ผลเหมือนเดิม (ทดสอบเทียบรุ่นเดิมตรงทุกเซลล์)']],
   ['1.22.2','2026-11-20',['ราคาสืบ: ตรรกะหารายการซ้ำ/รวมเข้าต้นฉบับย้ายไป survey-v1.js (libDupFind / libDupMerge) ใช้ร่วมกับ UD Total Station — ผลเหมือนเดิม']],
   ['1.22.1','2026-11-20',['ราคาสืบ: ชนิดรายการ (วัสดุ/ครุภัณฑ์/ค่าใช้จ่ายพิเศษ) บันทึกขึ้นคลังกลางแล้ว — เครื่องอื่นและ UD Total Station เห็นชนิดเดียวกัน (เดิมจำไว้เฉพาะเครื่อง)']],
   ['1.22.0','2026-11-19',['ราคาสืบ: ผู้ดูแลระบบลบรายการออกจากคลังกลางได้ (กู้คืนได้จากชีต deleted) · ปุ่ม "หารายการซ้ำ" รวมรายการที่ถูกคัดลอกซ้ำในคลัง (จาก UD Total Station รุ่นก่อน) เข้าต้นฉบับ — จำชื่อเป็นชื่ออื่นของต้นฉบับแล้วลบตัวซ้ำ · รายการที่ถูกลบจากคลังกลางแล้วไม่ถูกส่งขึ้นซ้ำจากสำเนาเก่าในเครื่อง']],
