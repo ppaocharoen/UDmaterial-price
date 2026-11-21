@@ -827,12 +827,12 @@ select.bq-in{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w
 </div>
 </div>
 
-<script src="lib/pricing-v1.js"></script>
+<script src="lib/pricing-v2.js"></script>
 <script>
 // ============================================================
 // CONFIG
 // ============================================================
-// ค่าคงที่และโค้ดคิดราคาอยู่ใน lib/pricing-v1.js (ใช้ร่วมกับ UD-Total-Station)
+// ค่าคงที่และโค้ดคิดราคาอยู่ใน lib/pricing-v2.js (ใช้ร่วมกับ UD-Total-Station)
 const {SHEET_ID, SH_DATA, SH_CAT, PROVS, WAGE_SHEETS} = UDPrice.CONFIG;
 // ฐานข้อมูลราคากลาง — loader ด้านล่างใส่ข้อมูลให้หลังโหลดแต่ละชีต
 const PDB = new UDPrice.DB();
@@ -1585,7 +1585,7 @@ function cpSelectFromList(id){
 }
 
 // ============================================================
-// UNIT CONVERSION — อยู่ใน lib/pricing-v1.js
+// UNIT CONVERSION — อยู่ใน lib/pricing-v2.js (ห้ามแปลงหน่วยนับต่างชนิด)
 // ============================================================
 const {UNIT_TABLE, COUNT_UNITS, pkgContents, fmtQty, normUnit, splitCodes} = UDPrice.units;
 const convertPriceX = UDPrice.units.convertPrice;   // คืน {price, ok, how}
@@ -4165,6 +4165,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   if(window.UDAuth)hook();else window.addEventListener('udauth-loaded',hook,{once:true});
 });
 const APP_CHANGELOG=[
+  ['1.23.0','2026-11-21',['คิดราคาด้วย pricing-v2.js (ใช้ร่วมกับ UD Total Station): ไม่แปลงราคาระหว่างหน่วยนับต่างชนิดอีกแล้ว เช่น ราคาต่อเส้นใช้กับแถวที่เป็นแผ่น หรือราคาต่ออันใช้กับชุด — แถว/บรรทัดนั้นขึ้น "ยังไม่มีราคา" ให้ผูกเอง · ยังแปลงให้: ตัน↔กก. ลบ.ม.↔ลิตร ม.↔ซม. ตร.ม. หีบห่อที่ชื่อบอกขนาด (ถุง 50 กก. ท่อนยาว 4 ม. ม้วน 100 ม.) กล่อง "144 แผ่น"→แผ่น และโหล→คำนับ ÷ 12 · แถวหน่วย "จุด" (ไฟฟ้า) ยังรับราคาอุปกรณ์ 1 ชิ้น/ชุดได้ 1:1 เหมือนเดิม']],
   ['1.22.4','2026-11-21',['วัสดุมวลรวมที่สร้างเอง: ลบออกจากคลังกลางแล้วแถว BOQ ที่ผูกไว้เลิกผูกทุกโครงการในเครื่อง (ขึ้น "ยังไม่มีราคา" ให้ผูกใหม่) รวมบรรทัดในมวลรวมที่ผูกกับรายการนั้น · เปิดเว็บแล้วโหลดคลังกลางสำเร็จจะเลิกผูกรายการที่ถูกลบจากเครื่องอื่นให้ด้วย · ตอนลบแจ้งมวลรวมสร้างเองตัวอื่นที่อ้างรายการนั้นอยู่ · ตัวแปลงมวลรวมสร้างเองย้ายไป survey-v1.js ใช้ร่วมกับ UD Total Station']],
   ['1.22.3','2026-11-21',['ราคาสืบ: เลขภาพหลักฐานและข้อมูล Excel ราคาสืบย้ายไป survey-v1.js (evNumber / sheetData) ใช้ร่วมกับ UD Total Station — ผลเหมือนเดิม (ทดสอบเทียบรุ่นเดิมตรงทุกเซลล์)']],
   ['1.22.2','2026-11-20',['ราคาสืบ: ตรรกะหารายการซ้ำ/รวมเข้าต้นฉบับย้ายไป survey-v1.js (libDupFind / libDupMerge) ใช้ร่วมกับ UD Total Station — ผลเหมือนเดิม']],

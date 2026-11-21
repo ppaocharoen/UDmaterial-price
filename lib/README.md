@@ -1,9 +1,9 @@
 # lib — โค้ดคิดราคากลางที่ใช้ร่วมกัน
 
-`pricing-v1.js` คือโค้ดคิดราคาที่ UD-Cost Hub (`index.html`) และ UD-Total-Station (เว็บ BOQ) ใช้ร่วมกัน ไฟล์นี้มีแต่การคำนวณ ไม่แตะหน้าจอ
+`pricing-v2.js` คือโค้ดคิดราคาที่ UD-Cost Hub (`index.html`) และ UD-Total-Station (เว็บ BOQ) ใช้ร่วมกัน ไฟล์นี้มีแต่การคำนวณ ไม่แตะหน้าจอ
 
 ```html
-<script src="https://ppaocharoen.github.io/UDmaterial-price/lib/pricing-v1.js"></script>
+<script src="https://ppaocharoen.github.io/UDmaterial-price/lib/pricing-v2.js"></script>
 <script>
   const db = await UDPrice.load();            // ดึงชีต A และ B ทั้งหมด
   db.material('0101010100300000');            // ราคาที่ใช้ หน่วย จังหวัด เดือนราคา
@@ -12,7 +12,7 @@
 </script>
 ```
 
-ใน Node: `const UDPrice = require('./lib/pricing-v1.js')`
+ใน Node: `const UDPrice = require('./lib/pricing-v2.js')`
 
 ## ฟังก์ชันหลัก
 
@@ -32,3 +32,8 @@
 ## กติกาเวอร์ชัน
 
 ห้ามแก้ `pricing-v1.js` ในทางที่ทำให้ผลคำนวณเดิมเปลี่ยน ถ้าต้องเปลี่ยน ให้ทำไฟล์ใหม่ `pricing-v2.js` แล้วให้แต่ละเว็บย้ายไปเมื่อพร้อม
+
+
+## v2 (21 พ.ย. 2569)
+
+`pricing-v2.js` = v1 + ห้ามแปลงราคาระหว่างหน่วยนับต่างชนิด (เส้น→แผ่น, อัน→ชุด, ท่อน→เส้น …) — `convertPrice` คืน `ok:false, countKind:true` · ยังแปลง: มวล ปริมาตร ความยาว พื้นที่ หีบห่อที่ชื่อบอกขนาด "144 แผ่น"→แผ่น โหล→คำนับ (÷ 12) · ปลายทาง `จุด` (ไฟฟ้า) รับคำนับใดก็ได้ 1:1 (`units.POINT`) · `pricing-v1.js` คงไว้ไม่แก้ ทั้งสองเว็บเปลี่ยนไปใช้ v2 แล้ว
