@@ -3497,28 +3497,32 @@ let cuComps=[];const cu={ed:null};
 const CU_SRC={mat:'ราคาพาณิชย์',fixed:'ราคาคงที่',comp:'มวลรวมอื่น',none:'เลือกตอนใช้ใน BOQ'};
 function cuCanWrite(){return !!(Survey.remote()&&(Survey.cfg().team||(authSt.user&&authSt.access&&authSt.access.status==='approved'&&['editor','admin'].includes(authSt.access.role))));}
 function cuCanDel(){return !!(Survey.remote()&&(Survey.cfg().team||(authSt.user&&authSt.access&&authSt.access.status==='approved'&&authSt.access.role==='admin')));}
-function cuToItems(c){
-  const comp={id:c.id,group:'12',sub:c.id,name:c.name,unit:c.unit,custom:true,by:c.by||'',updated:c.updated||''};
-  const items=(c.lines||[]).map((l,i)=>{
-    const it={compId:c.id,seq:String(i+1),itemCode:'',itemName:l.name,qty:l.qty===null||l.qty===undefined||l.qty===''?null:+l.qty,unit:l.unit||'',commodityCode:'',userInput:'',fixedPrice:null};
-    if(l.src==='mat')it.commodityCode=String(l.code||'');
-    if(l.src==='fixed'&&l.price!==null&&l.price!==undefined&&l.price!=='')it.fixedPrice=+l.price;
-    if(l.src==='comp'&&l.comp){it.itemCode='U:'+c.id+':'+i;matRefMap[it.itemCode]={name:'',unit:l.unit||'',commodityCode:'',compRef:l.comp};}
-    return it;
-  });
-  return {comp,items};
-}
+function cuToItems(c){const x=Survey.compToItems(c);Object.assign(matRefMap,x.refs);return x;}   /* ตัวแปลงอยู่ใน lib ใช้ร่วมกับ UD Total Station */
 function cuMerge(list){
-  cuComps=(list||[]).slice().sort((a,b)=>(+String(a.id).slice(2)||0)-(+String(b.id).slice(2)||0));
-  for(let i=compList.length-1;i>=0;i--)if(compList[i].custom)compList.splice(i,1);
-  for(let i=compItems.length-1;i>=0;i--)if(/^U-/.test(String(compItems[i].compId)))compItems.splice(i,1);
-  Object.keys(matRefMap).forEach(k=>{if(k.startsWith('U:'))delete matRefMap[k];});
-  cuComps.forEach(c=>{const x=cuToItems(c);compList.push(x.comp);x.items.forEach(it=>compItems.push(it));});
+  cuComps=Survey.compMerge({compList,compItems,matRef:matRefMap},list);
   PDB.compList=compList;PDB.compItems=compItems;PDB.matRef=matRefMap;
 }
 async function cuLoad(){
-  try{if(Survey.remote())cuMerge(await Survey.compList());}catch(e){console.warn('โหลดวัสดุมวลรวมที่สร้างเองไม่สำเร็จ',e);}
+  try{if(Survey.remote()){cuMerge(await Survey.compList());const n=cuPrune();if(n)svToast('เลิกผูกวัสดุมวลรวมที่ถูกลบจากคลังกลางแล้ว '+n+' จุด — แถวนั้นขึ้น "ยังไม่มีราคา" ให้ผูกใหม่',6000);}}
+  catch(e){console.warn('โหลดวัสดุมวลรวมที่สร้างเองไม่สำเร็จ',e);}   /* โหลดไม่สำเร็จ: ไม่แตะการผูกในโครงการ */
   cuRefreshUI();
+}
+/* เลิกผูกวัสดุมวลรวมสร้างเอง (U-n) ที่ไม่มีในคลังกลางแล้ว ในทุกโครงการของเครื่องนี้ (Earth 21 พ.ย. 2569)
+ * gone = รหัสที่เพิ่งลบ · ไม่ส่ง = เทียบกับรายการที่โหลดจากคลังกลางสำเร็จแล้ว (cuComps) · คืนจำนวนจุดที่เลิกผูก */
+function cuPrune(gone){
+  const live=cuComps.map(c=>c.id);let n=0;
+  Object.values(projStore.projects||{}).forEach(p=>{
+    const b=p&&p.boq;if(!b||!Array.isArray(b.rows))return;let k=0;
+    b.rows.forEach(r=>{const m=r.mat;if(!m||m.kind!=='comp')return;
+      const refs=Survey.compRefCodes(m);refs.add(String(m.code));
+      const G=gone?new Set([...refs].filter(c=>gone.has(c))):Survey.compGone(refs,live);if(!G.size)return;
+      if(G.has(String(m.code))){delete r.mat;k++;return;}
+      k+=Survey.compUnlink(m,G);
+    });
+    if(k){n+=k;p.updatedAt=Date.now();}
+  });
+  if(n){projSaveStore();try{if(document.getElementById('page-boq').classList.contains('active'))boqRender();}catch(x){}}
+  return n;
 }
 function cuRefreshUI(){
   if(!compLoaded)return;
@@ -3666,8 +3670,9 @@ async function cuSave(){
   finally{btn.disabled=false;btn.textContent='บันทึกเข้าคลังกลาง';}
 }
 async function cuDel(id){
-  if(!confirm('ลบวัสดุมวลรวม '+id+' ออกจากคลังกลางใช่หรือไม่\nโครงการที่ใช้อยู่จะคิดราคารายการนี้ไม่ได้ (กู้คืนได้จากชีต comps_deleted)'))return;
-  try{await Survey.compDel(id);cuMerge(cuComps.filter(x=>x.id!==id));document.getElementById('cp-calc-area').innerHTML='';cuRefreshUI();}
+  const usedBy=cuComps.filter(c=>c.id!==id&&(c.lines||[]).some(l=>l.src==='comp'&&String(l.comp)===id)).map(c=>c.id);
+  if(!confirm('ลบวัสดุมวลรวม '+id+' ออกจากคลังกลางใช่หรือไม่\nแถว BOQ ที่ผูกไว้จะเลิกผูก (ขึ้น "ยังไม่มีราคา" ให้ผูกใหม่) — กู้คืนได้จากชีต comps_deleted'+(usedBy.length?'\nมวลรวมที่มีบรรทัดอ้าง '+id+' อยู่: '+usedBy.join(', ')+' (บรรทัดนั้นจะคิดราคาไม่ได้จนกว่าจะแก้)':'')))return;
+  try{await Survey.compDel(id);cuMerge(cuComps.filter(x=>x.id!==id));const n=cuPrune(new Set([id]));document.getElementById('cp-calc-area').innerHTML='';cuRefreshUI();if(n)svToast('เลิกผูก '+id+' แล้ว '+n+' จุด',5000);}
   catch(x){alert('ลบไม่สำเร็จ: '+(x&&x.message||x));}
 }
 
@@ -4160,6 +4165,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   if(window.UDAuth)hook();else window.addEventListener('udauth-loaded',hook,{once:true});
 });
 const APP_CHANGELOG=[
+  ['1.22.4','2026-11-21',['วัสดุมวลรวมที่สร้างเอง: ลบออกจากคลังกลางแล้วแถว BOQ ที่ผูกไว้เลิกผูกทุกโครงการในเครื่อง (ขึ้น "ยังไม่มีราคา" ให้ผูกใหม่) รวมบรรทัดในมวลรวมที่ผูกกับรายการนั้น · เปิดเว็บแล้วโหลดคลังกลางสำเร็จจะเลิกผูกรายการที่ถูกลบจากเครื่องอื่นให้ด้วย · ตอนลบแจ้งมวลรวมสร้างเองตัวอื่นที่อ้างรายการนั้นอยู่ · ตัวแปลงมวลรวมสร้างเองย้ายไป survey-v1.js ใช้ร่วมกับ UD Total Station']],
   ['1.22.3','2026-11-21',['ราคาสืบ: เลขภาพหลักฐานและข้อมูล Excel ราคาสืบย้ายไป survey-v1.js (evNumber / sheetData) ใช้ร่วมกับ UD Total Station — ผลเหมือนเดิม (ทดสอบเทียบรุ่นเดิมตรงทุกเซลล์)']],
   ['1.22.2','2026-11-20',['ราคาสืบ: ตรรกะหารายการซ้ำ/รวมเข้าต้นฉบับย้ายไป survey-v1.js (libDupFind / libDupMerge) ใช้ร่วมกับ UD Total Station — ผลเหมือนเดิม']],
   ['1.22.1','2026-11-20',['ราคาสืบ: ชนิดรายการ (วัสดุ/ครุภัณฑ์/ค่าใช้จ่ายพิเศษ) บันทึกขึ้นคลังกลางแล้ว — เครื่องอื่นและ UD Total Station เห็นชนิดเดียวกัน (เดิมจำไว้เฉพาะเครื่อง)']],
