@@ -37,3 +37,7 @@
 ## v2 (21 พ.ย. 2569)
 
 `pricing-v2.js` = v1 + ห้ามแปลงราคาระหว่างหน่วยนับต่างชนิด (เส้น→แผ่น, อัน→ชุด, ท่อน→เส้น …) — `convertPrice` คืน `ok:false, countKind:true` · ยังแปลง: มวล ปริมาตร ความยาว พื้นที่ หีบห่อที่ชื่อบอกขนาด "144 แผ่น"→แผ่น โหล→คำนับ (÷ 12) · ปลายทาง `จุด` (ไฟฟ้า) รับคำนับใดก็ได้ 1:1 (`units.POINT`) · `pricing-v1.js` คงไว้ไม่แก้ ทั้งสองเว็บเปลี่ยนไปใช้ v2 แล้ว
+
+## takeoff-v1.js (25 พ.ย. 2569) — ใบถอดปริมาณ (ใช้เฉพาะ Cost Hub)
+
+ข้อมูลต่อโครงการ `p.boq.takeoff = {groups:[{id, name, note, dest, vars:[{n, e}], lines:[{id, label, e, dia, row}]}]}` · `Takeoff.evalGroup(g)` คิดค่าและบรรทัดของกลุ่ม · `Takeoff.rowTotals(tk)` รวมตามรายการ BOQ · `Takeoff.rowQty(net, waste)` = ปัด 2 ตำแหน่ง(สุทธิ × (1 + % เผื่อ/100)) · สูตรอ่านด้วยตัวแยกคำในไฟล์ (ไม่ใช้ eval) · เหล็กเสริม กก./ม. = d²/162 และ % เผื่อตามขนาด เท่ากับ Total Station `tools/takeoff.py` · ชีต Excel "รายการคำนวณปริมาณงาน" อยู่ใน `formxlsx-v1.js` (`data.takeoff = {rows, defs}` — Total Station ส่งรูปแบบเดียวกันได้)
