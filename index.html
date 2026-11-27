@@ -4189,6 +4189,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   if(window.UDAuth)hook();else window.addEventListener('udauth-loaded',hook,{once:true});
 });
 const APP_CHANGELOG=[
+  ['1.24.3','2026-11-27',['ถอดปริมาณ: ค่าที่วัดจากแบบมีช่อง "ความหมาย" ระบุว่าอักษรย่อแต่ละตัวคือค่าอะไร (แสดงในชีต Excel รายการคำนวณปริมาณงานด้วย)']],
   ['1.24.2','2026-11-25',['แก้: แค่เลือกเปิดโครงการก็นับเป็นการแก้ไข ทำให้เมื่อเปิดบัญชีเดียวกันหลายเครื่อง การซิงก์สร้างสำเนา "(สำรองจากเครื่องอื่น)" ขึ้นมาเอง — ตอนนี้นับเฉพาะเมื่อแก้ข้อมูลจริง']],
   ['1.24.1','2026-11-25',['แก้: เลือกเปลี่ยนโครงการที่มีวัสดุมวลรวมผูกจาก BOQ แต่ยังไม่มีราคา แล้วชื่อโครงการบนปุ่มและหน้า BOQ ค้างเป็นโครงการเดิมจนกว่าจะเปลี่ยนหน้า — แสดง "—" แทนราคาที่ยังไม่มี และแต่ละส่วนของหน้าวาดแยกกัน ส่วนหนึ่งผิดพลาดไม่ทำให้ส่วนอื่นค้าง']],
   ['1.24.0','2026-11-25',['BOQ: หน้า "ถอดปริมาณ" บันทึกวิธีคิดปริมาณจากแบบ แยกกลุ่มตามองค์อาคาร (เช่น คาน B1 ชั้น 1) — ค่าที่วัดจากแบบใช้ซ้ำได้หลายบรรทัด สูตรแสดงวิธีคิดเป็นตัวเลข · บรรทัดเหล็กเสริมใส่ความยาวแล้วคูณ กก./ม. ให้ · แต่ละบรรทัดส่งเข้ารายการ BOQ ที่เลือก (สร้างรายการใหม่ได้) · กลุ่มเลือกหมวดปลายทาง แยกชั้น/พื้นที่ด้วยหมวดย่อย เปลี่ยนหมวดแล้วย้ายบรรทัดตามชื่อรายการ · คัดลอกกลุ่ม','BOQ: รายการที่รับปริมาณจากใบถอดปริมาณ ช่องจำนวนคิดให้เอง = สุทธิรวม × (1 + % เผื่อ) ปัด 2 ตำแหน่ง (เหล็กเสริมตั้ง % เผื่อตามขนาดตามหลักเกณฑ์ 2569) และกดดูที่มาของปริมาณได้','Excel ตามแบบฟอร์ม: เพิ่มชีต "รายการคำนวณปริมาณงาน" เรียงตามรายการ BOQ พร้อมค่าที่วัดจากแบบของแต่ละกลุ่ม (มีเมื่อโครงการบันทึกใบถอดปริมาณ)']],
@@ -5715,7 +5716,7 @@ function tkGroupHtml(g,b){
   const rowsIn=b.rows.filter(r=>r.group_code===g.dest);
   const dopt=`<option value="">— เลือกหมวด —</option>`+grs.map(x=>`<option value="${esc(x.code)}"${x.code===g.dest?' selected':''}>${' '.repeat((String(x.code).split('.').length-1)*3)}${esc(x.code)} ${esc(x.name)}</option>`).join('')+(destOk?'':`<option value="${esc(g.dest)}" selected>${esc(g.dest)} (หมวดถูกลบ)</option>`);
   const vars=(g.vars||[]).map((v,i)=>{const x=ev.vars[i];
-    return `<tr><td style="width:130px"><input class="bq-in" data-tv="n" data-i="${i}" value="${esc(v.n||'')}" placeholder="เช่น L"></td><td><input class="bq-in" data-tv="e" data-i="${i}" value="${esc(v.e||'')}" placeholder="เช่น 4.00+3.50+4.00"><div data-tvx="${i}">${x.err?'<div class="tk-err">'+esc(x.err)+'</div>':''}</div></td><td class="tk-val" style="width:110px" data-tvv="${i}">${x.err?'—':'= '+tkN(x.v)}</td><td style="width:26px"><span class="bq-lnk" style="color:var(--red)" data-ta="delvar" data-i="${i}" title="ลบค่า"><i class="ic ic-x"></i></span></td></tr>`;}).join('');
+    return `<tr><td style="width:90px"><input class="bq-in" data-tv="n" data-i="${i}" value="${esc(v.n||'')}" placeholder="เช่น L"></td><td style="width:32%"><input class="bq-in" data-tv="d" data-i="${i}" value="${esc(v.d||'')}" placeholder="ความหมาย เช่น ความยาวเสา (ม.)"></td><td><input class="bq-in" data-tv="e" data-i="${i}" value="${esc(v.e||'')}" placeholder="เช่น 4.00+3.50+4.00"><div data-tvx="${i}">${x.err?'<div class="tk-err">'+esc(x.err)+'</div>':''}</div></td><td class="tk-val" style="width:110px" data-tvv="${i}">${x.err?'—':'= '+tkN(x.v)}</td><td style="width:26px"><span class="bq-lnk" style="color:var(--red)" data-ta="delvar" data-i="${i}" title="ลบค่า"><i class="ic ic-x"></i></span></td></tr>`;}).join('');
   const lines=(g.lines||[]).map((l,i)=>{const x=ev.lines[i],r=l.row?b.rows.find(z=>z.key===l.row):null;
     const opts=`<option value="">— ไม่ส่งเข้า BOQ —</option>`+rowsIn.map(z=>`<option value="${esc(z.key)}"${z.key===l.row?' selected':''}>${esc(z.name||'(ยังไม่มีชื่อ)')}${z.unit?' — '+esc(z.unit):''}</option>`).join('')
       +(r&&r.group_code!==g.dest?`<option value="${esc(r.key)}" selected>${esc(r.group_code)} ${esc(r.name)} (คนละหมวด)</option>`:'')
@@ -5735,7 +5736,7 @@ function tkGroupHtml(g,b){
       <label>ส่งเข้าหมวด BOQ<select class="bq-in" data-tg="dest">${dopt}</select></label>
       <div style="display:flex;gap:8px;padding-bottom:7px"><span class="bq-lnk" data-ta="up" title="เลื่อนขึ้น">ขึ้น</span><span class="bq-lnk" data-ta="down" title="เลื่อนลง">ลง</span><span class="bq-lnk" data-ta="copy">คัดลอกกลุ่ม</span><span class="bq-lnk" style="color:var(--red)" data-ta="delgrp">ลบกลุ่ม</span></div></div>
     <div class="tk-sub">ค่าที่วัดจากแบบ</div>
-    ${vars?`<table class="tk-tbl"><tbody>${vars}</tbody></table>`:''}<div style="margin:4px 0 6px"><span class="bq-lnk" data-ta="addvar">+ เพิ่มค่า</span></div>
+    ${vars?`<table class="tk-tbl"><thead><tr><th>ชื่อค่า</th><th>ความหมาย</th><th>ค่า / สูตร</th><th style="text-align:right">ผล</th><th></th></tr></thead><tbody>${vars}</tbody></table>`:''}<div style="margin:4px 0 6px"><span class="bq-lnk" data-ta="addvar">+ เพิ่มค่า</span></div>
     <div class="tk-sub">บรรทัดผลลัพธ์ (ส่งเข้ารายการ BOQ)</div>
     ${lines?`<table class="tk-tbl"><thead><tr><th>คำอธิบาย</th><th>ชนิด</th><th>สูตร / วิธีคิด</th><th style="text-align:right">ผลสุทธิ</th><th>ส่งเข้ารายการ BOQ</th><th></th></tr></thead><tbody>${lines}</tbody></table>`:''}<div style="margin-top:4px"><span class="bq-lnk" data-ta="addline">+ เพิ่มบรรทัด</span></div>
   </div>`;
@@ -5788,7 +5789,7 @@ function tkBind(){
   body.addEventListener('input',e=>{
     const t=e.target,{b,card,g}=ctx(t);if(!g)return;
     if(t.dataset.tg==='name'||t.dataset.tg==='note'){g[t.dataset.tg]=t.value;boqSaveSoon();return;}
-    if(t.dataset.tv){const v=g.vars[+t.dataset.i];if(!v)return;v[t.dataset.tv]=t.value;}
+    if(t.dataset.tv){const v=g.vars[+t.dataset.i];if(!v)return;v[t.dataset.tv]=t.value;if(t.dataset.tv==='d')return void boqSaveSoon();}
     else if(t.dataset.tl==='label'||t.dataset.tl==='e'){const l=g.lines[+t.dataset.i];if(!l)return;l[t.dataset.tl]=t.value;if(t.dataset.tl==='label')return void boqSaveSoon();}
     else return;
     tkUpdateGroup(card,g,b);tkSync(b);boqSaveSoon();
@@ -5837,7 +5838,7 @@ function tkFormData(b){
   if(!rows.length)return null;
   const defs=tk.groups.filter(g=>used.has(g.id)).map(g=>{const ev=Takeoff.evalGroup(g);
     return {part:String(g.name||'').trim()+(String(g.note||'').trim()?' ('+String(g.note).trim()+')':''),
-      vars:(g.vars||[]).map((v,i)=>({n:String(v.n||'').trim(),e:String(v.e||'').trim(),v:ev.vars[i].err?null:ev.vars[i].v})).filter(v=>v.n)};}).filter(d=>d.vars.length);
+      vars:(g.vars||[]).map((v,i)=>({n:String(v.n||'').trim(),d:String(v.d||'').trim(),e:String(v.e||'').trim(),v:ev.vars[i].err?null:ev.vars[i].v})).filter(v=>v.n)};}).filter(d=>d.vars.length);
   return {rows,defs};
 }
 tkBind();
