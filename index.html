@@ -455,6 +455,9 @@ select.bq-in{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w
 .bq-sug .bq-lnk{margin-left:4px;font-weight:600;}
 .bq-warn{color:var(--amber);}
 .bq-lnk{color:var(--accent2);cursor:pointer;font-size:11px;text-decoration:underline;white-space:nowrap;}
+/* เลื่อน/ย้ายรายการ BOQ */
+.bq-racts{white-space:nowrap;}.bq-racts .bq-lnk{text-decoration:none;margin:0 2px;font-size:11px;}.bq-racts [data-act="rowmv"]{text-decoration:underline;}
+.bq-racts select{font-size:11px;max-width:160px;}
 /* ใบถอดปริมาณ */
 .tk-g{padding:12px 14px;}
 .tk-hd{display:grid;grid-template-columns:2fr 1fr 2fr auto;gap:8px;align-items:end;margin-bottom:8px;}
@@ -4189,6 +4192,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   if(window.UDAuth)hook();else window.addEventListener('udauth-loaded',hook,{once:true});
 });
 const APP_CHANGELOG=[
+  ['1.25.0','2026-11-27',['BOQ: เลื่อนลำดับรายการขึ้น/ลงภายในหมวด (▲ ▼) และย้ายรายการไปหมวดอื่น (ย้าย → เลือกหมวด) — ราคาที่ผูกและใบถอดปริมาณติดไปกับรายการ']],
   ['1.24.3','2026-11-27',['ถอดปริมาณ: ค่าที่วัดจากแบบมีช่อง "ความหมาย" ระบุว่าอักษรย่อแต่ละตัวคือค่าอะไร (แสดงในชีต Excel รายการคำนวณปริมาณงานด้วย)']],
   ['1.24.2','2026-11-25',['แก้: แค่เลือกเปิดโครงการก็นับเป็นการแก้ไข ทำให้เมื่อเปิดบัญชีเดียวกันหลายเครื่อง การซิงก์สร้างสำเนา "(สำรองจากเครื่องอื่น)" ขึ้นมาเอง — ตอนนี้นับเฉพาะเมื่อแก้ข้อมูลจริง']],
   ['1.24.1','2026-11-25',['แก้: เลือกเปลี่ยนโครงการที่มีวัสดุมวลรวมผูกจาก BOQ แต่ยังไม่มีราคา แล้วชื่อโครงการบนปุ่มและหน้า BOQ ค้างเป็นโครงการเดิมจนกว่าจะเปลี่ยนหน้า — แสดง "—" แทนราคาที่ยังไม่มี และแต่ละส่วนของหน้าวาดแยกกัน ส่วนหนึ่งผิดพลาดไม่ทำให้ส่วนอื่นค้าง']],
@@ -4613,7 +4617,7 @@ function boqRowHtml(r,n,p){
     <td><input class="bq-in" data-f="unit" value="${esc(r.unit||'')}"></td>
     <td class="r"><div class="bq-pri"><span data-c="matu"></span><span class="bq-lnk" data-act="pickmat">${ml}</span></div></td><td class="r" data-c="mata"></td>
     <td class="r"><div class="bq-pri"><span data-c="labu"></span><span class="bq-lnk" data-act="picklab">${ll}</span></div></td><td class="r" data-c="laba"></td>
-    <td class="r" data-c="tot" style="font-weight:700"></td><td><span class="bq-lnk" style="color:var(--red)" data-act="delrow" title="ลบรายการ"><i class="ic ic-x"></i></span></td></tr>`;
+    <td class="r" data-c="tot" style="font-weight:700"></td><td class="bq-racts"><span class="bq-lnk" data-act="rowup" title="เลื่อนขึ้น">▲</span><span class="bq-lnk" data-act="rowdn" title="เลื่อนลง">▼</span><span class="bq-lnk" data-act="rowmv" title="ย้ายไปหมวดอื่น">ย้าย</span><span class="bq-lnk" style="color:var(--red)" data-act="delrow" title="ลบรายการ"><i class="ic ic-x"></i></span></td></tr>`;
 }
 /* ---------- คำแนะนำการผูก (พจนานุกรมงานทั่วไป) — แสดงเป็นข้อเสนอ ต้องกดยืนยันเอง ---------- */
 function boqSugResolve(r){
@@ -4823,6 +4827,20 @@ function boqBind(){
         if(!confirm('ลบหมวด '+g+(sub.length>1?' และหมวดย่อย':'')+(cnt?' พร้อมรายการ '+cnt+' แถว':'')+'?'))break;
         b.groups=b.groups.filter(x=>!sub.includes(x.code));b.rows=b.rows.filter(x=>!sub.includes(x.group_code));boqSave();boqRender();break;}
       case 'tkgo':tkShowView('tk',a.dataset.gid);break;
+      case 'rowup':case 'rowdn':{if(!r)break;   /* สลับกับรายการก่อน/ถัดไปในหมวดเดียวกัน */
+        const i=b.rows.indexOf(r),same=b.rows.map((x,k)=>x.group_code===r.group_code?k:-1).filter(k=>k>=0),p=same.indexOf(i),j=same[a.dataset.act==='rowup'?p-1:p+1];
+        if(j===undefined)break;[b.rows[i],b.rows[j]]=[b.rows[j],b.rows[i]];boqSave();boqRender();
+        const n=document.querySelector('#bq-body tr[data-k="'+CSS.escape(r.key)+'"]');if(n){n.scrollIntoView({block:'nearest'});n.style.outline='2px solid var(--accent2)';setTimeout(()=>{n.style.outline='';},900);}break;}
+      case 'rowmv':{if(!r)break;   /* เลือกหมวดปลายทาง — ไปต่อท้ายหมวดนั้น */
+        const td=a.parentNode,grs=boqGroupsSorted(b).filter(x=>x.code!==r.group_code);
+        if(!grs.length){alert('ยังไม่มีหมวดอื่นให้ย้ายไป');break;}
+        const sel=document.createElement('select');sel.className='bq-in';
+        sel.innerHTML='<option value="">ย้ายไปหมวด…</option>'+grs.map(x=>'<option value="'+esc(x.code)+'">'+'\u00a0'.repeat((String(x.code).split('.').length-1)*2)+esc(x.code)+' '+esc(x.name)+'</option>').join('');
+        a.style.display='none';td.appendChild(sel);sel.focus();
+        let done=false;
+        sel.addEventListener('change',()=>{if(!sel.value)return;done=true;boqMoveRow(b,r,sel.value);});
+        sel.addEventListener('blur',()=>{setTimeout(()=>{if(!done&&sel.parentNode){sel.remove();a.style.display='';}},150);});
+        break;}
       case 'delrow':if(r&&confirm('ลบรายการนี้?'+((bq.tk||{})[r.key]&&bq.tk[r.key].n?'\nรายการนี้รับปริมาณจากใบถอดปริมาณ '+bq.tk[r.key].n+' บรรทัด — บรรทัดเหล่านั้นจะเลิกผูก':''))){(b.takeoff&&b.takeoff.groups||[]).forEach(g=>(g.lines||[]).forEach(l=>{if(l.row===r.key)l.row='';}));b.rows=b.rows.filter(x=>x!==r);boqSave();boqRender();}break;
       case 'useoldmat':if(r&&r.old){r.mat={kind:'manual',price:r.old.mat,label:'ราคาเดิมในไฟล์'};boqSave();boqRender();}break;
       case 'useoldlab':if(r&&r.old){r.lab={kind:'manual',price:r.old.lab,label:'ราคาเดิมในไฟล์'};boqSave();boqRender();}break;
@@ -5668,6 +5686,15 @@ boqBind();
    บรรทัดผูกกับรายการ BOQ ตรง ๆ · กลุ่มมีหมวดปลายทาง (แยกชั้น/พื้นที่ด้วยหมวดย่อยของ BOQ)
    ปริมาณรายการ BOQ ที่มีบรรทัดผูก = ปัด 2 ตำแหน่ง(สุทธิรวม × (1 + % เผื่อ)) — ช่องปริมาณแก้เองไม่ได้ ===== */
 const tkN=v=>(v===null||v===undefined||!isFinite(v))?'—':(+v).toLocaleString('th-TH',{minimumFractionDigits:2,maximumFractionDigits:3});
+/* ย้ายรายการ BOQ ไปหมวดอื่น (ต่อท้ายหมวดปลายทาง) — การผูกราคา/ใบถอดปริมาณติดไปกับรายการ */
+function boqMoveRow(b,r,dest){
+  b.rows=b.rows.filter(x=>x!==r);r.group_code=dest;
+  let at=-1;b.rows.forEach((x,k)=>{if(x.group_code===dest)at=k;});
+  if(at<0){const ord=boqGroupsSorted(b).map(g=>g.code),di=ord.indexOf(dest);   /* หมวดว่าง: วางก่อนรายการแรกของหมวดที่อยู่ถัดไป */
+    at=b.rows.findIndex(x=>ord.indexOf(x.group_code)>di)-1;if(at<-1)at=b.rows.length-1;}
+  b.rows.splice(at+1,0,r);boqSave();boqRender();
+  const n=document.querySelector('#bq-body tr[data-k="'+CSS.escape(r.key)+'"]');if(n){n.scrollIntoView({block:'center',behavior:'smooth'});n.style.outline='2px solid var(--accent2)';setTimeout(()=>{n.style.outline='';},1600);}
+}
 function tkGet(b){b.takeoff=b.takeoff&&Array.isArray(b.takeoff.groups)?b.takeoff:{groups:[]};return b.takeoff;}
 function tkSync(b){
   const T=Takeoff.rowTotals(b.takeoff||{groups:[]});
