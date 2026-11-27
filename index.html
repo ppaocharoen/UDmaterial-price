@@ -4192,6 +4192,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   if(window.UDAuth)hook();else window.addEventListener('udauth-loaded',hook,{once:true});
 });
 const APP_CHANGELOG=[
+  ['1.26.0','2026-11-27',['ถอดปริมาณ: ชนิดบรรทัดจัดหมวด (ปริมาณทั่วไป / เหล็กเสริม / เหล็กรูปพรรณ) · เพิ่มเหล็กรูปพรรณ ท่อกลม ท่อเหลี่ยมจัตุรัส ท่อเหลี่ยมผืนผ้า ตามตาราง มอก.107-2566 (JIS G 3444 / G 3466) เลือกขนาดแล้วใช้ กก./ม. ตามตาราง และแบบ "อื่น ๆ" ระบุหน้าตัดกับ กก./ม. เอง','เหล็กรูปพรรณคิดตามหลักเกณฑ์ราคากลาง: ความยาวรวมต่อหน้าตัด × (1 + เผื่อ 3%) ปัดเป็นท่อน 6 ม. (เศษ < 0.5 ปัดลง ≥ 0.5 ปัดขึ้น เดียวกับ Total Station) แล้วคูณ กก./ม. — แสดงวิธีคิดในหน้า BOQ และชีต Excel']],
   ['1.25.0','2026-11-27',['BOQ: เลื่อนลำดับรายการขึ้น/ลงภายในหมวด (▲ ▼) และย้ายรายการไปหมวดอื่น (ย้าย → เลือกหมวด) — ราคาที่ผูกและใบถอดปริมาณติดไปกับรายการ']],
   ['1.24.3','2026-11-27',['ถอดปริมาณ: ค่าที่วัดจากแบบมีช่อง "ความหมาย" ระบุว่าอักษรย่อแต่ละตัวคือค่าอะไร (แสดงในชีต Excel รายการคำนวณปริมาณงานด้วย)']],
   ['1.24.2','2026-11-25',['แก้: แค่เลือกเปิดโครงการก็นับเป็นการแก้ไข ทำให้เมื่อเปิดบัญชีเดียวกันหลายเครื่อง การซิงก์สร้างสำเนา "(สำรองจากเครื่องอื่น)" ขึ้นมาเอง — ตอนนี้นับเฉพาะเมื่อแก้ข้อมูลจริง']],
@@ -4343,6 +4344,7 @@ svBind();
 <script src="lib/boqimport-v1.js"></script>
 <script src="lib/boqsuggest-v1.js"></script>
 <script src="lib/takeoff-v1.js"></script>
+<script src="lib/steeltab-v1.js"></script>
 <script type="module" src="lib/auth-v1.js" onerror="authFail=true;authRender()"></script>
 <script>
 /* ===== BOQ ต่อโครงการ — ใช้ตัวคิดราคา/Factor F ชุดเดียวกับ UD-Total-Station (lib/boqcalc-v1.js, lib/factorf-v1.js)
@@ -5698,7 +5700,7 @@ function boqMoveRow(b,r,dest){
 function tkGet(b){b.takeoff=b.takeoff&&Array.isArray(b.takeoff.groups)?b.takeoff:{groups:[]};return b.takeoff;}
 function tkSync(b){
   const T=Takeoff.rowTotals(b.takeoff||{groups:[]});
-  b.rows.forEach(r=>{const t=T[r.key];if(t&&t.n){if(r.waste===undefined)r.waste=0;const q=Takeoff.rowQty(t.net,r.waste);if(r.qty!==q)r.qty=q;}});
+  b.rows.forEach(r=>{const t=T[r.key];if(t&&t.n){if(r.waste===undefined)r.waste=0;const q=Takeoff.rowQtyT(t,r.waste);if(r.qty!==q)r.qty=q;}});
   bq.tk=T;return T;
 }
 function tkQtyCell(r){
@@ -5708,8 +5710,10 @@ function tkQtyCell(r){
 }
 function tkFromHtml(r){
   const t=(bq.tk||{})[r.key];if(!t||!t.n)return '';
-  const w=+r.waste||0;
-  return `<details class="tk-from"><summary>ปริมาณจากใบถอดปริมาณ ${t.n} บรรทัด: สุทธิ ${tkN(t.net)}${w?' + เผื่อ '+esc(w)+'%':''} = <b>${bqF2(r.qty)}</b> ${esc(r.unit||'')}${t.errs?' <span class="bq-warn"><i class="ic ic-warn"></i> สูตรผิด '+t.errs+' บรรทัด (ไม่รวมในยอด)</span>':''}</summary>`
+  const w=+r.waste||0,sb=Takeoff.steelBreak(t,w);
+  const sum=sb.length?sb.map(x=>esc(x.name)+' ยาว '+tkN(x.len)+' ม.'+(w?' + เผื่อ '+esc(w)+'%':'')+' → '+x.pieces+' ท่อน × '+Takeoff.STEEL_PIECE+' ม. × '+tkN(x.kgm)+' = '+tkN(x.kg)+' กก.').join(' · ')+(t.plain?' · อื่น ๆ สุทธิ '+tkN(t.plain)+(w?' + เผื่อ '+esc(w)+'%':''):'')+' = <b>'+bqF2(r.qty)+'</b> '+esc(r.unit||'')
+    :'สุทธิ '+tkN(t.net)+(w?' + เผื่อ '+esc(w)+'%':'')+' = <b>'+bqF2(r.qty)+'</b> '+esc(r.unit||'');
+  return `<details class="tk-from"><summary>ปริมาณจากใบถอดปริมาณ ${t.n} บรรทัด: ${sum}${sb.length>1?' <span class="bq-warn"><i class="ic ic-warn"></i> มีเหล็กรูปพรรณ '+sb.length+' หน้าตัดในรายการเดียว — ปกติแยกรายการตามหน้าตัด</span>':''}${t.errs?' <span class="bq-warn"><i class="ic ic-warn"></i> สูตรผิด '+t.errs+' บรรทัด (ไม่รวมในยอด)</span>':''}</summary>`
     +t.items.map(it=>`<div><span class="bq-lnk" data-act="tkgo" data-gid="${esc(it.gid)}">${esc(it.part)}</span> · ${esc(it.label)}${it.err?' <span class="bq-warn">'+esc(it.err)+'</span>':': '+esc(it.calc)}</div>`).join('')+`</details>`;
 }
 function tkShowView(v,gid){
@@ -5749,12 +5753,12 @@ function tkGroupHtml(g,b){
       +(r&&r.group_code!==g.dest?`<option value="${esc(r.key)}" selected>${esc(r.group_code)} ${esc(r.name)} (คนละหมวด)</option>`:'')
       +(l.row&&!r?`<option value="${esc(l.row)}" selected>(รายการถูกลบ)</option>`:'')
       +(g.dest&&destOk?`<option value="__new">+ สร้างรายการใหม่ในหมวด ${esc(g.dest)}…</option>`:'');
-    const unit=+l.dia>0?'กก.':(r?r.unit||'':'');
-    const warn=!l.row?'':!r?'รายการปลายทางถูกลบ — เลือกใหม่':(+l.dia>0&&!/กก|กิโลกรัม/.test(r.unit||'')?'รายการปลายทางหน่วย '+(r.unit||'(ว่าง)')+' แต่บรรทัดเหล็กให้ผลเป็น กก.':'');
-    const dsel=`<select class="bq-in" data-tl="dia" data-i="${i}"><option value="">ปริมาณ</option>${Takeoff.REBAR_SIZES.map(d=>`<option value="${d}"${+l.dia===d?' selected':''}>เหล็ก ${Takeoff.rebarName(d)}</option>`).join('')}</select>`;
-    return `<tr><td style="width:170px"><input class="bq-in" data-tl="label" data-i="${i}" value="${esc(l.label||'')}" placeholder="${+l.dia>0?'เช่น เหล็กบน 2 เส้น':'เช่น คอนกรีต'}"></td><td style="width:105px">${dsel}</td>
-      <td><input class="bq-in" data-tl="e" data-i="${i}" value="${esc(l.e||'')}" placeholder="${+l.dia>0?'ความยาว (ม.) เช่น 2*L*n':'เช่น L*0.20*0.40*n'}"><div data-tlx="${i}">${x.err?'<div class="tk-err">'+esc(x.err)+'</div>':(x.calc?'<div class="tk-calc">'+esc(x.calc)+'</div>':'')}</div></td>
-      <td class="tk-val" style="width:110px" data-tlv="${i}">${x.err?'—':tkN(x.v)} <span style="color:var(--text3);font-size:11px">${esc(unit)}</span></td>
+    const unit=tkKgLine(l)?'กก.':(r?r.unit||'':'');
+    const warn=!l.row?'':!r?'รายการปลายทางถูกลบ — เลือกใหม่':(tkKgLine(l)&&!/กก|กิโลกรัม/.test(r.unit||'')?'รายการปลายทางหน่วย '+(r.unit||'(ว่าง)')+' แต่บรรทัดเหล็กให้ผลเป็น กก.':'');
+    const dsel=tkTypeHtml(l,i);
+    return `<tr><td style="width:170px"><input class="bq-in" data-tl="label" data-i="${i}" value="${esc(l.label||'')}" placeholder="${l.st?'เช่น แป':+l.dia>0?'เช่น เหล็กบน 2 เส้น':'เช่น คอนกรีต'}"></td><td style="width:${l.st?230:110}px">${dsel}</td>
+      <td><input class="bq-in" data-tl="e" data-i="${i}" value="${esc(l.e||'')}" placeholder="${tkKgLine(l)?'ความยาว (ม.) เช่น 2*L*n':'เช่น L*0.20*0.40*n'}"><div data-tlx="${i}">${x.err?'<div class="tk-err">'+esc(x.err)+'</div>':(x.calc?'<div class="tk-calc">'+esc(x.calc)+'</div>':'')}</div></td>
+      <td class="tk-val" style="width:110px" data-tlv="${i}">${tkValHtml(x,unit)}</td>
       <td style="width:230px"><select class="bq-in" data-tl="row" data-i="${i}">${opts}</select>${warn?'<div class="tk-err">'+esc(warn)+'</div>':''}${r&&l.row?'<div style="margin-top:2px"><span class="bq-lnk" data-ta="gobq" data-k="'+esc(r.key)+'">ไปที่รายการใน BOQ</span></div>':''}</td>
       <td style="width:26px"><span class="bq-lnk" style="color:var(--red)" data-ta="delline" data-i="${i}" title="ลบบรรทัด"><i class="ic ic-x"></i></span></td></tr>`;}).join('');
   return `<div class="bq-card tk-g" data-tkg="${esc(g.id)}">
@@ -5768,27 +5772,49 @@ function tkGroupHtml(g,b){
     ${lines?`<table class="tk-tbl"><thead><tr><th>คำอธิบาย</th><th>ชนิด</th><th>สูตร / วิธีคิด</th><th style="text-align:right">ผลสุทธิ</th><th>ส่งเข้ารายการ BOQ</th><th></th></tr></thead><tbody>${lines}</tbody></table>`:''}<div style="margin-top:4px"><span class="bq-lnk" data-ta="addline">+ เพิ่มบรรทัด</span></div>
   </div>`;
 }
+/* ชนิดบรรทัด: ปริมาณ / เหล็กเสริม (dia) / เหล็กรูปพรรณ (st = {type, key, name, kgm} — ท่อตามตาราง มอก.107 JIS หรือ custom ระบุ กก./ม.) */
+const tkKgLine=l=>+l.dia>0||!!l.st;
+function tkValHtml(x,unit){
+  if(x.err)return '—';
+  if(x.steel)return tkN(x.len)+' <span style="color:var(--text3);font-size:11px">ม.</span><div style="font-size:10px;color:var(--text3)">≈ '+tkN(x.v)+' กก. ก่อนเผื่อ/ปัดท่อน</div>';
+  return tkN(x.v)+' <span style="color:var(--text3);font-size:11px">'+esc(unit)+'</span>';
+}
+function tkTypeHtml(l,i){
+  const cur=l.st?'st:'+(l.st.type||'custom'):+l.dia>0?'rb:'+(+l.dia):'';
+  const o=(v,t)=>`<option value="${v}"${v===cur?' selected':''}>${t}</option>`;
+  let h=`<select class="bq-in" data-tl="type" data-i="${i}">${o('','ปริมาณทั่วไป')}<optgroup label="เหล็กเสริม (ยาว × กก./ม.)">${Takeoff.REBAR_SIZES.map(d=>o('rb:'+d,'เหล็ก '+Takeoff.rebarName(d))).join('')}</optgroup>`
+    +`<optgroup label="เหล็กรูปพรรณ (เผื่อ แล้วปัดท่อน 6 ม.)">${Object.keys(SteelTab.TYPES).map(k=>o('st:'+k,SteelTab.TYPES[k].name+' (JIS)')).join('')}${o('st:custom','อื่น ๆ (ระบุ กก./ม.)')}</optgroup></select>`;
+  if(l.st&&l.st.type&&l.st.type!=='custom'&&SteelTab.list[l.st.type]){
+    const L=SteelTab.list[l.st.type],grp=[];L.forEach(x=>{let g=grp[grp.length-1];if(!g||g.n!==x.group)grp.push(g={n:x.group,a:[]});g.a.push(x);});
+    h+=`<select class="bq-in" data-tl="sec" data-i="${i}" style="margin-top:3px"><option value="">— เลือกขนาด —</option>${grp.map(g=>`<optgroup label="${esc(g.n)}">${g.a.map(x=>`<option value="${esc(x.key)}"${x.key===l.st.key?' selected':''}>${esc(x.name.replace(/^[^□▭Ø]*/,''))} — ${x.kgm} กก./ม.</option>`).join('')}</optgroup>`).join('')}</select>`
+      +(l.st.key?`<div style="font-size:10px;color:var(--text3);margin-top:2px">${esc(SteelTab.TYPES[l.st.type].ref)}</div>`:'');
+  }else if(l.st){
+    h+=`<input class="bq-in" data-tl="stname" data-i="${i}" value="${esc(l.st.name||'')}" placeholder="หน้าตัด เช่น C 100×50×20×2.3" style="margin-top:3px"><div style="display:flex;gap:4px;align-items:center;margin-top:3px"><input class="bq-in n" type="number" step="any" min="0" data-tl="stkgm" data-i="${i}" value="${esc(l.st.kgm===undefined?'':l.st.kgm)}" placeholder="กก./ม." style="width:90px"><span style="font-size:11px;color:var(--text3)">กก./ม.</span></div>`;
+  }
+  return h;
+}
+const tkLineWaste=l=>l.st?Takeoff.STEEL_WASTE:+l.dia>0?Takeoff.rebarWaste(+l.dia):0;
 /* อัปเดตตัวเลขของกลุ่มขณะพิมพ์ (ไม่วาดใหม่ เพื่อไม่ให้เคอร์เซอร์หลุด) */
 function tkUpdateGroup(card,g,b){
   const ev=Takeoff.evalGroup(g);
   ev.vars.forEach((x,i)=>{const v=card.querySelector('[data-tvv="'+i+'"]'),e=card.querySelector('[data-tvx="'+i+'"]');if(v)v.textContent=x.err?'—':'= '+tkN(x.v);if(e)e.innerHTML=x.err?'<div class="tk-err">'+esc(x.err)+'</div>':'';});
-  ev.lines.forEach((x,i)=>{const l=g.lines[i],r=l.row?b.rows.find(z=>z.key===l.row):null,unit=+l.dia>0?'กก.':(r?r.unit||'':'');
+  ev.lines.forEach((x,i)=>{const l=g.lines[i],r=l.row?b.rows.find(z=>z.key===l.row):null,unit=tkKgLine(l)?'กก.':(r?r.unit||'':'');
     const v=card.querySelector('[data-tlv="'+i+'"]'),e=card.querySelector('[data-tlx="'+i+'"]');
-    if(v)v.innerHTML=(x.err?'—':tkN(x.v))+' <span style="color:var(--text3);font-size:11px">'+esc(unit)+'</span>';
+    if(v)v.innerHTML=tkValHtml(x,unit);
     if(e)e.innerHTML=x.err?'<div class="tk-err">'+esc(x.err)+'</div>':(x.calc?'<div class="tk-calc">'+esc(x.calc)+'</div>':'');});
 }
 /* ตั้ง % เผื่อตั้งต้นเมื่อรายการเพิ่งรับบรรทัดแรก: เหล็กเสริมตามขนาด อื่น ๆ 0 */
-function tkDefaultWaste(b,rowKey,dia){
+function tkDefaultWaste(b,rowKey,l){
   const r=b.rows.find(x=>x.key===rowKey);if(!r)return;
   const T=Takeoff.rowTotals(b.takeoff);const n=T[rowKey]?T[rowKey].n:0;
-  if(n<=1||r.waste===undefined)r.waste=+dia>0?Takeoff.rebarWaste(+dia):(r.waste===undefined?0:r.waste);
+  if(n<=1||r.waste===undefined)r.waste=tkKgLine(l)?tkLineWaste(l):(r.waste===undefined?0:r.waste);
 }
 function tkNewRow(b,dest,l){
-  const def=String(l.label||'').trim()||(+l.dia>0?tkRebarTxt(+l.dia):'');
-  const name=prompt('ชื่อรายการใหม่ในหมวด '+dest+':',+l.dia>0?tkRebarTxt(+l.dia):def);if(!name||!name.trim())return null;
+  const sugg=l.st?'เหล็กรูปพรรณ '+(String(l.st.name||'').trim()||'')+(+l.st.kgm>0?' ('+(+l.st.kgm)+' กก./ม.)':''):+l.dia>0?tkRebarTxt(+l.dia):String(l.label||'').trim();
+  const name=prompt('ชื่อรายการใหม่ในหมวด '+dest+':',sugg);if(!name||!name.trim())return null;
   let unit='กก.';
-  if(!(+l.dia>0)){unit=prompt('หน่วยของรายการ (เช่น ลบ.ม. ตร.ม. ม. กก.):','');if(unit===null)return null;}
-  const r={key:boqNewKey(),group_code:dest,name:name.trim(),unit:String(unit||'').trim(),qty:'',mat:{kind:''},lab:{kind:''},waste:+l.dia>0?Takeoff.rebarWaste(+l.dia):0};
+  if(!tkKgLine(l)){unit=prompt('หน่วยของรายการ (เช่น ลบ.ม. ตร.ม. ม. กก.):','');if(unit===null)return null;}
+  const r={key:boqNewKey(),group_code:dest,name:name.trim(),unit:String(unit||'').trim(),qty:'',mat:{kind:''},lab:{kind:''},waste:tkLineWaste(l)};
   b.rows.push(r);return r;
 }
 /* เปลี่ยนหมวดปลายทาง: บรรทัดย้ายไปผูกรายการชื่อเดียวกันในหมวดใหม่ — ไม่มีให้ถามว่าสร้างหรือไม่ (คัดลอกหน่วย % เผื่อ และการผูกราคา) */
@@ -5817,6 +5843,7 @@ function tkBind(){
     const t=e.target,{b,card,g}=ctx(t);if(!g)return;
     if(t.dataset.tg==='name'||t.dataset.tg==='note'){g[t.dataset.tg]=t.value;boqSaveSoon();return;}
     if(t.dataset.tv){const v=g.vars[+t.dataset.i];if(!v)return;v[t.dataset.tv]=t.value;if(t.dataset.tv==='d')return void boqSaveSoon();}
+    else if(t.dataset.tl==='stname'||t.dataset.tl==='stkgm'){const l=g.lines[+t.dataset.i];if(!l||!l.st)return;if(t.dataset.tl==='stname')l.st.name=t.value;else l.st.kgm=t.value===''?'':+t.value;}
     else if(t.dataset.tl==='label'||t.dataset.tl==='e'){const l=g.lines[+t.dataset.i];if(!l)return;l[t.dataset.tl]=t.value;if(t.dataset.tl==='label')return void boqSaveSoon();}
     else return;
     tkUpdateGroup(card,g,b);tkSync(b);boqSaveSoon();
@@ -5824,11 +5851,16 @@ function tkBind(){
   body.addEventListener('change',e=>{
     const t=e.target,{b,g}=ctx(t);if(!g)return;
     if(t.dataset.tg==='dest'){tkSetDest(b,g,t.value);}
-    else if(t.dataset.tl==='dia'){const l=g.lines[+t.dataset.i];if(!l)return;l.dia=t.value===''?0:+t.value;if(l.row&&l.dia){const r=b.rows.find(x=>x.key===l.row);const T=Takeoff.rowTotals(b.takeoff);if(r&&T[l.row]&&T[l.row].n===1)r.waste=Takeoff.rebarWaste(l.dia);}}
+    else if(t.dataset.tl==='type'){const l=g.lines[+t.dataset.i];if(!l)return;const v=t.value;
+      if(v.startsWith('rb:')){l.dia=+v.slice(3);delete l.st;}
+      else if(v.startsWith('st:')){l.dia=0;const ty=v.slice(3);l.st=ty==='custom'?{type:'custom',key:'custom',name:'',kgm:''}:{type:ty,key:'',name:'',kgm:0};}
+      else{l.dia=0;delete l.st;}
+      if(l.row){const r=b.rows.find(x=>x.key===l.row);const T=Takeoff.rowTotals(b.takeoff);if(r&&T[l.row]&&T[l.row].n===1&&tkKgLine(l))r.waste=tkLineWaste(l);}}
+    else if(t.dataset.tl==='sec'){const l=g.lines[+t.dataset.i];if(!l||!l.st)return;const x=SteelTab.find(t.value);l.st=x?{type:x.type,key:x.key,name:x.name,kgm:x.kgm}:{type:l.st.type,key:'',name:'',kgm:0};}
     else if(t.dataset.tl==='row'){const l=g.lines[+t.dataset.i];if(!l)return;
       if(t.value==='__new'){const r=tkNewRow(b,g.dest,l);if(!r){tkRender();return;}l.row=r.key;}
       else l.row=t.value;
-      if(l.row)tkDefaultWaste(b,l.row,l.dia);}
+      if(l.row)tkDefaultWaste(b,l.row,l);}
     else return;
     tkSync(b);boqSave();tkRender();
   });
@@ -5840,7 +5872,7 @@ function tkBind(){
         const c=document.querySelector('#tk-body [data-tkg="'+ng.id+'"] [data-tg="name"]');if(c){c.focus();c.scrollIntoView({block:'center'});}return;}
       case 'addvar':if(g){g.vars=g.vars||[];g.vars.push({n:'',e:''});}break;
       case 'delvar':if(g)g.vars.splice(+a.dataset.i,1);break;
-      case 'addline':if(g){g.lines=g.lines||[];const p=g.lines[g.lines.length-1];g.lines.push({id:boqNewKey(),label:'',e:'',dia:p&&+p.dia>0?+p.dia:0,row:''});}break;
+      case 'addline':if(g){g.lines=g.lines||[];const p=g.lines[g.lines.length-1];const nl={id:boqNewKey(),label:'',e:'',dia:p&&+p.dia>0?+p.dia:0,row:''};if(p&&p.st)nl.st=JSON.parse(JSON.stringify(p.st));g.lines.push(nl);}break;
       case 'delline':if(g)g.lines.splice(+a.dataset.i,1);break;
       case 'copy':if(g){const c=JSON.parse(JSON.stringify(g));c.id='g'+boqNewKey().slice(1);c.name=(g.name||'')+' (สำเนา)';(c.lines||[]).forEach(l=>{l.id=boqNewKey();});tk.groups.splice(gi+1,0,c);}break;
       case 'delgrp':if(g&&confirm('ลบกลุ่ม "'+(g.name||'(ไม่มีชื่อ)')+'" พร้อม '+(g.lines||[]).length+' บรรทัด?\nปริมาณของรายการ BOQ ที่ผูกไว้จะคิดใหม่'))tk.groups.splice(gi,1);else return;break;
@@ -5859,8 +5891,10 @@ function tkFormData(b){
   boqGroupsSorted(b).forEach(gr=>b.rows.filter(r=>r.group_code===gr.code&&String(r.name||'').trim()).forEach(r=>{
     const t=T[r.key];if(!t||!t.n)return;
     t.items.forEach(it=>used.add(it.gid));
+    const sb=Takeoff.steelBreak(t,+r.waste||0);
     rows.push({code:gr.code,name:r.name,unit:r.unit||'',net:t.net,waste:+r.waste||0,qty:+r.qty||0,
-      items:t.items.map(it=>({part:it.part,label:it.label,calc:it.err?'(สูตรผิด: '+it.err+')':it.calc,net:it.net}))});
+      plain:sb.length?t.plain:undefined,steel:sb.length?sb.map(x=>({name:x.name,kgm:x.kgm,len:x.len,lenW:x.lenW,pieces:x.pieces,piece:Takeoff.STEEL_PIECE,kg:x.kg})):undefined,
+      items:t.items.map(it=>({part:it.part,label:it.label,calc:it.err?'(สูตรผิด: '+it.err+')':it.calc,net:it.steel?it.len:it.net,unit:it.steel?'ม.':undefined}))});
   }));
   if(!rows.length)return null;
   const defs=tk.groups.filter(g=>used.has(g.id)).map(g=>{const ev=Takeoff.evalGroup(g);

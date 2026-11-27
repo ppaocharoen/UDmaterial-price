@@ -41,3 +41,7 @@
 ## takeoff-v1.js (25 พ.ย. 2569) — ใบถอดปริมาณ (ใช้เฉพาะ Cost Hub)
 
 ข้อมูลต่อโครงการ `p.boq.takeoff = {groups:[{id, name, note, dest, vars:[{n, e}], lines:[{id, label, e, dia, row}]}]}` · `Takeoff.evalGroup(g)` คิดค่าและบรรทัดของกลุ่ม · `Takeoff.rowTotals(tk)` รวมตามรายการ BOQ · `Takeoff.rowQty(net, waste)` = ปัด 2 ตำแหน่ง(สุทธิ × (1 + % เผื่อ/100)) · สูตรอ่านด้วยตัวแยกคำในไฟล์ (ไม่ใช้ eval) · เหล็กเสริม กก./ม. = d²/162 และ % เผื่อตามขนาด เท่ากับ Total Station `tools/takeoff.py` · ชีต Excel "รายการคำนวณปริมาณงาน" อยู่ใน `formxlsx-v1.js` (`data.takeoff = {rows, defs}` — Total Station ส่งรูปแบบเดียวกันได้)
+
+## steeltab-v1.js (27 พ.ย. 2569) — ตารางท่อเหล็กโครงสร้าง JIS (มอก. 107-2566)
+
+ท่อกลม JIS G 3444 (ตาราง ก.1, 128 ขนาด) · ท่อเหลี่ยมจัตุรัส / ผืนผ้า JIS G 3466 (ตาราง ข.1 51 ขนาด, ค.1 59 ขนาด) — กก./ม. ตามตาราง (ตรวจกับสูตรภาคผนวก จ. แล้ว) · `SteelTab.list[type]`, `SteelTab.find(key)` · ใช้ในใบถอดปริมาณ: เหล็กรูปพรรณ = ยาวรวมต่อหน้าตัด × (1 + เผื่อ 3%) ÷ 6 ม. ปัดเป็นท่อน (เศษ < 0.5 ปัดลง ≥ 0.5 ปัดขึ้น หลักเกณฑ์ 6.2 เดียวกับ Total Station) × กก./ม. (`Takeoff.steelBreak`, `Takeoff.rowQtyT`)
